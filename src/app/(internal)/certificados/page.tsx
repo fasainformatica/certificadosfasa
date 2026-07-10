@@ -1,4 +1,4 @@
-import { Upload } from "lucide-react";
+import { FolderUp, Upload } from "lucide-react";
 import Link from "next/link";
 
 import { buttonClass, inputClass, selectClass } from "@/components/ui/button-styles";
@@ -116,13 +116,22 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         title="Certificados"
         description="Acompanhe vencimentos, status e ações de renovação dos certificados cadastrados."
         actions={user.role === "admin" ? (
-          <Link
-            href="/certificados/novo"
-            className={buttonClass("primary")}
-          >
-            <Upload aria-hidden="true" className="h-4 w-4" />
-            Novo upload
-          </Link>
+          <>
+            <Link
+              href="/certificados/importar"
+              className={buttonClass("secondary")}
+            >
+              <FolderUp aria-hidden="true" className="h-4 w-4" />
+              Carga em massa
+            </Link>
+            <Link
+              href="/certificados/novo"
+              className={buttonClass("primary")}
+            >
+              <Upload aria-hidden="true" className="h-4 w-4" />
+              Novo upload
+            </Link>
+          </>
         ) : null}
       />
       <FilterBar columns="md:grid-cols-[minmax(320px,1fr)_240px_auto]">

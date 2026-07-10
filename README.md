@@ -111,6 +111,19 @@ Upload:
 6. O backend valida o PFX, extrai CNPJ/titular/datas, cria ou atualiza o cliente pelo CNPJ, salva o arquivo no bucket privado e grava a senha criptografada.
 7. Apos registrar o certificado, o backend executa o Notification Rebuild Service e planeja os avisos futuros conforme os dias configurados, destinatarios internos ativos e `send_date`.
 
+Carga em massa de certificados antigos:
+
+1. Entre como admin.
+2. Abra `Certificados`.
+3. Clique em `Carga em massa`.
+4. Selecione a pasta principal que contem as pastas dos clientes.
+5. Estrutura esperada: `certificados/Cliente ABC/certificado.pfx` e `certificados/Cliente ABC/123456.txt`.
+6. O arquivo `.txt` deve ficar na mesma pasta do `.pfx`. A senha sera lida pelo nome do arquivo `.txt`, sem a extensao. Exemplos aceitos: `123456.txt`, `senha-123456.txt`, `senha 123456.txt`.
+7. Subpastas dentro da pasta do cliente sao ignoradas; somente o `.pfx` e o `.txt` da camada do cliente sao processados.
+8. Nesta carga historica, WhatsApp/telefone do cliente nao e obrigatorio. O nome do cliente e preenchido pelo nome do arquivo do certificado quando nao houver cadastro previo.
+9. Cada PFX e validado no backend, a senha e criptografada, o arquivo vai para o bucket privado e certificados duplicados por hash sao ignorados com relatorio.
+10. Ao final, o backend executa um unico rebuild de notificacoes e mostra quantos certificados foram importados, ignorados ou falharam.
+
 Cliente:
 
 1. O cadastro do cliente acontece no fluxo `Certificados > Novo upload`.
