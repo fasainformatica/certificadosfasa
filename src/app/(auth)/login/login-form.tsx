@@ -27,7 +27,7 @@ export function LoginForm() {
       });
 
       if (signInError) {
-        setError("E-mail ou senha invalidos.");
+        setError("E-mail ou senha inválidos.");
         setPending(false);
         return;
       }
@@ -35,7 +35,7 @@ export function LoginForm() {
       router.replace("/dashboard");
       router.refresh();
     } catch {
-      setError("Nao foi possivel autenticar. Verifique a configuracao do Supabase.");
+      setError("Não foi possível autenticar. Verifique a configuração do Supabase.");
       setPending(false);
     }
   }

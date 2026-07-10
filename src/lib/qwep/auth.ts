@@ -86,8 +86,6 @@ async function checkPersistentRateLimit({
   const now = new Date();
   const nowIso = now.toISOString();
 
-  await admin.from("qwep_rate_limit_buckets").delete().lt("reset_at", nowIso);
-
   const { data } = await admin.from("qwep_rate_limit_buckets").select("*").eq("key", key).maybeSingle();
 
   if (!data || new Date(data.reset_at).getTime() <= now.getTime()) {
@@ -127,8 +125,6 @@ async function rememberPersistentNonce({
   const admin = createSupabaseAdminClient();
   const now = Date.now();
   const nonceHash = sha256Hex(`${deviceId}:${timestamp}:${nonce}`);
-
-  await admin.from("qwep_seen_nonces").delete().lt("expires_at", new Date(now).toISOString());
 
   const { error } = await admin.from("qwep_seen_nonces").insert({
     nonce_hash: nonceHash,

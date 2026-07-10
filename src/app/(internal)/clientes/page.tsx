@@ -6,7 +6,7 @@ import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { formatCnpj, formatDateTime } from "@/lib/utils/format";
+import { formatCnpj, formatDateTime, formatPhone } from "@/lib/utils/format";
 
 type ClientesPageProps = {
   searchParams: Promise<{
@@ -37,7 +37,11 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     .range(pagination.from, pagination.to);
 
   if (search) {
-    query = query.or(`nome_razao_social.ilike.%${search}%,cnpj.ilike.%${search.replace(/\D/g, "") || search}%`);
+    const digits = search.replace(/\D/g, "");
+    query =
+      digits.length === 14
+        ? query.eq("cnpj", digits)
+        : query.or(`nome_razao_social.ilike.%${search}%,cnpj.ilike.%${digits || search}%`);
   }
 
   const { data: clientes, count } = await query;
@@ -49,13 +53,12 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         title="Clientes"
         description="Clientes vinculados a certificados. Cadastros e edições acontecem pelo fluxo de certificados."
       />
-      <div>
       <FilterBar columns="md:grid-cols-[minmax(320px,1fr)_auto]">
         <input
           type="search"
           name="q"
           defaultValue={search}
-          placeholder="Buscar por razao social ou CNPJ"
+          placeholder="Buscar por razão social ou CNPJ"
           className={inputClass}
         />
         <button
@@ -65,7 +68,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           Filtrar
         </button>
       </FilterBar>
-      </div>
 
       {!clientes?.length ? (
         <EmptyState title="Nenhum cliente encontrado" description="Clientes aparecem aqui depois que um certificado é cadastrado ou renovado." />
@@ -88,7 +90,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                 <TableCell className="font-semibold text-slate-950">{cliente.nome_razao_social}</TableCell>
                 <TableCell className="text-slate-700">{formatCnpj(cliente.cnpj)}</TableCell>
                 <TableCell className="text-slate-700">{cliente.email ?? "-"}</TableCell>
-                <TableCell className="text-slate-700">{cliente.whatsapp ?? "-"}</TableCell>
+                <TableCell className="text-slate-700">{formatPhone(cliente.whatsapp ?? cliente.telefone)}</TableCell>
                 <TableCell className="text-slate-700">{cliente.responsavel ?? "-"}</TableCell>
                 <TableCell className="text-slate-700">{formatDateTime(cliente.updated_at)}</TableCell>
               </tr>

@@ -131,7 +131,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    query = query.or(`mensagem_renderizada.ilike.%${search}%,telefone_destino.ilike.%${search.replace(/\D/g, "") || search}%`);
+    const digits = search.replace(/\D/g, "");
+    query =
+      digits.length >= 10
+        ? query.ilike("telefone_destino", `%${digits}%`)
+        : query.or(`mensagem_renderizada.ilike.%${search}%,telefone_destino.ilike.%${digits || search}%`);
   }
 
   const { data, error, count } = await query;

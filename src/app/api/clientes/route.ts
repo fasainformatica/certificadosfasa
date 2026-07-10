@@ -34,7 +34,11 @@ export async function GET(request: NextRequest) {
     .range(pagination.from, pagination.to);
 
   if (search) {
-    query = query.or(`nome_razao_social.ilike.%${search}%,cnpj.ilike.%${search.replace(/\D/g, "") || search}%`);
+    const digits = search.replace(/\D/g, "");
+    query =
+      digits.length === 14
+        ? query.eq("cnpj", digits)
+        : query.or(`nome_razao_social.ilike.%${search}%,cnpj.ilike.%${digits || search}%`);
   }
 
   const { data, error, count } = await query;

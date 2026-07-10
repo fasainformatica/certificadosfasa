@@ -206,6 +206,7 @@ export async function GET(request: Request) {
   const { data, error } = await admin.rpc("reserve_pending_notification_events", {
     target_device_id: auth.device.id,
     batch_limit: batchLimit,
+    reservation_ttl_seconds_input: reservationTtlSeconds,
   });
   let messages = (data ?? []) as ReservedMessage[];
 
@@ -230,20 +231,6 @@ export async function GET(request: Request) {
       });
     } catch {
       return NextResponse.json({ error: "Falha ao reservar mensagens." }, { status: 500 });
-    }
-  }
-
-  if (!error && messages.length === 0) {
-    try {
-      messages = await reservePendingMessagesFallback({
-        admin,
-        deviceId: auth.device.id,
-        batchLimit,
-        today: getTodayDateString(settings?.timezone ?? "America/Sao_Paulo"),
-        reservationTtlSeconds,
-      });
-    } catch {
-      messages = [];
     }
   }
 

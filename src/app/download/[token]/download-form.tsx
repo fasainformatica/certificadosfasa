@@ -27,7 +27,7 @@ export function PublicDownloadForm({ token }: { token: string }) {
       };
 
       if (!response.ok || !payload.download_url) {
-        setError(payload.error?.message ?? "Nao foi possivel liberar o download.");
+        setError(payload.error?.message ?? "Não foi possível liberar o download.");
         setPending(false);
         return;
       }
@@ -35,7 +35,7 @@ export function PublicDownloadForm({ token }: { token: string }) {
       window.location.assign(payload.download_url);
       setPending(false);
     } catch {
-      setError("Falha de comunicacao com o servidor.");
+      setError("Falha de comunicação com o servidor.");
       setPending(false);
     }
   }
@@ -44,7 +44,7 @@ export function PublicDownloadForm({ token }: { token: string }) {
     <form onSubmit={handleSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <label htmlFor="senha_liberacao" className="text-sm font-medium text-slate-800">
-          Senha temporaria
+          Senha temporária
         </label>
         <input
           id="senha_liberacao"

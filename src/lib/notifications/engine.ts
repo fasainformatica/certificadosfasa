@@ -627,12 +627,194 @@ async function createPlannedExpirationEvent({
   return "created" as const;
 }
 
+async function insertPlannedExpirationRowsInChunks({
+  admin,
+  rows,
+  fallback,
+}: {
+  admin: AdminClient;
+  rows: DatabaseNotificationEventInsert[];
+  fallback: () => Promise<{ created: number; duplicate: number }>;
+}) {
+  const chunkSize = 500;
+  let created = 0;
+
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    const chunk = rows.slice(index, index + chunkSize);
+    const { data, error } = await admin.from("notification_events").insert(chunk).select("id");
+
+    if (error) {
+      if (error.code === "23505") {
+        const fallbackResult = await fallback();
+        return {
+          created: created + fallbackResult.created,
+          duplicate: fallbackResult.duplicate,
+        };
+      }
+
+      throw new Error(error.message);
+    }
+
+    created += data?.length ?? 0;
+  }
+
+  return { created, duplicate: 0 };
+}
+
+type DatabaseNotificationEventInsert = {
+  cliente_id: string;
+  certificado_id: string;
+  recipient_id: string;
+  telefone_destino: string;
+  template_id: string;
+  type: "certificate_expiring";
+  dias_restantes: number;
+  send_date: string;
+  mensagem_renderizada: string;
+  status: "pending";
+  provider: "whatsapp_desktop";
+  channel: "whatsapp";
+  attempt_count: number;
+  max_attempts: number;
+  idempotency_key: string;
+  payload: Json;
+};
+
+async function createPlannedExpirationEventsBatch({
+  admin,
+  certificados,
+  recipients,
+  settings,
+  template,
+  noticeDays,
+  today,
+}: {
+  admin: AdminClient;
+  certificados: CertificadoWithCliente[];
+  recipients: NotificationRecipientRow[];
+  settings: NotificationSettingsRow;
+  template: NotificationTemplateRow;
+  noticeDays: number[];
+  today: string;
+}) {
+  const rows: DatabaseNotificationEventInsert[] = [];
+  let certificadosVerificados = 0;
+
+  for (const certificado of certificados) {
+    certificadosVerificados += 1;
+    const cliente = getCliente(certificado);
+
+    if (!cliente) {
+      continue;
+    }
+
+    for (const dias of noticeDays) {
+      const sendDate = calculateSendDate(certificado.data_vencimento, dias);
+
+      if (!sendDate || sendDate < today) {
+        continue;
+      }
+
+      for (const recipient of recipients) {
+        const idempotencyKey = `certificado:${certificado.id}:dias:${dias}:recipient:${recipient.id}:send:${sendDate}`;
+        const payload = {
+          cliente_nome: cliente.nome_razao_social,
+          cliente_telefone: getClienteTelefone(cliente),
+          cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
+          certificado_nome: certificado.nome_titular,
+          data_vencimento: certificado.data_vencimento,
+          dias,
+          send_date: sendDate,
+          recipient_id: recipient.id,
+          source: "notification_rebuild_service",
+          payload_hash: payloadHash({
+            certificado_id: certificado.id,
+            cliente_id: certificado.cliente_id,
+            recipient_id: recipient.id,
+            dias,
+            send_date: sendDate,
+          }),
+        } satisfies Json;
+
+        rows.push({
+          cliente_id: certificado.cliente_id,
+          certificado_id: certificado.id,
+          recipient_id: recipient.id,
+          telefone_destino: recipient.telefone_normalizado,
+          template_id: template.id,
+          type: "certificate_expiring",
+          dias_restantes: dias,
+          send_date: sendDate,
+          mensagem_renderizada: renderCertificateTemplate({
+            content: template.content,
+            cliente,
+            certificado,
+            dias,
+          }),
+          status: "pending",
+          provider: "whatsapp_desktop",
+          channel: "whatsapp",
+          attempt_count: 0,
+          max_attempts: settings.max_attempts,
+          idempotency_key: idempotencyKey,
+          payload,
+        });
+      }
+    }
+  }
+
+  const fallback = async () => {
+    let created = 0;
+    let duplicate = 0;
+
+    for (const certificado of certificados) {
+      for (const dias of noticeDays) {
+        const sendDate = calculateSendDate(certificado.data_vencimento, dias);
+
+        if (!sendDate || sendDate < today) {
+          continue;
+        }
+
+        for (const recipient of recipients) {
+          const createResult = await createPlannedExpirationEvent({
+            admin,
+            certificado,
+            recipient,
+            dias,
+            sendDate,
+            settings,
+            template,
+          });
+
+          if (createResult === "duplicate") {
+            duplicate += 1;
+          }
+
+          if (createResult === "created") {
+            created += 1;
+          }
+        }
+      }
+    }
+
+    return { created, duplicate };
+  };
+
+  const inserted = rows.length > 0 ? await insertPlannedExpirationRowsInChunks({ admin, rows, fallback }) : { created: 0, duplicate: 0 };
+
+  return {
+    certificados_verificados: certificadosVerificados,
+    eventos_criados: inserted.created,
+    eventos_ignorados_idempotencia: inserted.duplicate,
+  };
+}
+
 async function loadActiveOrExpiredCertificates(admin: AdminClient, today: string) {
   const { data, error } = await admin
     .from("certificados")
     .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp)")
     .in("status", ["ativo", "vencendo", "vencido"])
-    .lte("data_vencimento", today)
+    .lt("data_vencimento", today)
     .order("data_vencimento", { ascending: true });
 
   if (error) {
@@ -793,7 +975,7 @@ export async function rebuildNotificationSchedule({
     const settings = await loadNotificationSettings(admin);
     const effectiveTimezone = settings?.timezone || "America/Sao_Paulo";
     const today = getTodayDateString(effectiveTimezone);
-    await refreshCertificateStatuses(settings?.dias_aviso_vencimento ?? [30, 15, 7]);
+    await refreshCertificateStatuses(settings?.dias_aviso_vencimento ?? [30, 15, 7], today);
     result.eventos_removidos = await removeFutureUnsentEvents({ admin, today });
 
     if (!settings?.enabled) {
@@ -834,38 +1016,19 @@ export async function rebuildNotificationSchedule({
       throw new Error(certificadosError.message);
     }
 
-    for (const certificado of (certificados ?? []) as CertificadoWithCliente[]) {
-      result.certificados_verificados += 1;
+    const batchResult = await createPlannedExpirationEventsBatch({
+      admin,
+      certificados: (certificados ?? []) as CertificadoWithCliente[],
+      recipients,
+      settings,
+      template,
+      noticeDays,
+      today,
+    });
 
-      for (const dias of noticeDays) {
-        const sendDate = calculateSendDate(certificado.data_vencimento, dias);
-
-        if (!sendDate || sendDate < today) {
-          continue;
-        }
-
-        for (const recipient of recipients) {
-          const createResult = await createPlannedExpirationEvent({
-            admin,
-            certificado,
-            recipient,
-            dias,
-            sendDate,
-            settings,
-            template,
-          });
-
-          if (createResult === "duplicate") {
-            result.eventos_ignorados_idempotencia += 1;
-            continue;
-          }
-
-          if (createResult === "created") {
-            result.eventos_criados += 1;
-          }
-        }
-      }
-    }
+    result.certificados_verificados = batchResult.certificados_verificados;
+    result.eventos_criados = batchResult.eventos_criados;
+    result.eventos_ignorados_idempotencia = batchResult.eventos_ignorados_idempotencia;
 
     await finishRun(admin, runId, result, "completed");
     return result;
@@ -955,9 +1118,10 @@ export async function runDueNotificationJob({
       result.skipped_reason = "notifications_disabled";
     } else {
       const today = getTodayDateString(settings.timezone || "America/Sao_Paulo");
-      await refreshCertificateStatuses(settings.dias_aviso_vencimento ?? [30, 15, 7]);
+      await refreshCertificateStatuses(settings.dias_aviso_vencimento ?? [30, 15, 7], today);
       const { data: released } = await admin.rpc("release_expired_notification_reservations");
       result.reservas_expiradas_liberadas = Number(released ?? 0);
+      await admin.rpc("cleanup_qwep_operational_tables");
 
       const recipients = await loadActiveRecipients(admin);
 

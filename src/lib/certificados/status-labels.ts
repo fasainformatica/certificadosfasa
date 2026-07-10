@@ -9,7 +9,7 @@ export const CERTIFICATE_STATUS_LABEL: Record<CertificadoStatus, string> = {
 
 export const CERTIFICATE_STATUS_CLASS: Record<CertificadoStatus, string> = {
   ativo: "bg-green-50 text-green-700 ring-green-200",
-  vencendo: "bg-amber-50 text-amber-800 ring-amber-200",
+  vencendo: "bg-orange-50 text-orange-700 ring-orange-200",
   vencido: "bg-red-50 text-red-700 ring-red-200",
   substituido: "bg-slate-100 text-slate-700 ring-slate-200",
 };

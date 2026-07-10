@@ -63,7 +63,7 @@ Abra `http://localhost:3000`.
 
 O SQL cria/atualiza tabelas, enums, indices, triggers, RLS, policies, grants de colunas, configuracao singleton, tabelas do bot WhatsApp, reconciliacao Storage/Postgres e bucket privado `certificados-pfx`.
 
-Tambem existem migrations versionadas em `supabase/migrations/`. Para bancos existentes, aplique a migration mais recente `20260708160000_post_audit_critical_fixes.sql` ou cole novamente o `supabase_schema.sql` completo.
+Tambem existem migrations versionadas em `supabase/migrations/`. Para bancos existentes, aplique a migration mais recente `20260710120000_performance_optimizations.sql` ou cole novamente o `supabase_schema.sql` completo.
 
 ## Storage
 
@@ -340,6 +340,30 @@ npm.cmd run build
 cd desktop-bot
 npm.cmd run lint
 ```
+
+Analise de bundle:
+
+```powershell
+npm.cmd run analyze
+```
+
+Esse comando ativa `@next/bundle-analyzer` apenas nessa execucao. O build normal (`npm.cmd run build`) nao abre o analyzer.
+
+## Otimizacoes de performance aplicadas
+
+- O middleware so chama Supabase Auth para `/dashboard`, `/certificados`, `/clientes`, `/notificacoes`, `/whatsapp`, `/configuracoes` e `/login`.
+- Rotas do bot (`/api/whatsapp-bot/*`), cron (`/api/cron/*`) e download publico (`/download/*`, `/api/download/*`) nao pagam custo de `getUser()` no middleware.
+- A dashboard usa a RPC `get_dashboard_metrics()` para carregar contagens, graficos, status do bot e itens de atencao em uma chamada principal.
+- O endpoint `/api/whatsapp-bot/messages/stats` usa a RPC `get_whatsapp_bot_message_stats()` e cache curto em memoria.
+- A reserva de mensagens passa o TTL calculado pelo backend para `reserve_pending_notification_events`.
+- O QWEP nao executa limpeza de nonces/rate limits expirados em toda requisicao; essa limpeza fica em `cleanup_qwep_operational_tables()`, chamada pelo cron.
+- O formulario de configuracoes salva settings e templates via `PUT /api/notifications/configuration-bundle`, disparando apenas um rebuild.
+- O rebuild de avisos futuros insere eventos em lotes e so cai para insercao individual quando houver conflito de idempotencia.
+- Buscas principais receberam indices `pg_trgm` e busca por CNPJ completo usa igualdade.
+- Listagens de certificados calculam status por data na leitura, sem `update` em massa durante navegacao.
+- Logout interno usa rota backend (`POST /api/auth/logout`) e nao carrega Supabase browser client no AppShell.
+- Framer Motion foi removido do layout global; transicoes simples usam CSS.
+- Graficos da dashboard sao carregados por componente client isolado/lazy.
 
 PFX reais:
 

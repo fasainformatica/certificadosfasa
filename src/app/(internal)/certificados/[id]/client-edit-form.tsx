@@ -59,7 +59,7 @@ export function ClientEditForm({ initialClient }: ClientEditFormProps) {
     const payload = (await response.json().catch(() => null)) as ApiPayload | null;
 
     if (!response.ok) {
-      setError(payload?.error?.message ?? "Nao foi possivel atualizar o cliente.");
+      setError(payload?.error?.message ?? "Não foi possível atualizar o cliente.");
       setPending(false);
       return;
     }
@@ -70,7 +70,7 @@ export function ClientEditForm({ initialClient }: ClientEditFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 grid gap-4 rounded-2xl border border-white/75 bg-white/78 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl sm:p-5">
+    <form onSubmit={handleSubmit} className="mt-4 grid gap-4 rounded-3xl border border-blue-100/70 bg-white/84 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl sm:p-5">
       <div>
         <h3 className="text-base font-semibold text-slate-950">Cliente vinculado</h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -80,7 +80,7 @@ export function ClientEditForm({ initialClient }: ClientEditFormProps) {
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium text-slate-800">
-          Nome/razao social
+          Nome/razão social
           <input
             required
             value={clientData.nome_razao_social}
@@ -110,7 +110,7 @@ export function ClientEditForm({ initialClient }: ClientEditFormProps) {
           </span>
         </label>
         <label className="grid gap-2 text-sm font-medium text-slate-800">
-          Responsavel
+          Responsável
           <input
             value={clientData.responsavel}
             onChange={(event) => patchClientData({ responsavel: event.target.value })}
@@ -137,7 +137,7 @@ export function ClientEditForm({ initialClient }: ClientEditFormProps) {
       </div>
 
       <label className="grid gap-2 text-sm font-medium text-slate-800">
-        Observacoes
+        Observações
         <textarea
           rows={3}
           value={clientData.observacoes}

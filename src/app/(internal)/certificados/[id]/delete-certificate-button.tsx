@@ -13,7 +13,7 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
 
   async function handleDelete() {
     const confirmed = window.confirm(
-      "Excluir este certificado? Esta acao remove o registro, o arquivo PFX, links vinculados e tambem o cliente se ele nao possuir outros certificados.",
+      "Excluir este certificado? Esta ação remove o registro, o arquivo PFX, links vinculados e também o cliente se ele não possuir outros certificados.",
     );
 
     if (!confirmed) {
@@ -28,7 +28,7 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
 
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null;
-      setError(payload?.error?.message ?? "Nao foi possivel excluir o certificado.");
+      setError(payload?.error?.message ?? "Não foi possível excluir o certificado.");
       setPending(false);
       return;
     }
@@ -38,10 +38,10 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-red-200 bg-white/78 p-4 shadow-sm shadow-red-100/60 ring-1 ring-red-100/60 backdrop-blur-xl sm:p-5">
+    <div className="mt-4 rounded-3xl border border-red-200 bg-white/84 p-4 shadow-sm shadow-red-100/60 ring-1 ring-red-100/60 backdrop-blur-xl sm:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-red-800">Exclusao administrativa</h3>
+          <h3 className="text-base font-semibold text-red-800">Exclusão administrativa</h3>
           <p className="mt-1 text-sm text-slate-600">
             Use somente para remover registros cadastrados por engano. A exclusão remove o cadastro e o arquivo armazenado.
           </p>

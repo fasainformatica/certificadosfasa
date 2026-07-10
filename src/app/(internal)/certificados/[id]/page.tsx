@@ -6,7 +6,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { formatCertificateTitle, formatCnpj, formatDate, formatDateTime } from "@/lib/utils/format";
+import { formatCertificateTitle, formatCnpj, formatDate, formatDateTime, formatPhone } from "@/lib/utils/format";
 
 import { ClientEditForm } from "./client-edit-form";
 import { DeleteCertificateButton } from "./delete-certificate-button";
@@ -46,12 +46,12 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
 
   const rows = [
     ["Cliente", certificado.clientes?.nome_razao_social ?? "-"],
-    ["WhatsApp", certificado.clientes?.whatsapp ?? "-"],
-    ["Responsavel", certificado.clientes?.responsavel ?? "-"],
+    ["WhatsApp", formatPhone(certificado.clientes?.whatsapp ?? certificado.clientes?.telefone)],
+    ["Responsável", certificado.clientes?.responsavel ?? "-"],
     ["E-mail", certificado.clientes?.email ?? "-"],
     ["Titular", formatCertificateTitle(certificado.nome_titular, certificado.cnpj)],
     ["CNPJ", formatCnpj(certificado.cnpj)],
-    ["Emissao", formatDate(certificado.data_emissao)],
+    ["Emissão", formatDate(certificado.data_emissao)],
     ["Vencimento", formatDate(certificado.data_vencimento)],
     ["Arquivo", certificado.nome_arquivo_original],
     ["Identificador do arquivo", certificado.hash_arquivo],
@@ -72,15 +72,15 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           </Link>
         }
       />
-      <dl className="grid gap-0 overflow-hidden rounded-2xl border border-white/75 bg-white/82 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl">
-        <div className="grid gap-1 border-b border-slate-200/80 bg-slate-50/86 px-4 py-3 md:grid-cols-[180px_1fr]">
+      <dl className="grid gap-0 overflow-hidden rounded-3xl border border-blue-100/70 bg-white/86 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl">
+        <div className="grid gap-1 border-b border-blue-100/80 bg-blue-50/70 px-4 py-3 md:grid-cols-[180px_1fr]">
           <dt className="text-sm font-medium text-slate-600">Status</dt>
           <dd>
             <StatusBadge status={certificado.status} />
           </dd>
         </div>
         {rows.map(([label, value]) => (
-          <div key={label} className="grid gap-1 border-b border-slate-200/80 px-4 py-2.5 last:border-b-0 md:grid-cols-[180px_1fr]">
+          <div key={label} className="grid gap-1 border-b border-blue-100/70 px-4 py-2.5 last:border-b-0 md:grid-cols-[180px_1fr]">
             <dt className="text-sm font-medium text-slate-600">{label}</dt>
             <dd className="break-words text-sm font-medium text-slate-950">{value}</dd>
           </div>

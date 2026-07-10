@@ -186,11 +186,15 @@ export async function POST(request: NextRequest) {
 
   const { data: settings } = await admin
     .from("notification_settings")
-    .select("dias_aviso_vencimento")
+    .select("dias_aviso_vencimento, timezone")
     .eq("id", SETTINGS_ID)
     .maybeSingle();
 
-  const status = calculateCertificateStatus(parsedPfx.dataVencimento, settings?.dias_aviso_vencimento ?? [30, 15, 7]);
+  const status = calculateCertificateStatus(
+    parsedPfx.dataVencimento,
+    settings?.dias_aviso_vencimento ?? [30, 15, 7],
+    settings?.timezone ?? "America/Sao_Paulo",
+  );
   const encryptedPassword = encryptSecret(fields.data.senha);
   const storagePath = getCertificateStoragePath(cnpj, hashArquivo);
   const backup = await backupExistingCertificateObject(admin, storagePath);

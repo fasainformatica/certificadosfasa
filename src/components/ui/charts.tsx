@@ -50,19 +50,19 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
   const chartData = empty ? [{ name: "Sem certificados", value: 1, color: "#E2E8F0" }] : data;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[260px_1fr] lg:items-center">
-      <div className="relative h-64">
+    <div className="grid gap-4 lg:grid-cols-[240px_1fr] lg:items-center">
+      <div className="relative h-56">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={chartData}
               dataKey="value"
               nameKey="name"
-              innerRadius={68}
-              outerRadius={106}
+              innerRadius={58}
+              outerRadius={92}
               paddingAngle={empty ? 0 : 3}
               stroke="#ffffff"
-              strokeWidth={2}
+              strokeWidth={3}
               isAnimationActive={!empty}
               animationDuration={650}
               animationEasing="ease-out"
@@ -75,7 +75,7 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-semibold text-slate-950">{total}</span>
+          <span className="text-3xl font-semibold tracking-tight text-slate-950">{total}</span>
           <span className="text-xs font-medium text-slate-500">total</span>
         </div>
       </div>
@@ -84,7 +84,7 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
           const percent = Math.round((item.value / safeTotal) * 100);
 
           return (
-            <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/78 px-3 py-2 transition duration-200 hover:bg-blue-50/70">
+            <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl border border-blue-100/70 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 transition duration-150 hover:bg-blue-50/70">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-sm font-medium text-slate-700">{item.name}</span>
@@ -102,13 +102,13 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
 
 export function ExpirationBarChart({ data }: { data: { name: string; value: number; color: string }[] }) {
   return (
-    <div className="h-64">
+    <div className="h-56">
       <ResponsiveContainer width="100%" height="100%">
-        <RechartsBarChart data={data} margin={{ top: 16, right: 8, left: -18, bottom: 0 }}>
+        <RechartsBarChart data={data} margin={{ top: 18, right: 10, left: -16, bottom: 0 }}>
           <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#64748B", fontSize: 12 }} />
           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#64748B", fontSize: 12 }} />
           <Tooltip cursor={{ fill: "#EFF6FF", radius: 12 }} content={<ChartTooltip />} />
-          <Bar dataKey="value" radius={[12, 12, 0, 0]} isAnimationActive animationDuration={650} animationEasing="ease-out">
+          <Bar dataKey="value" radius={[12, 12, 0, 0]} isAnimationActive animationDuration={650} animationEasing="ease-out" maxBarSize={50}>
             {data.map((entry) => (
               <Cell key={entry.name} fill={entry.color} />
             ))}

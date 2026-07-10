@@ -1,3 +1,4 @@
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { buttonClass, inputClass, selectClass } from "@/components/ui/button-styles";
@@ -6,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { Badge, type Tone } from "@/components/ui/status-badge";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { daysUntilDate } from "@/lib/certificados/status";
@@ -159,12 +161,23 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
   }
 
   if (search) {
-    query = query.or(`mensagem_renderizada.ilike.%${search}%,telefone_destino.ilike.%${search.replace(/\D/g, "") || search}%`);
+    const digits = search.replace(/\D/g, "");
+    query =
+      digits.length >= 10
+        ? query.ilike("telefone_destino", `%${digits}%`)
+        : query.or(`mensagem_renderizada.ilike.%${search}%,telefone_destino.ilike.%${digits || search}%`);
   }
 
   const { data: rawEvents, count } = await query;
   const events = rawEvents ?? [];
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
+  const summary = {
+    today: events.filter((event) => event.send_date === today).length,
+    sent: events.filter((event) => event.status === "sent").length,
+    failed: events.filter((event) => event.status === "failed").length,
+    expired: events.filter((event) => event.type === "certificate_expired").length,
+    expiring: events.filter((event) => event.type === "certificate_expiring").length,
+  };
 
   return (
     <section>
@@ -172,6 +185,14 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
         title="Avisos"
         description="Acompanhe avisos planejados, envios do dia, falhas e certificados que exigem contato."
       />
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard title="Avisos para hoje" value={summary.today} description="Nesta página" icon={Clock3} tone="blue" />
+        <StatCard title="Enviados" value={summary.sent} description="Avisos concluídos" icon={CheckCircle2} tone="green" />
+        <StatCard title="Falhas" value={summary.failed} description="Precisam de revisão" icon={AlertTriangle} tone="red" />
+        <StatCard title="Vencidos" value={summary.expired} description="Resumo diário" icon={XCircle} tone="red" />
+        <StatCard title="Vencendo" value={summary.expiring} description="Próximos avisos" icon={CalendarClock} tone="amber" />
+      </div>
 
       <div className="mb-3 grid gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categoria</p>

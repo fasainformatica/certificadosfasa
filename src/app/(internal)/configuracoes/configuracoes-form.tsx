@@ -61,12 +61,12 @@ const tabs = [
   { key: "geral", label: "Geral", icon: Bell },
   { key: "bot", label: "Bot WhatsApp", icon: Bot },
   { key: "mensagens", label: "Mensagens", icon: MessageSquareText },
-  { key: "destinatarios", label: "Destinatarios", icon: UsersRound },
-  { key: "seguranca", label: "Seguranca", icon: ShieldCheck },
+  { key: "destinatarios", label: "Destinatários", icon: UsersRound },
+  { key: "seguranca", label: "Segurança", icon: ShieldCheck },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Bell }[];
 
 const panelClass =
-  "rounded-3xl border border-white/75 bg-white/78 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl sm:p-5";
+  "rounded-3xl border border-blue-100/70 bg-white/84 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl sm:p-5";
 
 function parseDays(days: string) {
   return days
@@ -134,53 +134,37 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const settingsResponse = await fetch("/api/notifications/settings", {
+    const settingsResponse = await fetch("/api/notifications/configuration-bundle", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        ...settings,
-        dias_aviso_vencimento: parseDays(settings.dias_aviso_vencimento),
+        settings: {
+          ...settings,
+          dias_aviso_vencimento: parseDays(settings.dias_aviso_vencimento),
+        },
+        expiring_template: initialExpiringTemplate.id
+          ? {
+              id: initialExpiringTemplate.id,
+              content: expiringTemplate,
+            }
+          : undefined,
+        expired_template: initialExpiredTemplate.id
+          ? {
+              id: initialExpiredTemplate.id,
+              content: expiredTemplate,
+            }
+          : undefined,
       }),
     });
     const settingsPayload = (await settingsResponse.json().catch(() => null)) as ApiErrorPayload | null;
 
     if (!settingsResponse.ok) {
-      setError(getErrorMessage(settingsPayload, "Nao foi possivel salvar as configuracoes."));
+      setError(getErrorMessage(settingsPayload, "Não foi possível salvar as configurações."));
       setPending(false);
       return;
     }
 
-    if (initialExpiringTemplate.id) {
-      const templateResponse = await fetch(`/api/notifications/templates/${initialExpiringTemplate.id}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: expiringTemplate }),
-      });
-      const templatePayload = (await templateResponse.json().catch(() => null)) as ApiErrorPayload | null;
-
-      if (!templateResponse.ok) {
-        setError(getErrorMessage(templatePayload, "Nao foi possivel salvar o template de certificados a vencer."));
-        setPending(false);
-        return;
-      }
-    }
-
-    if (initialExpiredTemplate.id) {
-      const templateResponse = await fetch(`/api/notifications/templates/${initialExpiredTemplate.id}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: expiredTemplate }),
-      });
-      const templatePayload = (await templateResponse.json().catch(() => null)) as ApiErrorPayload | null;
-
-      if (!templateResponse.ok) {
-        setError(getErrorMessage(templatePayload, "Nao foi possivel salvar o template de certificados vencidos."));
-        setPending(false);
-        return;
-      }
-    }
-
-    setMessage("Configuracoes salvas e avisos futuros atualizados.");
+    setMessage("Configurações salvas e avisos futuros atualizados.");
     setPending(false);
   }
 
@@ -197,13 +181,13 @@ export function ConfiguracoesForm({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok && response.status !== 207) {
-      setError(getErrorMessage(payload, "Nao foi possivel reconstruir os avisos."));
+      setError(getErrorMessage(payload, "Não foi possível reconstruir os avisos."));
       setScanPending(false);
       return;
     }
 
     setMessage(
-      `Planejamento atualizado: ${payload?.eventos_removidos ?? 0} avisos futuros removidos, ${payload?.eventos_criados ?? 0} planejados, ${payload?.destinatarios_ativos ?? 0} destinatarios ativos.`,
+      `Planejamento atualizado: ${payload?.eventos_removidos ?? 0} avisos futuros removidos, ${payload?.eventos_criados ?? 0} planejados, ${payload?.destinatarios_ativos ?? 0} destinatários ativos.`,
     );
     setScanPending(false);
   }
@@ -227,14 +211,14 @@ export function ConfiguracoesForm({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(getErrorMessage(payload, "Nao foi possivel salvar o destinatario."));
+      setError(getErrorMessage(payload, "Não foi possível salvar o destinatário."));
       setRecipientPendingId(null);
       return;
     }
 
     setRecipients((current) => [...current, payload.recipient]);
     setRecipientDraft({ nome: "", telefone: "", ativo: true });
-    setMessage("Destinatario salvo e avisos futuros reconstruidos.");
+    setMessage("Destinatário salvo e avisos futuros reconstruídos.");
     setRecipientPendingId(null);
   }
 
@@ -259,13 +243,13 @@ export function ConfiguracoesForm({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(getErrorMessage(payload, "Nao foi possivel atualizar o destinatario."));
+      setError(getErrorMessage(payload, "Não foi possível atualizar o destinatário."));
       setRecipientPendingId(null);
       return;
     }
 
     patchRecipient(recipient.id, payload.recipient);
-    setMessage("Destinatario atualizado e avisos futuros reconstruidos.");
+    setMessage("Destinatário atualizado e avisos futuros reconstruídos.");
     setRecipientPendingId(null);
   }
 
@@ -282,13 +266,13 @@ export function ConfiguracoesForm({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setError(getErrorMessage(payload, "Nao foi possivel remover o destinatario."));
+      setError(getErrorMessage(payload, "Não foi possível remover o destinatário."));
       setRecipientPendingId(null);
       return;
     }
 
     setRecipients((current) => current.filter((item) => item.id !== recipient.id));
-    setMessage("Destinatario removido e avisos futuros reconstruidos.");
+    setMessage("Destinatário removido e avisos futuros reconstruídos.");
     setRecipientPendingId(null);
   }
 
@@ -311,7 +295,7 @@ export function ConfiguracoesForm({
               className={cn(
                 "inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl px-3.5 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
                 active
-                  ? "bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-lg shadow-blue-600/20"
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
                   : "text-slate-600 hover:-translate-y-0.5 hover:bg-white/88 hover:text-blue-700",
               )}
             >
@@ -337,8 +321,8 @@ export function ConfiguracoesForm({
         <section className={panelClass}>
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-950">Destinatarios internos</h3>
-              <p className="mt-1 text-sm text-slate-600">Apenas estes numeros recebem mensagens automaticas do bot.</p>
+              <h3 className="text-base font-semibold text-slate-950">Destinatários internos</h3>
+              <p className="mt-1 text-sm text-slate-600">Apenas estes números recebem mensagens automáticas do bot.</p>
             </div>
             <Badge tone={recipientLimitReached ? "amber" : "blue"}>{recipients.length}/5 cadastrados</Badge>
           </div>
@@ -346,7 +330,7 @@ export function ConfiguracoesForm({
           <div className="grid gap-2.5">
             {recipients.length === 0 ? (
               <p className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3 text-sm text-slate-600">
-                Nenhum destinatario cadastrado.
+                Nenhum destinatário cadastrado.
               </p>
             ) : (
               recipients.map((recipient) => (
@@ -439,14 +423,14 @@ export function ConfiguracoesForm({
             </form>
           ) : null}
 
-          <p className="mt-3 text-xs text-slate-500">Limite: 5 destinatarios cadastrados. Telefones sao salvos no formato 55 + DDD + numero.</p>
+          <p className="mt-3 text-xs text-slate-500">Limite: 5 destinatários cadastrados. Telefones são salvos no formato 55 + DDD + número.</p>
         </section>
       ) : (
         <form onSubmit={handleSubmit} className="grid gap-4">
           {activeTab === "geral" ? (
             <section className={panelClass}>
               <div className="mb-4">
-                <h3 className="text-base font-semibold text-slate-950">Avisos automaticos</h3>
+                <h3 className="text-base font-semibold text-slate-950">Avisos automáticos</h3>
                 <p className="mt-1 text-sm text-slate-500">Controle o planejamento dos avisos e os dias antes do vencimento.</p>
               </div>
 
@@ -515,7 +499,7 @@ export function ConfiguracoesForm({
                   />
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
-                  Fuso horario
+                  Fuso horário
                   <input
                     value={settings.timezone}
                     disabled={disabled}
@@ -535,7 +519,7 @@ export function ConfiguracoesForm({
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
-                  Intervalo minimo entre mensagens (segundos)
+                  Intervalo mínimo entre mensagens (segundos)
                   <input
                     type="number"
                     min={30}
@@ -547,7 +531,7 @@ export function ConfiguracoesForm({
                   <span className="text-xs font-normal leading-5 text-slate-500">Tempo de espera entre cada mensagem enviada pelo bot.</span>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
-                  Intervalo maximo entre mensagens (segundos)
+                  Intervalo máximo entre mensagens (segundos)
                   <input
                     type="number"
                     min={30}
@@ -556,10 +540,10 @@ export function ConfiguracoesForm({
                     onChange={(event) => patchSettings({ delay_maximo_segundos: Number(event.target.value) })}
                     className={inputClass}
                   />
-                  <span className="text-xs font-normal leading-5 text-slate-500">Quando maior que o minimo, o bot alterna o tempo para envio natural.</span>
+                  <span className="text-xs font-normal leading-5 text-slate-500">Quando maior que o mínimo, o bot alterna o tempo para envio natural.</span>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
-                  Maximo de tentativas
+                  Máximo de tentativas
                   <input
                     type="number"
                     min={1}
@@ -584,7 +568,7 @@ export function ConfiguracoesForm({
                   <span className="text-xs font-normal leading-5 text-slate-500">Frequencia com que o aplicativo procura avisos prontos.</span>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
-                  Sincronizacao do bot (segundos)
+                  Sincronização do bot (segundos)
                   <input
                     type="number"
                     min={15}
@@ -617,7 +601,7 @@ export function ConfiguracoesForm({
                     className={cn(textAreaClass, "mt-3")}
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Variaveis: {"{cliente_nome}"}, {"{cliente_telefone}"}, {"{cnpj}"}, {"{certificado_nome}"}, {"{data_vencimento}"}, {"{dias}"}.
+                    Variáveis: {"{cliente_nome}"}, {"{cliente_telefone}"}, {"{cnpj}"}, {"{certificado_nome}"}, {"{data_vencimento}"}, {"{dias}"}.
                   </p>
                 </details>
                 <details className="rounded-2xl border border-slate-200/80 bg-slate-50/72 p-3">
@@ -630,7 +614,7 @@ export function ConfiguracoesForm({
                     className={cn(textAreaClass, "mt-3")}
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Variaveis: {"{data_hoje}"}, {"{total_vencidos}"}, {"{lista_certificados_vencidos}"}, {"{cliente_telefone}"}.
+                    Variáveis: {"{data_hoje}"}, {"{total_vencidos}"}, {"{lista_certificados_vencidos}"}, {"{cliente_telefone}"}.
                   </p>
                 </details>
               </div>
@@ -639,11 +623,11 @@ export function ConfiguracoesForm({
 
           {activeTab === "seguranca" ? (
             <section className={panelClass}>
-              <h3 className="text-base font-semibold text-slate-950">Seguranca operacional</h3>
+              <h3 className="text-base font-semibold text-slate-950">Segurança operacional</h3>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-green-100 bg-green-50/70 p-3 text-sm text-green-900">O bot recebe apenas mensagens prontas para envio.</div>
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-900">Credenciais e chaves internas nao sao exibidas nesta tela.</div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700">Senhas, links e caminhos privados nao entram nos avisos.</div>
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-900">Credenciais e chaves internas não são exibidas nesta tela.</div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700">Senhas, links e caminhos privados não entram nos avisos.</div>
               </div>
             </section>
           ) : null}
@@ -665,7 +649,7 @@ export function ConfiguracoesForm({
                 className={buttonClass("primary", "h-10")}
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Salvar configuracoes
+                Salvar configurações
               </button>
             </ActionBar>
           ) : null}

@@ -604,10 +604,23 @@ export type Database = {
         };
         Returns: number;
       };
+      get_dashboard_metrics: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      get_whatsapp_bot_message_stats: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      cleanup_qwep_operational_tables: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
       reserve_pending_notification_events: {
         Args: {
           target_device_id: string;
           batch_limit?: number;
+          reservation_ttl_seconds_input?: number;
         };
         Returns: {
           id: string;

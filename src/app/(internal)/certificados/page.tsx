@@ -8,7 +8,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { refreshCertificateStatuses } from "@/lib/certificados/status";
+import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { CERTIFICATE_STATUS_LABEL, CERTIFICATE_STATUSES } from "@/lib/certificados/status-labels";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
@@ -30,6 +30,37 @@ function cleanSearch(value?: string) {
   return value?.trim().replace(/[%,()]/g, "") ?? "";
 }
 
+type FilterableQuery = {
+  eq: (column: string, value: string) => FilterableQuery;
+  neq: (column: string, value: string) => FilterableQuery;
+  gte: (column: string, value: string) => FilterableQuery;
+  lt: (column: string, value: string) => FilterableQuery;
+  lte: (column: string, value: string) => FilterableQuery;
+  gt: (column: string, value: string) => FilterableQuery;
+};
+
+function applyStatusFilter<T extends FilterableQuery>(query: T, status: CertificadoStatus | "", today: string, warningDate: string) {
+  const builder = query as FilterableQuery;
+
+  if (status === "substituido") {
+    return builder.eq("status", "substituido") as T;
+  }
+
+  if (status === "vencido") {
+    return builder.neq("status", "substituido").lt("data_vencimento", today) as T;
+  }
+
+  if (status === "vencendo") {
+    return builder.neq("status", "substituido").gte("data_vencimento", today).lte("data_vencimento", warningDate) as T;
+  }
+
+  if (status === "ativo") {
+    return builder.neq("status", "substituido").gt("data_vencimento", warningDate) as T;
+  }
+
+  return query;
+}
+
 export default async function CertificadosPage({ searchParams }: CertificadosPageProps) {
   const user = await requireInternalUser();
   const params = await searchParams;
@@ -44,10 +75,12 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   const supabase = await createServerSupabaseClient();
   const { data: settings } = await supabase
     .from("notification_settings")
-    .select("dias_aviso_vencimento")
+    .select("dias_aviso_vencimento, timezone")
     .eq("id", SETTINGS_ID)
     .maybeSingle();
-  await refreshCertificateStatuses(settings?.dias_aviso_vencimento ?? [30, 15, 7]);
+  const warningDays = settings?.dias_aviso_vencimento ?? [30, 15, 7];
+  const timezone = settings?.timezone ?? "America/Sao_Paulo";
+  const { today, warningDate } = getCertificateStatusReferenceDates(warningDays, timezone);
   let query = supabase
     .from("certificados")
     .select(
@@ -57,15 +90,24 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
     .order("data_vencimento", { ascending: true })
     .range(pagination.from, pagination.to);
 
-  if (selectedStatus) {
-    query = query.eq("status", selectedStatus);
-  }
+  query = applyStatusFilter(query, selectedStatus, today, warningDate);
 
   if (search) {
-    query = query.or(`nome_titular.ilike.%${search}%,cnpj.ilike.%${search.replace(/\D/g, "") || search}%`);
+    const digits = search.replace(/\D/g, "");
+    query =
+      digits.length === 14
+        ? query.eq("cnpj", digits)
+        : query.or(`nome_titular.ilike.%${search}%,cnpj.ilike.%${digits || search}%`);
   }
 
   const { data: certificados, count } = await query;
+  const certificadosWithStatus = (certificados ?? []).map((certificado) => ({
+    ...certificado,
+    status:
+      certificado.status === "substituido"
+        ? certificado.status
+        : calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone),
+  }));
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
 
   return (
@@ -83,7 +125,6 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           </Link>
         ) : null}
       />
-      <div>
       <FilterBar columns="md:grid-cols-[minmax(320px,1fr)_240px_auto]">
         <input
           type="search"
@@ -111,9 +152,8 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           Filtrar
         </button>
       </FilterBar>
-      </div>
 
-      {!certificados?.length ? (
+      {!certificadosWithStatus.length ? (
         <EmptyState title="Nenhum certificado encontrado" description="Ajuste os filtros ou envie um novo certificado para iniciar o controle." />
       ) : (
         <div className="grid gap-2.5">
@@ -130,7 +170,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
             </tr>
           </TableHead>
           <TableBody>
-            {certificados.map((certificado) => (
+            {certificadosWithStatus.map((certificado) => (
               <tr key={certificado.id} className="transition duration-200 hover:bg-blue-50/48">
                 <TableCell className="font-semibold text-slate-950">{formatCertificateTitle(certificado.nome_titular, certificado.cnpj)}</TableCell>
                 <TableCell className="text-slate-700">{certificado.clientes?.nome_razao_social ?? "-"}</TableCell>

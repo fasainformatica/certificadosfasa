@@ -1,265 +1,446 @@
 import {
   AlertTriangle,
-  Bot,
+  ArrowRight,
   CalendarClock,
-  CheckCircle2,
   Clock3,
   FileCheck2,
   FileKey2,
   MessageCircleWarning,
+  RefreshCw,
   XCircle,
 } from "lucide-react";
 
-import { BotStatusCard } from "@/components/ui/bot-status-card";
-import { DonutChart, ExpirationBarChart } from "@/components/ui/charts";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LazyDonutChart, LazyExpirationBarChart } from "@/components/ui/lazy-dashboard-charts";
 import { SectionCard } from "@/components/ui/section-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { Badge, getBotStatusMeta, StatusBadge } from "@/components/ui/status-badge";
-import { daysUntilDate, refreshCertificateStatuses } from "@/lib/certificados/status";
-import { getTodayDateString } from "@/lib/notifications/engine";
+import { Badge, StatusBadge } from "@/components/ui/status-badge";
+import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
+import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { CertificadoStatus, Json } from "@/lib/supabase/database.types";
 import { formatCertificateTitle, formatCnpj, formatDate, formatDateTime, formatDaysLabel } from "@/lib/utils/format";
 
-function isRecent(value: string | null | undefined) {
-  if (!value) {
-    return false;
-  }
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
-  return Date.now() - new Date(value).getTime() < 5 * 60 * 1000;
+type ChartItem = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+type DashboardAttentionCertificate = {
+  id: string;
+  cnpj: string;
+  nome_titular: string;
+  data_vencimento: string;
+  status: CertificadoStatus;
+  dias_restantes: number;
+  clientes: {
+    nome_razao_social: string | null;
+  } | null;
+};
+
+type DashboardMetrics = {
+  total_certificados: number;
+  certificados_validos: number;
+  certificados_vencendo: number;
+  certificados_vencidos: number;
+  avisos_para_hoje: number;
+  mensagens_enviadas: number;
+  falhas_envio: number;
+  falhas_hoje: number;
+  avisos_planejados: number;
+  ultimo_envio: string | null;
+  primary_device: {
+    name: string | null;
+    status: string | null;
+    last_seen_at: string | null;
+    online: boolean;
+  } | null;
+  status_bot: boolean;
+  mensagens_aguardando: number;
+  enviadas_hoje: number;
+  falhas_bot: number;
+  status_chart: ChartItem[];
+  expiration_chart: ChartItem[];
+  attention_certificates: DashboardAttentionCertificate[];
+};
+
+const emptyMetrics: DashboardMetrics = {
+  total_certificados: 0,
+  certificados_validos: 0,
+  certificados_vencendo: 0,
+  certificados_vencidos: 0,
+  avisos_para_hoje: 0,
+  mensagens_enviadas: 0,
+  falhas_envio: 0,
+  falhas_hoje: 0,
+  avisos_planejados: 0,
+  ultimo_envio: null,
+  primary_device: null,
+  status_bot: false,
+  mensagens_aguardando: 0,
+  enviadas_hoje: 0,
+  falhas_bot: 0,
+  status_chart: [
+    { name: "Válidos", value: 0, color: "#16A34A" },
+    { name: "Vencendo", value: 0, color: "#F59E0B" },
+    { name: "Vencidos", value: 0, color: "#DC2626" },
+  ],
+  expiration_chart: [
+    { name: "Vencidos", value: 0, color: "#DC2626" },
+    { name: "7 dias", value: 0, color: "#F59E0B" },
+    { name: "15 dias", value: 0, color: "#2563EB" },
+    { name: "30 dias", value: 0, color: "#60A5FA" },
+  ],
+  attention_certificates: [],
+};
+
+function isRecord(value: Json | null | undefined): value is Record<string, Json | undefined> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient();
-  const admin = createSupabaseAdminClient();
+function toNumber(value: unknown) {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function normalizeChartName(value: unknown) {
+  if (typeof value !== "string") {
+    return "Sem nome";
+  }
+
+  const labels: Record<string, string> = {
+    Validos: "Válidos",
+    Vencidos: "Vencidos",
+    Vencendo: "Vencendo",
+  };
+
+  return labels[value] ?? value;
+}
+
+function toChartItems(value: unknown, fallback: ChartItem[]) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value.map((item) => ({
+    name: normalizeChartName(item?.name),
+    value: toNumber(item?.value),
+    color: typeof item?.color === "string" ? item.color : "#64748B",
+  }));
+}
+
+function normalizeMetrics(value: Json | null): DashboardMetrics {
+  if (!isRecord(value)) {
+    return emptyMetrics;
+  }
+
+  const primaryDeviceValue = value.primary_device;
+  const primaryDevice = isRecord(primaryDeviceValue)
+    ? {
+        name: typeof primaryDeviceValue.name === "string" ? primaryDeviceValue.name : null,
+        status: typeof primaryDeviceValue.status === "string" ? primaryDeviceValue.status : null,
+        last_seen_at: typeof primaryDeviceValue.last_seen_at === "string" ? primaryDeviceValue.last_seen_at : null,
+        online: primaryDeviceValue.online === true,
+      }
+    : null;
+
+  return {
+    total_certificados: toNumber(value.total_certificados),
+    certificados_validos: toNumber(value.certificados_validos),
+    certificados_vencendo: toNumber(value.certificados_vencendo),
+    certificados_vencidos: toNumber(value.certificados_vencidos),
+    avisos_para_hoje: toNumber(value.avisos_para_hoje),
+    mensagens_enviadas: toNumber(value.mensagens_enviadas),
+    falhas_envio: toNumber(value.falhas_envio),
+    falhas_hoje: toNumber(value.falhas_hoje),
+    avisos_planejados: toNumber(value.avisos_planejados),
+    ultimo_envio: typeof value.ultimo_envio === "string" ? value.ultimo_envio : null,
+    primary_device: primaryDevice,
+    status_bot: value.status_bot === true,
+    mensagens_aguardando: toNumber(value.mensagens_aguardando),
+    enviadas_hoje: toNumber(value.enviadas_hoje),
+    falhas_bot: toNumber(value.falhas_bot),
+    status_chart: toChartItems(value.status_chart, emptyMetrics.status_chart),
+    expiration_chart: toChartItems(value.expiration_chart, emptyMetrics.expiration_chart),
+    attention_certificates: Array.isArray(value.attention_certificates)
+      ? (value.attention_certificates as DashboardAttentionCertificate[])
+      : [],
+  };
+}
+
+function buildChartsFromCertificates(certificates: DashboardAttentionCertificate[], counts: Pick<DashboardMetrics, "certificados_validos" | "certificados_vencendo" | "certificados_vencidos">) {
+  return {
+    statusChart: [
+      { name: "Válidos", value: counts.certificados_validos, color: "#16A34A" },
+      { name: "Vencendo", value: counts.certificados_vencendo, color: "#F59E0B" },
+      { name: "Vencidos", value: counts.certificados_vencidos, color: "#DC2626" },
+    ],
+    expirationChart: [
+      { name: "Vencidos", value: certificates.filter((item) => item.dias_restantes < 0).length, color: "#DC2626" },
+      {
+        name: "7 dias",
+        value: certificates.filter((item) => item.dias_restantes >= 0 && item.dias_restantes <= 7).length,
+        color: "#F59E0B",
+      },
+      {
+        name: "15 dias",
+        value: certificates.filter((item) => item.dias_restantes > 7 && item.dias_restantes <= 15).length,
+        color: "#2563EB",
+      },
+      {
+        name: "30 dias",
+        value: certificates.filter((item) => item.dias_restantes > 15 && item.dias_restantes <= 30).length,
+        color: "#60A5FA",
+      },
+    ],
+  };
+}
+
+async function loadDashboardMetricsFallback(admin: AdminClient): Promise<DashboardMetrics> {
   const { data: settings } = await admin
     .from("notification_settings")
     .select("dias_aviso_vencimento, timezone")
-    .eq("id", "00000000-0000-0000-0000-000000000001")
+    .eq("id", SETTINGS_ID)
     .maybeSingle();
-  await refreshCertificateStatuses(settings?.dias_aviso_vencimento ?? [30, 15, 7]);
-  const { data: certificados } = await supabase
-    .from("certificados")
-    .select("id, cnpj, nome_titular, data_vencimento, status, clientes(nome_razao_social)")
-    .order("data_vencimento", { ascending: true })
-    .limit(500);
+  const warningDays = settings?.dias_aviso_vencimento ?? [30, 15, 7];
+  const timezone = settings?.timezone ?? "America/Sao_Paulo";
+  const { today, warningDays: maxWarningDays } = getCertificateStatusReferenceDates(warningDays, timezone);
 
-  const today = getTodayDateString(settings?.timezone ?? "America/Sao_Paulo");
-  const { count: plannedMessages } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending", "retry"])
-    .gt("send_date", today);
-  const { count: todayMessages } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending", "retry"])
-    .lte("send_date", today);
-  const { count: pendingMessages } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending", "reserved", "processing", "retry"]);
-  const { count: sentMessages } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "sent");
-  const { count: sentToday } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "sent")
-    .eq("send_date", today);
-  const { count: failedMessages } = await admin
-    .from("notification_events")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "failed");
-  const { data: lastSent } = await admin
-    .from("notification_events")
-    .select("sent_at")
-    .eq("status", "sent")
-    .order("sent_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const { data: primaryDevice } = await admin
-    .from("whatsapp_devices")
-    .select("name, status, last_seen_at")
-    .eq("is_primary_sender", true)
-    .neq("status", "revoked")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [certificatesResult, plannedResult, todayResult, waitingResult, sentTodayResult, failedResult, failedTodayResult, lastSentResult, deviceResult] =
+    await Promise.all([
+      admin
+        .from("certificados")
+        .select("id, cnpj, nome_titular, data_vencimento, status, clientes(nome_razao_social)")
+        .neq("status", "substituido")
+        .order("data_vencimento", { ascending: true })
+        .limit(1000),
+      admin
+        .from("notification_events")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "retry"])
+        .gt("send_date", today),
+      admin
+        .from("notification_events")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "retry"])
+        .lte("send_date", today),
+      admin
+        .from("notification_events")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "reserved", "processing", "retry"]),
+      admin
+        .from("notification_events")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "sent")
+        .gte("sent_at", `${today}T00:00:00`),
+      admin.from("notification_events").select("id", { count: "exact", head: true }).eq("status", "failed"),
+      admin
+        .from("notification_events")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "failed")
+        .gte("failed_at", `${today}T00:00:00`),
+      admin
+        .from("notification_events")
+        .select("sent_at")
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("whatsapp_devices")
+        .select("name, status, last_seen_at")
+        .eq("is_primary_sender", true)
+        .neq("status", "revoked")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const rows = certificados ?? [];
-  const activeRows = rows.filter((certificado) => certificado.status !== "substituido");
-  const warningDays =
-    Array.isArray(settings?.dias_aviso_vencimento) && settings.dias_aviso_vencimento.length > 0
-      ? settings.dias_aviso_vencimento
-      : [30, 15, 1];
-  const maxWarningDays = Math.max(...warningDays, 30);
-  const validCount = activeRows.filter((certificado) => certificado.status === "ativo").length;
-  const warningCount = activeRows.filter((certificado) => certificado.status === "vencendo").length;
-  const expiredCount = activeRows.filter(
-    (certificado) => certificado.status === "vencido" || certificado.data_vencimento <= today,
-  ).length;
-  const totalActive = activeRows.length;
-  const botOnline = Boolean(primaryDevice && primaryDevice.status === "active" && isRecent(primaryDevice.last_seen_at));
-  const botStatus = getBotStatusMeta(botOnline);
+  const mappedCertificates = (certificatesResult.data ?? []).map((certificado) => {
+    const diasRestantes = Math.round(
+      (new Date(`${certificado.data_vencimento}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) /
+        86_400_000,
+    );
+    const status = calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone);
+    const cliente = Array.isArray(certificado.clientes) ? certificado.clientes[0] : certificado.clientes;
 
-  const donutData = [
-    { name: "Validos", value: validCount, color: "#16A34A" },
-    { name: "Vencendo", value: warningCount, color: "#F59E0B" },
-    { name: "Vencidos", value: expiredCount, color: "#DC2626" },
-  ];
+    return {
+      id: certificado.id,
+      cnpj: certificado.cnpj,
+      nome_titular: certificado.nome_titular,
+      data_vencimento: certificado.data_vencimento,
+      status,
+      dias_restantes: diasRestantes,
+      clientes: { nome_razao_social: cliente?.nome_razao_social ?? null },
+    } satisfies DashboardAttentionCertificate;
+  });
 
-  const periodData = [
-    {
-      name: "Vencidos",
-      value: activeRows.filter((certificado) => daysUntilDate(certificado.data_vencimento) <= 0).length,
-      color: "#DC2626",
-    },
-    {
-      name: "7 dias",
-      value: activeRows.filter((certificado) => {
-        const days = daysUntilDate(certificado.data_vencimento);
-        return days > 0 && days <= 7;
-      }).length,
-      color: "#F59E0B",
-    },
-    {
-      name: "15 dias",
-      value: activeRows.filter((certificado) => {
-        const days = daysUntilDate(certificado.data_vencimento);
-        return days > 7 && days <= 15;
-      }).length,
-      color: "#2563EB",
-    },
-    {
-      name: "30 dias",
-      value: activeRows.filter((certificado) => {
-        const days = daysUntilDate(certificado.data_vencimento);
-        return days > 15 && days <= 30;
-      }).length,
-      color: "#60A5FA",
-    },
-  ];
+  const counts = {
+    certificados_validos: mappedCertificates.filter((item) => item.status === "ativo").length,
+    certificados_vencendo: mappedCertificates.filter((item) => item.status === "vencendo").length,
+    certificados_vencidos: mappedCertificates.filter((item) => item.status === "vencido").length,
+  };
+  const charts = buildChartsFromCertificates(mappedCertificates, counts);
+  const deviceLastSeenAt = deviceResult.data?.last_seen_at ?? null;
+  const primaryDevice = deviceResult.data
+    ? {
+        name: deviceResult.data.name,
+        status: deviceResult.data.status,
+        last_seen_at: deviceLastSeenAt,
+        online:
+          deviceResult.data.status === "active" &&
+          deviceLastSeenAt !== null &&
+          new Date(deviceLastSeenAt).getTime() >= Date.now() - 5 * 60 * 1000,
+      }
+    : null;
 
-  const attentionCertificates = activeRows
-    .map((certificado) => ({
-      ...certificado,
-      diasRestantes: daysUntilDate(certificado.data_vencimento),
-    }))
-    .filter((certificado) => certificado.diasRestantes <= maxWarningDays)
-    .slice(0, 5);
+  return {
+    ...emptyMetrics,
+    total_certificados: mappedCertificates.length,
+    ...counts,
+    avisos_para_hoje: todayResult.count ?? 0,
+    mensagens_enviadas: sentTodayResult.count ?? 0,
+    falhas_envio: failedResult.count ?? 0,
+    falhas_hoje: failedTodayResult.count ?? 0,
+    avisos_planejados: plannedResult.count ?? 0,
+    ultimo_envio: lastSentResult.data?.sent_at ?? null,
+    primary_device: primaryDevice,
+    status_bot: primaryDevice?.online ?? false,
+    mensagens_aguardando: waitingResult.count ?? 0,
+    enviadas_hoje: sentTodayResult.count ?? 0,
+    falhas_bot: failedResult.count ?? 0,
+    status_chart: charts.statusChart,
+    expiration_chart: charts.expirationChart,
+    attention_certificates: mappedCertificates
+      .filter((item) => item.dias_restantes < 0 || (item.dias_restantes >= 0 && item.dias_restantes <= maxWarningDays))
+      .slice(0, 6),
+  };
+}
+
+async function loadDashboardMetrics(admin: AdminClient) {
+  const { data, error } = await admin.rpc("get_dashboard_metrics");
+
+  if (error || !data) {
+    return loadDashboardMetricsFallback(admin);
+  }
+
+  return normalizeMetrics(data);
+}
+
+export default async function DashboardPage() {
+  const admin = createSupabaseAdminClient();
+  const metrics = await loadDashboardMetrics(admin);
+  const falhasHoje = metrics.falhas_hoje || metrics.falhas_envio;
 
   const attentionItems = [
-    ...attentionCertificates.map((certificado) => ({
+    ...metrics.attention_certificates.map((certificado) => ({
       key: certificado.id,
       title: formatCertificateTitle(certificado.nome_titular, certificado.cnpj),
       description:
-        certificado.diasRestantes < 0
-          ? `Vencido ha ${formatDaysLabel(Math.abs(certificado.diasRestantes))}`
-          : `Vence em ${formatDaysLabel(certificado.diasRestantes)}`,
+        certificado.dias_restantes < 0
+          ? `Vencido há ${formatDaysLabel(Math.abs(certificado.dias_restantes))}`
+          : certificado.dias_restantes === 0
+            ? "Vence hoje"
+            : `Vence em ${formatDaysLabel(certificado.dias_restantes)}`,
       meta: `${formatCnpj(certificado.cnpj)} - ${formatDate(certificado.data_vencimento)}`,
       status: certificado.status,
     })),
-    ...(failedMessages
+    ...(metrics.falhas_envio
       ? [
           {
             key: "failed-messages",
             title: "Falhas no envio de avisos",
-            description: `${failedMessages} ${failedMessages === 1 ? "aviso precisa" : "avisos precisam"} de revisao`,
+            description: `${metrics.falhas_envio} ${metrics.falhas_envio === 1 ? "aviso precisa" : "avisos precisam"} de revisão`,
             meta: "Abra a aba Avisos para tentar novamente",
             status: "vencido" as const,
           },
         ]
       : []),
-    ...(!botOnline
+    ...(!metrics.status_bot
       ? [
           {
             key: "bot-offline",
             title: "WhatsApp Bot desconectado",
-            description: "O envio automatico depende do bot conectado",
+            description: "O envio automático depende do bot conectado",
             meta: "Verifique a tela WhatsApp Bot",
             status: "vencido" as const,
           },
         ]
       : []),
-  ];
+  ].slice(0, 8);
 
   return (
     <section>
       <SectionHeader
         title="Painel"
-        description="Resumo operacional dos certificados, vencimentos e avisos enviados pelo WhatsApp Bot."
+        description="Resumo dos certificados, vencimentos e avisos internos."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
-        <StatCard title="Total" value={totalActive} icon={FileKey2} tone="blue" />
-        <StatCard title="Validos" value={validCount} icon={FileCheck2} tone="green" />
-        <StatCard title="Vencendo" value={warningCount} icon={CalendarClock} tone="amber" />
-        <StatCard title="Vencidos" value={expiredCount} icon={XCircle} tone="red" />
-        <StatCard title="Hoje" value={todayMessages ?? 0} icon={Clock3} tone="blue" />
-        <StatCard title="Enviadas" value={sentMessages ?? 0} icon={CheckCircle2} tone="green" />
-        <StatCard title="Falhas" value={failedMessages ?? 0} icon={AlertTriangle} tone="red" />
-        <StatCard title="Bot" value={<Badge tone={botStatus.tone}>{botStatus.label}</Badge>} icon={Bot} tone={botStatus.tone} />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <StatCard title="Total" value={metrics.total_certificados} description="Certificados" icon={FileKey2} tone="blue" />
+        <StatCard title="Válidos" value={metrics.certificados_validos} description="Fora da janela de aviso" icon={FileCheck2} tone="green" />
+        <StatCard title="Vencendo" value={metrics.certificados_vencendo} description="Dentro dos dias configurados" icon={CalendarClock} tone="amber" />
+        <StatCard title="Vencidos" value={metrics.certificados_vencidos} description="Exigem ação" icon={XCircle} tone="red" />
+        <StatCard title="Avisos hoje" value={metrics.avisos_para_hoje} description="Prontos para envio" icon={Clock3} tone="blue" />
+        <StatCard title="Falhas" value={metrics.falhas_envio} description="Avisos com erro" icon={AlertTriangle} tone="red" />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.72fr)] 2xl:grid-cols-[minmax(0,1.2fr)_380px_260px]">
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
         <SectionCard>
-          <div className="mb-2">
-            <h3 className="text-base font-semibold text-slate-950">Certificados por status</h3>
-            <p className="text-sm text-slate-500">Distribuicao atual dos certificados ativos.</p>
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">Certificados por status</h3>
+              <p className="text-xs text-slate-500">Classificação calculada por data de vencimento.</p>
+            </div>
+            <Badge tone="blue">Tempo real</Badge>
           </div>
-          <DonutChart data={donutData} total={totalActive} />
+          <LazyDonutChart data={metrics.status_chart} total={metrics.total_certificados} />
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Atualizado automaticamente
+          </div>
         </SectionCard>
 
-        <BotStatusCard
-          online={botOnline}
-          name={primaryDevice?.name}
-          lastSeen={primaryDevice?.last_seen_at}
-          pending={pendingMessages ?? 0}
-          sentToday={sentToday ?? 0}
-          failed={failedMessages ?? 0}
-        />
-
-        <SectionCard className="2xl:block">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Fila de hoje</p>
-          <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">{todayMessages ?? 0}</p>
-          <p className="mt-2 text-sm leading-5 text-slate-500">Avisos prontos para envio pelo bot.</p>
-          <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">Planejados</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">{plannedMessages ?? 0}</p>
+        <SectionCard>
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">Vencimentos por período</h3>
+              <p className="text-xs text-slate-500">Distribuição dos certificados por janela.</p>
+            </div>
+            <Badge tone="slate">30 dias</Badge>
+          </div>
+          <LazyExpirationBarChart data={metrics.expiration_chart} />
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Atualizado automaticamente
           </div>
         </SectionCard>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.92fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)_260px]">
+      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <SectionCard>
-          <div className="mb-2">
-            <h3 className="text-base font-semibold text-slate-950">Vencimentos por periodo</h3>
-            <p className="text-sm text-slate-500">Concentracao de vencimentos por janela.</p>
-          </div>
-          <ExpirationBarChart data={periodData} />
-        </SectionCard>
-
-        <SectionCard>
-          <div className="mb-3 flex items-center gap-2">
-            <MessageCircleWarning className="h-5 w-5 text-blue-600" />
-            <h3 className="text-base font-semibold text-slate-950">Precisa de atencao</h3>
+          <div className="mb-2 flex items-center gap-2">
+            <MessageCircleWarning className="h-4 w-4 text-red-500" />
+            <h3 className="text-base font-semibold text-slate-950">Precisa de atenção</h3>
           </div>
           {attentionItems.length === 0 ? (
-            <EmptyState title="Nada urgente no momento" description="Certificados, avisos e bot estao sem pendencias visiveis." />
+            <EmptyState title="Nada urgente no momento" description="Nenhum certificado ou aviso crítico para revisar agora." />
           ) : (
-            <div className="grid gap-2.5">
+            <div className="overflow-hidden rounded-2xl border border-blue-100/70 bg-white">
               {attentionItems.map((item) => (
-                <div key={item.key} className="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-slate-50/78 p-3 transition duration-200 hover:border-blue-100 hover:bg-blue-50/55 sm:flex-row sm:items-center sm:justify-between">
+                <div key={item.key} className="flex flex-col gap-2 border-b border-blue-100/70 px-3 py-2.5 last:border-b-0 transition duration-150 hover:bg-blue-50/55 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-950">{item.title}</p>
-                    <p className="mt-0.5 text-sm text-slate-600">{item.description}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{item.meta}</p>
+                    <p className="font-semibold text-slate-950" title={item.title}>{item.title}</p>
+                    <p className="text-sm text-slate-600">{item.description}</p>
+                    <p className="text-xs text-slate-500">{item.meta}</p>
                   </div>
-                  <StatusBadge status={item.status} />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusBadge status={item.status} />
+                    <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -267,13 +448,36 @@ export default async function DashboardPage() {
         </SectionCard>
 
         <SectionCard>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Ultimo envio</p>
-          <p className="mt-3 text-sm font-semibold leading-6 text-slate-950">
-            {lastSent?.sent_at ? formatDateTime(lastSent.sent_at) : "Nenhuma mensagem enviada ainda."}
-          </p>
-          <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/78 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Enviadas hoje</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">{sentToday ?? 0}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">Avisos do dia</h3>
+              <p className="text-xs text-slate-500">Resumo da operação de hoje.</p>
+            </div>
+            {!metrics.status_bot ? <Badge tone="red">Bot desconectado</Badge> : <Badge tone="green">Bot conectado</Badge>}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
+              <p className="text-xs font-semibold text-blue-700">Prontos</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">{metrics.avisos_para_hoje}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-xs font-semibold text-slate-600">Planejados</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">{metrics.avisos_planejados}</p>
+            </div>
+            <div className="rounded-2xl border border-green-100 bg-green-50/70 p-3">
+              <p className="text-xs font-semibold text-green-700">Enviados</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">{metrics.enviadas_hoje}</p>
+            </div>
+            <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3">
+              <p className="text-xs font-semibold text-red-700">Falhas</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">{falhasHoje}</p>
+            </div>
+          </div>
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+            <div className="flex items-center justify-between gap-3">
+              <span>Último envio</span>
+              <span className="font-semibold text-slate-950">{metrics.ultimo_envio ? formatDateTime(metrics.ultimo_envio) : "Ainda não houve envio"}</span>
+            </div>
           </div>
         </SectionCard>
       </div>

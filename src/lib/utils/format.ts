@@ -24,6 +24,25 @@ export function formatDateTime(date: string | null) {
   return new Date(date).toLocaleString("pt-BR");
 }
 
+export function formatPhone(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const digits = value.replace(/\D/g, "");
+  const local = digits.startsWith("55") ? digits.slice(2) : digits;
+
+  if (local.length === 11) {
+    return `+55 (${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  }
+
+  if (local.length === 10) {
+    return `+55 (${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  }
+
+  return value;
+}
+
 export function formatDaysLabel(days: number) {
   return `${days} ${Math.abs(days) === 1 ? "dia" : "dias"}`;
 }

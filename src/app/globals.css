@@ -3,8 +3,8 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
-  --primary: #25eb2f;
-  --primary-dark: #25eb2f;
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
   --primary-soft: #eff6ff;
   --primary-border: #bfdbfe;
   --border-subtle: #e2e8f0;
@@ -61,6 +61,22 @@ textarea:disabled {
 ::selection {
   background: #bfdbfe;
   color: #0f172a;
+}
+
+@keyframes fasa-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fasa-page-enter {
+  animation: fasa-fade-up 180ms ease-out both;
 }
 
 * {

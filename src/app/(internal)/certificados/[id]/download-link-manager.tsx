@@ -72,14 +72,14 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
     };
 
     if (!response.ok || !payload.link || !payload.senha_gerada) {
-      setMessage(payload.error?.message ?? "Nao foi possivel gerar o link.");
+      setMessage(payload.error?.message ?? "Não foi possível gerar o link.");
       setPendingAction(null);
       return;
     }
 
     setLink(payload.link);
     setGeneratedPassword(payload.senha_gerada);
-    setMessage("Link criado. Copie a senha agora; ela nao sera exibida novamente.");
+    setMessage("Link criado. Copie a senha agora; ela não será exibida novamente.");
     setPendingAction(null);
   }
 
@@ -100,7 +100,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
     };
 
     if (!response.ok || !payload.link || !payload.senha_gerada) {
-      setMessage(payload.error?.message ?? "Nao foi possivel atualizar a senha.");
+      setMessage(payload.error?.message ?? "Não foi possível atualizar a senha.");
       setPendingAction(null);
       return;
     }
@@ -127,7 +127,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
     } | null;
 
     if (!response.ok || !payload?.link) {
-      setMessage(payload?.error?.message ?? "Nao foi possivel invalidar o link.");
+      setMessage(payload?.error?.message ?? "Não foi possível invalidar o link.");
       setPendingAction(null);
       return;
     }
@@ -156,12 +156,12 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
   }
 
   return (
-    <section className="mt-4 rounded-2xl border border-white/75 bg-white/78 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl sm:p-5">
+    <section className="mt-4 rounded-3xl border border-blue-100/70 bg-white/84 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl sm:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-950">Link de download</h3>
           <p className="mt-1 text-sm text-slate-600">
-            O link e de uso unico e exige uma senha forte gerada automaticamente. A senha aparece somente uma vez.
+            O link é de uso único e exige uma senha forte gerada automaticamente. A senha aparece somente uma vez.
           </p>
           <div className="mt-3">
             <Badge tone={status.tone}>{status.label}</Badge>
@@ -224,7 +224,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
       </div>
 
       {link ? (
-        <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/78 p-3">
+        <div className="mt-4 rounded-3xl border border-blue-100/80 bg-blue-50/40 p-3">
           {publicUrl ? (
             <p className="break-all text-sm font-medium text-slate-950">{publicUrl}</p>
           ) : (
@@ -244,8 +244,8 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
       )}
 
       {generatedPassword ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm font-semibold text-amber-900">Senha temporaria exibida uma unica vez</p>
+        <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-amber-900">Senha temporária exibida uma única vez</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="break-all rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-950">{generatedPassword}</code>
             <button

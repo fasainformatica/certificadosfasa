@@ -18,10 +18,10 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,#dbeafe_0,#f8fafc_42%,#eef6ff_100%)] px-4 py-10">
-      <section className="w-full max-w-md rounded-3xl border border-white/75 bg-white/80 p-6 shadow-xl shadow-blue-950/10 ring-1 ring-blue-100/50 backdrop-blur-xl">
+    <main className="flex min-h-screen items-center justify-center bg-[#f6f9ff] px-4 py-10">
+      <section className="w-full max-w-md rounded-3xl border border-blue-100/70 bg-white p-6 shadow-xl shadow-blue-950/10 ring-1 ring-white/80">
         <div className="mb-7">
-          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-sky-500 text-lg font-semibold text-white shadow-lg shadow-blue-600/25">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-lg font-semibold text-white shadow-sm shadow-blue-600/25">
             F
           </div>
           <p className="text-sm font-semibold text-blue-700">Fasa Informática</p>

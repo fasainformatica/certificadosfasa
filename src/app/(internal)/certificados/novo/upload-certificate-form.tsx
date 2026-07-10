@@ -95,7 +95,7 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
       };
 
       if (!response.ok || !payload.certificado) {
-        setError(payload.error?.message ?? "Nao foi possivel enviar o certificado.");
+        setError(payload.error?.message ?? "Não foi possível enviar o certificado.");
         setPending(false);
         return;
       }
@@ -103,15 +103,15 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
       router.replace(`/certificados/${payload.certificado.id}`);
       router.refresh();
     } catch {
-      setError("Falha de comunicacao com o servidor.");
+      setError("Falha de comunicação com o servidor.");
       setPending(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 rounded-3xl border border-white/75 bg-white/78 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl sm:p-5">
-      <div className="rounded-2xl border border-blue-100 bg-blue-50/78 px-4 py-3 text-sm text-blue-900">
-        Cadastre o cliente e o certificado nesta tela. Depois, as informacoes do cliente devem ser editadas no detalhe
+    <form onSubmit={handleSubmit} className="grid gap-4 rounded-3xl border border-blue-100/70 bg-white/84 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl sm:p-5">
+      <div className="rounded-3xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        Cadastre o cliente e o certificado nesta tela. Depois, as informações do cliente devem ser editadas no detalhe
         do certificado.
       </div>
 
@@ -119,15 +119,23 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
         <label htmlFor="arquivo" className="text-sm font-medium text-slate-800">
           Arquivo PFX
         </label>
-        <input
-          id="arquivo"
-          name="arquivo"
-          type="file"
-          accept=".pfx"
-          required
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          className="block w-full rounded-2xl border border-slate-200 bg-white/90 text-sm text-slate-700 outline-none transition file:mr-4 file:h-10 file:border-0 file:bg-blue-50 file:px-4 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-        />
+        <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/45 p-4 transition duration-200 hover:border-blue-300 hover:bg-blue-50/70">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{file?.name ?? "Selecione um certificado .pfx"}</p>
+              <p className="mt-1 text-xs text-slate-500">O arquivo será validado no backend antes de ser armazenado.</p>
+            </div>
+            <input
+              id="arquivo"
+              name="arquivo"
+              type="file"
+              accept=".pfx"
+              required
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              className="block max-w-full rounded-2xl border border-blue-100 bg-white/90 text-sm text-slate-700 outline-none transition file:mr-4 file:h-10 file:border-0 file:bg-blue-600 file:px-4 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-2">
@@ -156,7 +164,7 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
           onChange={(event) => handleManualClientChange(event.target.value)}
           className={inputClass}
         >
-          <option value="">Cadastrar/atualizar pelo CNPJ extraido do PFX</option>
+          <option value="">Cadastrar/atualizar pelo CNPJ extraído do PFX</option>
           {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.nome_razao_social} - {client.cnpj}
@@ -164,15 +172,15 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
           ))}
         </select>
         <p className="text-sm text-slate-600">
-          Use esta opcao para renovar um certificado de cliente ja cadastrado ou para PFX sem CNPJ identificavel.
+          Use esta opção para renovar um certificado de cliente já cadastrado ou para PFX sem CNPJ identificável.
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/78 p-4">
+      <div className="grid gap-3 rounded-3xl border border-blue-100/80 bg-blue-50/35 p-4">
         <h3 className="text-sm font-semibold text-slate-950">Dados do cliente</h3>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="grid gap-2 text-sm font-medium text-slate-800">
-            Nome/razao social
+            Nome/razão social
             <input
               required
               value={clientData.nome_razao_social}
@@ -185,7 +193,7 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
             <input
               value={clientData.cnpj_manual}
               onChange={(event) => patchClientData({ cnpj_manual: event.target.value })}
-              placeholder="Use se o PFX nao identificar CNPJ"
+              placeholder="Use se o PFX não identificar CNPJ"
               className={inputClass}
             />
           </label>
@@ -203,7 +211,7 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
             </span>
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-800">
-            Responsavel
+            Responsável
             <input
               value={clientData.responsavel}
               onChange={(event) => patchClientData({ responsavel: event.target.value })}
@@ -229,7 +237,7 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
           </label>
         </div>
         <label className="grid gap-2 text-sm font-medium text-slate-800">
-          Observacoes
+          Observações
           <textarea
             rows={3}
             value={clientData.observacoes}
