@@ -1,8 +1,18 @@
 import { SectionHeader } from "@/components/ui/section-header";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/database.types";
 
 import { WhatsappDevicesPanel } from "./whatsapp-devices-panel";
+
+function numberFromStats(stats: Json | null, key: string) {
+  if (typeof stats !== "object" || stats === null || Array.isArray(stats)) {
+    return 0;
+  }
+
+  const value = stats[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
 
 export default async function WhatsappPage() {
   await requireAdmin();
@@ -14,17 +24,8 @@ export default async function WhatsappPage() {
     )
     .order("created_at", { ascending: false });
   const today = new Date().toISOString().slice(0, 10);
-  const [waitingResult, readyTodayResult, plannedResult, sentResult, failedResult, lastSentResult] = await Promise.all([
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "retry", "reserved", "processing"])
-      .lte("send_date", today),
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "retry"])
-      .lte("send_date", today),
+  const [statsResult, plannedResult, sentTodayResult, lastSentResult] = await Promise.all([
+    admin.rpc("get_whatsapp_bot_message_stats"),
     admin
       .from("notification_events")
       .select("id", { count: "exact", head: true })
@@ -37,16 +38,18 @@ export default async function WhatsappPage() {
       .gte("sent_at", `${today}T00:00:00`),
     admin
       .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "failed"),
-    admin
-      .from("notification_events")
       .select("sent_at")
       .eq("status", "sent")
       .order("sent_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
+  const stats = statsResult.data ?? null;
+  const readyToday = numberFromStats(stats, "waiting_to_send");
+  const waiting =
+    readyToday +
+    numberFromStats(stats, "reserved") +
+    numberFromStats(stats, "processing");
 
   return (
     <section>
@@ -57,11 +60,11 @@ export default async function WhatsappPage() {
       <WhatsappDevicesPanel
         devices={devices ?? []}
         stats={{
-          waiting: waitingResult.count ?? 0,
-          readyToday: readyTodayResult.count ?? 0,
+          waiting,
+          readyToday,
           planned: plannedResult.count ?? 0,
-          sentToday: sentResult.count ?? 0,
-          failed: failedResult.count ?? 0,
+          sentToday: sentTodayResult.count ?? 0,
+          failed: numberFromStats(stats, "failed"),
           lastSentAt: lastSentResult.data?.sent_at ?? null,
         }}
       />

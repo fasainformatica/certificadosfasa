@@ -44,6 +44,7 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group relative inline-flex h-11 shrink-0 items-center gap-3 rounded-2xl px-3 text-sm font-semibold outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",

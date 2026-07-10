@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import type { UserRole } from "@/lib/supabase/database.types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ export function canManageSensitiveData(role: UserRole) {
   return role === "admin";
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -40,7 +41,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: user.email ?? null,
     role: profile.role,
   };
-}
+});
 
 export async function requireInternalUser() {
   const currentUser = await getCurrentUser();
