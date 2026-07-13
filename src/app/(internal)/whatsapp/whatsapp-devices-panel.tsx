@@ -104,12 +104,50 @@ function MetricCard({
   return (
     <article className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 transition duration-150 hover:-translate-y-0.5 hover:border-blue-200">
       <div className="flex items-center gap-3">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ring-1 ${toneClasses[tone]}`}>{icon}</span>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ${toneClasses[tone]}`}>{icon}</span>
         <p className="text-xs font-semibold text-slate-600">{title}</p>
       </div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</div>
       {description ? <p className="mt-1 text-xs text-slate-500" title={description}>{description}</p> : null}
     </article>
+  );
+}
+
+type DeviceActionsProps = {
+  device: Device;
+  pending: boolean;
+  onAction: (path: string) => void;
+  mobile?: boolean;
+};
+
+function DeviceActions({ device, pending, onAction, mobile = false }: DeviceActionsProps) {
+  return (
+    <div className={mobile ? "grid gap-2" : "flex flex-wrap gap-2"}>
+      {!device.is_primary_sender && device.status !== "revoked" ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onAction(`/api/whatsapp/devices/${device.id}/primary`)}
+          className={buttonClass("secondary", mobile ? "min-h-10 w-full px-3 text-sm" : "min-h-8 px-3 text-xs")}
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Definir principal
+        </button>
+      ) : null}
+      {device.status !== "revoked" ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onAction(`/api/whatsapp/devices/${device.id}/revoke`)}
+          className={buttonClass("danger", mobile ? "min-h-10 w-full px-3 text-sm" : "min-h-8 px-3 text-xs")}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Revogar
+        </button>
+      ) : (
+        <span className="text-slate-400">-</span>
+      )}
+    </div>
   );
 }
 
@@ -208,13 +246,7 @@ export function WhatsappDevicesPanel({
           icon={<CheckCircle2 className="h-4 w-4" />}
           tone="green"
         />
-        <MetricCard
-          title="Falhas"
-          value={stats.failed}
-          description="Precisam de revisão"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          tone="red"
-        />
+        <MetricCard title="Falhas" value={stats.failed} description="Precisam de revisão" icon={<AlertTriangle className="h-4 w-4" />} tone="red" />
         <MetricCard
           title="Fila de hoje"
           value={stats.readyToday}
@@ -232,31 +264,22 @@ export function WhatsappDevicesPanel({
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[minmax(320px,0.7fr)_minmax(0,1.3fr)]">
-        <form onSubmit={createDevice} className="grid gap-3 rounded-2xl border border-blue-100/70 bg-white p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80">
+        <form onSubmit={createDevice} className="grid gap-3 rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 sm:p-4">
           <div>
             <h3 className="text-base font-semibold text-slate-950">Criar dispositivo</h3>
             <p className="mt-1 text-sm text-slate-500">Gere credenciais para conectar o aplicativo desktop ao sistema.</p>
           </div>
           <label className="grid gap-2 text-sm font-medium text-slate-800">
             Nome do dispositivo
-            <input
-              name="name"
-              required
-              placeholder="Bot escritório principal"
-              className={inputClass}
-            />
+            <input name="name" required placeholder="Bot escritório principal" className={inputClass} />
           </label>
-          <button
-            type="submit"
-            disabled={pending}
-            className={buttonClass("primary", "h-10")}
-          >
+          <button type="submit" disabled={pending} className={buttonClass("primary", "h-10 w-full")}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
             Criar dispositivo
           </button>
         </form>
 
-        <div className="rounded-2xl border border-blue-100/70 bg-white p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80">
+        <div className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 sm:p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-base font-semibold text-slate-950">Operação do bot</h3>
@@ -264,7 +287,7 @@ export function WhatsappDevicesPanel({
             </div>
             <Badge tone={primaryStatus.tone}>{primaryStatus.label}</Badge>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
               <p className="text-xs font-semibold text-blue-700">Prontos</p>
               <p className="mt-1 text-2xl font-semibold text-slate-950">{stats.readyToday}</p>
@@ -286,16 +309,16 @@ export function WhatsappDevicesPanel({
       </div>
 
       {createdCredentials ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm shadow-amber-950/5">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 shadow-sm shadow-amber-950/5 sm:p-4">
           <p className="font-semibold">Copie estes dados agora. Eles não serão exibidos novamente.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             <label className="grid gap-1">
               Código de conexão
-              <input readOnly value={createdCredentials.token} className="rounded-2xl border border-amber-200 bg-white px-3 py-2 font-mono text-xs" />
+              <input readOnly value={createdCredentials.token} className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 font-mono text-xs" />
             </label>
             <label className="grid gap-1">
               Chave de assinatura
-              <input readOnly value={createdCredentials.signing_secret} className="rounded-2xl border border-amber-200 bg-white px-3 py-2 font-mono text-xs" />
+              <input readOnly value={createdCredentials.signing_secret} className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 font-mono text-xs" />
             </label>
           </div>
         </div>
@@ -306,99 +329,134 @@ export function WhatsappDevicesPanel({
       {!activeDevices.length ? (
         <EmptyState title="Nenhum dispositivo ativo" description="Crie um dispositivo para conectar o aplicativo desktop ao sistema." />
       ) : (
-        <TableShell>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Nome</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>Principal</TableHeaderCell>
-              <TableHeaderCell>Telefone conectado</TableHeaderCell>
-              <TableHeaderCell>Última conexão</TableHeaderCell>
-              <TableHeaderCell>Ações</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
+        <div className="grid gap-3">
+          <div className="grid gap-3 md:hidden">
             {activeDevices.map((device) => {
               const status = getDeviceStatus(device.status);
 
               return (
-                <tr key={device.id} className="transition duration-150 hover:bg-blue-50/48">
-                  <TableCell className="font-semibold text-slate-950">{device.name}</TableCell>
-                  <TableCell>
-                    <Badge tone={status.tone}>{status.label}</Badge>
-                  </TableCell>
-                  <TableCell className="text-slate-700">{device.is_primary_sender ? "Sim" : "Não"}</TableCell>
-                  <TableCell className="text-slate-700">{formatPhone(device.connected_phone)}</TableCell>
-                  <TableCell className="text-slate-700">
-                    {device.last_seen_at ? formatDateTime(device.last_seen_at) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {!device.is_primary_sender && device.status !== "revoked" ? (
-                        <button
-                          type="button"
-                          onClick={() => postAction(`/api/whatsapp/devices/${device.id}/primary`)}
-                          className={buttonClass("secondary", "min-h-8 px-3 text-xs")}
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Definir principal
-                        </button>
-                      ) : null}
-                      {device.status !== "revoked" ? (
-                        <button
-                          type="button"
-                          onClick={() => postAction(`/api/whatsapp/devices/${device.id}/revoke`)}
-                          className={buttonClass("danger", "min-h-8 px-3 text-xs")}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Revogar
-                        </button>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
+                <article key={device.id} className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold text-slate-950">{device.name}</h3>
+                      <p className="mt-1 text-xs text-slate-500">{device.is_primary_sender ? "Dispositivo principal" : "Dispositivo ativo"}</p>
                     </div>
-                  </TableCell>
-                </tr>
+                    <Badge tone={status.tone}>{status.label}</Badge>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm">
+                    <div className="rounded-2xl bg-blue-50/65 p-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">Telefone conectado</dt>
+                      <dd className="mt-1 text-slate-800">{formatPhone(device.connected_phone)}</dd>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Última conexão</dt>
+                      <dd className="mt-1 text-slate-800">{device.last_seen_at ? formatDateTime(device.last_seen_at) : "-"}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3">
+                    <DeviceActions device={device} pending={pending} onAction={postAction} mobile />
+                  </div>
+                </article>
               );
             })}
-          </TableBody>
-        </TableShell>
-      )}
+          </div>
 
-      {revokedDevices.length ? (
-        <details className="rounded-2xl border border-blue-100/70 bg-white p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700 outline-none transition hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
-            Ver histórico de dispositivos revogados ({revokedDevices.length})
-          </summary>
-          <div className="mt-4">
+          <div className="hidden md:block">
             <TableShell>
               <TableHead>
                 <tr>
                   <TableHeaderCell>Nome</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
+                  <TableHeaderCell>Principal</TableHeaderCell>
                   <TableHeaderCell>Telefone conectado</TableHeaderCell>
                   <TableHeaderCell>Última conexão</TableHeaderCell>
+                  <TableHeaderCell>Ações</TableHeaderCell>
                 </tr>
               </TableHead>
               <TableBody>
-                {revokedDevices.map((device) => {
+                {activeDevices.map((device) => {
                   const status = getDeviceStatus(device.status);
 
                   return (
-                    <tr key={device.id} className="transition hover:bg-slate-50">
+                    <tr key={device.id} className="transition duration-150 hover:bg-blue-50/48">
                       <TableCell className="font-semibold text-slate-950">{device.name}</TableCell>
                       <TableCell>
                         <Badge tone={status.tone}>{status.label}</Badge>
                       </TableCell>
+                      <TableCell className="text-slate-700">{device.is_primary_sender ? "Sim" : "Não"}</TableCell>
                       <TableCell className="text-slate-700">{formatPhone(device.connected_phone)}</TableCell>
                       <TableCell className="text-slate-700">
                         {device.last_seen_at ? formatDateTime(device.last_seen_at) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <DeviceActions device={device} pending={pending} onAction={postAction} />
                       </TableCell>
                     </tr>
                   );
                 })}
               </TableBody>
             </TableShell>
+          </div>
+        </div>
+      )}
+
+      {revokedDevices.length ? (
+        <details className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 sm:p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700 outline-none transition hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+            Ver histórico de dispositivos revogados ({revokedDevices.length})
+          </summary>
+          <div className="mt-4 grid gap-3">
+            <div className="grid gap-3 md:hidden">
+              {revokedDevices.map((device) => {
+                const status = getDeviceStatus(device.status);
+
+                return (
+                  <article key={device.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-950">{device.name}</h3>
+                        <p className="mt-1 text-xs text-slate-500">{formatPhone(device.connected_phone)}</p>
+                      </div>
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Última conexão: {device.last_seen_at ? formatDateTime(device.last_seen_at) : "-"}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block">
+              <TableShell>
+                <TableHead>
+                  <tr>
+                    <TableHeaderCell>Nome</TableHeaderCell>
+                    <TableHeaderCell>Status</TableHeaderCell>
+                    <TableHeaderCell>Telefone conectado</TableHeaderCell>
+                    <TableHeaderCell>Última conexão</TableHeaderCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {revokedDevices.map((device) => {
+                    const status = getDeviceStatus(device.status);
+
+                    return (
+                      <tr key={device.id} className="transition hover:bg-slate-50">
+                        <TableCell className="font-semibold text-slate-950">{device.name}</TableCell>
+                        <TableCell>
+                          <Badge tone={status.tone}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-slate-700">{formatPhone(device.connected_phone)}</TableCell>
+                        <TableCell className="text-slate-700">
+                          {device.last_seen_at ? formatDateTime(device.last_seen_at) : "-"}
+                        </TableCell>
+                      </tr>
+                    );
+                  })}
+                </TableBody>
+              </TableShell>
+            </div>
           </div>
         </details>
       ) : null}

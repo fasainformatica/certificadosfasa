@@ -42,11 +42,11 @@ export function PaginationBar({
   const nextPage = Math.min(page + 1, totalPages);
 
   return (
-    <div className="flex flex-col gap-2 px-1 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-      <p>
+    <div className="flex flex-col gap-2 rounded-2xl border border-blue-100/70 bg-white/70 px-3 py-2 text-sm text-slate-500 shadow-sm shadow-blue-950/5 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-center sm:text-left">
         Mostrando {from}-{to} de {total} {itemLabel}.
       </p>
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex">
         <Link
           href={buildHref(basePath, searchParams, previousPage, pageSize)}
           aria-disabled={page <= 1}
@@ -54,7 +54,7 @@ export function PaginationBar({
         >
           Anterior
         </Link>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-center text-xs font-semibold text-slate-700">
           Página {page} de {totalPages}
         </span>
         <Link

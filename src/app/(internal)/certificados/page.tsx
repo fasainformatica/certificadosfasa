@@ -8,9 +8,9 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { requireInternalUser } from "@/lib/auth/rbac";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { CERTIFICATE_STATUS_LABEL, CERTIFICATE_STATUSES } from "@/lib/certificados/status-labels";
-import { requireInternalUser } from "@/lib/auth/rbac";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -115,24 +115,20 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
       <SectionHeader
         title="Certificados"
         description="Acompanhe vencimentos, status e ações de renovação dos certificados cadastrados."
-        actions={user.role === "admin" ? (
-          <>
-            <Link
-              href="/certificados/importar"
-              className={buttonClass("secondary")}
-            >
-              <FolderUp aria-hidden="true" className="h-4 w-4" />
-              Carga em massa
-            </Link>
-            <Link
-              href="/certificados/novo"
-              className={buttonClass("primary")}
-            >
-              <Upload aria-hidden="true" className="h-4 w-4" />
-              Novo upload
-            </Link>
-          </>
-        ) : null}
+        actions={
+          user.role === "admin" ? (
+            <>
+              <Link href="/certificados/importar" className={buttonClass("secondary", "w-full sm:w-auto")}>
+                <FolderUp aria-hidden="true" className="h-4 w-4" />
+                Carga em massa
+              </Link>
+              <Link href="/certificados/novo" className={buttonClass("primary", "w-full sm:w-auto")}>
+                <Upload aria-hidden="true" className="h-4 w-4" />
+                Novo upload
+              </Link>
+            </>
+          ) : null
+        }
       />
       <FilterBar columns="md:grid-cols-[minmax(320px,1fr)_240px_auto]">
         <input
@@ -142,11 +138,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           placeholder="Buscar por titular ou CNPJ"
           className={inputClass}
         />
-        <select
-          name="status"
-          defaultValue={selectedStatus}
-          className={selectClass}
-        >
+        <select name="status" defaultValue={selectedStatus} className={selectClass}>
           <option value="">Todos os status</option>
           {CERTIFICATE_STATUSES.map((status) => (
             <option key={status} value={status}>
@@ -154,10 +146,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
             </option>
           ))}
         </select>
-        <button
-          type="submit"
-          className={buttonClass("secondary", "h-10")}
-        >
+        <button type="submit" className={buttonClass("secondary", "h-10")}>
           Filtrar
         </button>
       </FilterBar>
@@ -165,48 +154,90 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
       {!certificadosWithStatus.length ? (
         <EmptyState title="Nenhum certificado encontrado" description="Ajuste os filtros ou envie um novo certificado para iniciar o controle." />
       ) : (
-        <div className="grid gap-2.5">
-        <TableShell>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Titular</TableHeaderCell>
-              <TableHeaderCell>Cliente</TableHeaderCell>
-              <TableHeaderCell>CNPJ</TableHeaderCell>
-              <TableHeaderCell>Vencimento</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>Último upload</TableHeaderCell>
-              <TableHeaderCell>Ações</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
+        <div className="grid gap-3">
+          <div className="grid gap-3 md:hidden">
             {certificadosWithStatus.map((certificado) => (
-              <tr key={certificado.id} className="transition duration-200 hover:bg-blue-50/48">
-                <TableCell className="font-semibold text-slate-950">{formatCertificateTitle(certificado.nome_titular, certificado.cnpj)}</TableCell>
-                <TableCell className="text-slate-700">{certificado.clientes?.nome_razao_social ?? "-"}</TableCell>
-                <TableCell className="text-slate-700">{formatCnpj(certificado.cnpj)}</TableCell>
-                <TableCell className="text-slate-700">{formatDate(certificado.data_vencimento)}</TableCell>
-                <TableCell>
+              <article
+                key={certificado.id}
+                className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-slate-950">
+                      {formatCertificateTitle(certificado.nome_titular, certificado.cnpj)}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">{certificado.clientes?.nome_razao_social ?? "Cliente não vinculado"}</p>
+                  </div>
                   <StatusBadge status={certificado.status} />
-                </TableCell>
-                <TableCell className="text-slate-700">{formatDateTime(certificado.ultimo_upload_em)}</TableCell>
-                <TableCell>
-                  <Link className={buttonClass("secondary", "min-h-8 px-3 text-xs")} href={`/certificados/${certificado.id}`}>
-                    Abrir detalhes
-                  </Link>
-                </TableCell>
-              </tr>
+                </div>
+
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-2xl bg-blue-50/65 p-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">CNPJ</dt>
+                    <dd className="mt-1 text-slate-800">{formatCnpj(certificado.cnpj)}</dd>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Vencimento</dt>
+                    <dd className="mt-1 font-semibold text-slate-950">{formatDate(certificado.data_vencimento)}</dd>
+                  </div>
+                  <div className="col-span-2 rounded-2xl bg-slate-50 p-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Último upload</dt>
+                    <dd className="mt-1 text-slate-800">{formatDateTime(certificado.ultimo_upload_em)}</dd>
+                  </div>
+                </dl>
+
+                <Link className={buttonClass("secondary", "mt-3 min-h-10 w-full px-3 text-sm")} href={`/certificados/${certificado.id}`}>
+                  Abrir detalhes
+                </Link>
+              </article>
             ))}
-          </TableBody>
-        </TableShell>
-        <PaginationBar
-          basePath="/certificados"
-          searchParams={{ q: search || undefined, status: selectedStatus || undefined }}
-          page={paginationMeta.page}
-          pageSize={paginationMeta.pageSize}
-          total={paginationMeta.total}
-          totalPages={paginationMeta.totalPages}
-          itemLabel="certificados"
-        />
+          </div>
+
+          <div className="hidden md:block">
+            <TableShell>
+              <TableHead>
+                <tr>
+                  <TableHeaderCell>Titular</TableHeaderCell>
+                  <TableHeaderCell>Cliente</TableHeaderCell>
+                  <TableHeaderCell>CNPJ</TableHeaderCell>
+                  <TableHeaderCell>Vencimento</TableHeaderCell>
+                  <TableHeaderCell>Status</TableHeaderCell>
+                  <TableHeaderCell>Último upload</TableHeaderCell>
+                  <TableHeaderCell>Ações</TableHeaderCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {certificadosWithStatus.map((certificado) => (
+                  <tr key={certificado.id} className="transition duration-200 hover:bg-blue-50/48">
+                    <TableCell className="font-semibold text-slate-950">
+                      {formatCertificateTitle(certificado.nome_titular, certificado.cnpj)}
+                    </TableCell>
+                    <TableCell className="text-slate-700">{certificado.clientes?.nome_razao_social ?? "-"}</TableCell>
+                    <TableCell className="text-slate-700">{formatCnpj(certificado.cnpj)}</TableCell>
+                    <TableCell className="text-slate-700">{formatDate(certificado.data_vencimento)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={certificado.status} />
+                    </TableCell>
+                    <TableCell className="text-slate-700">{formatDateTime(certificado.ultimo_upload_em)}</TableCell>
+                    <TableCell>
+                      <Link className={buttonClass("secondary", "min-h-8 px-3 text-xs")} href={`/certificados/${certificado.id}`}>
+                        Abrir detalhes
+                      </Link>
+                    </TableCell>
+                  </tr>
+                ))}
+              </TableBody>
+            </TableShell>
+          </div>
+          <PaginationBar
+            basePath="/certificados"
+            searchParams={{ q: search || undefined, status: selectedStatus || undefined }}
+            page={paginationMeta.page}
+            pageSize={paginationMeta.pageSize}
+            total={paginationMeta.total}
+            totalPages={paginationMeta.totalPages}
+            itemLabel="certificados"
+          />
         </div>
       )}
     </section>

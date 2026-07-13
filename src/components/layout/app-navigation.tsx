@@ -29,13 +29,17 @@ const navigationIcons = {
   settings: Settings,
 };
 
+function getMobileLabel(label: string) {
+  return label === "WhatsApp Bot" ? "WhatsApp" : label;
+}
+
 export function AppNavigation({ items }: { items: NavigationItem[] }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Navegação principal" className="lg:sticky lg:top-[76px] lg:self-start">
-      <div className="flex gap-2 overflow-x-auto rounded-3xl border border-blue-100/75 bg-white/90 p-2 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 lg:min-h-[calc(100vh-94px)] lg:flex-col lg:overflow-visible lg:p-3">
-        <div className="flex gap-2 lg:flex-col lg:gap-1.5">
+    <>
+      <nav aria-label="Navegação principal" className="hidden lg:sticky lg:top-[76px] lg:block lg:self-start">
+        <div className="flex min-h-[calc(100vh-94px)] flex-col gap-1.5 rounded-3xl border border-blue-100/75 bg-white/90 p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80">
           {items.map((item) => {
             const Icon = navigationIcons[item.icon];
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -56,7 +60,9 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
                 <span
                   className={cn(
                     "relative flex h-8 w-8 items-center justify-center rounded-2xl transition duration-150 group-hover:scale-105",
-                    active ? "bg-white/20 text-white ring-1 ring-white/25" : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-blue-600",
+                    active
+                      ? "bg-white/20 text-white ring-1 ring-white/25"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-blue-600",
                   )}
                 >
                   <Icon aria-hidden="true" className="h-[17px] w-[17px]" />
@@ -65,10 +71,7 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
               </Link>
             );
           })}
-        </div>
-
-        <div className="hidden lg:mt-auto lg:block">
-          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+          <div className="mt-auto rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100">
               <Headphones aria-hidden="true" className="h-5 w-5" />
             </div>
@@ -82,7 +85,39 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
             </a>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <nav aria-label="Navegação principal" className="fixed inset-x-2 bottom-2 z-40 lg:hidden">
+        <div
+          className={cn(
+            "grid gap-1 rounded-3xl border border-blue-100/80 bg-white/94 p-1.5 shadow-2xl shadow-blue-950/15 ring-1 ring-white/80 backdrop-blur-xl",
+            items.length >= 6 ? "grid-cols-6" : "grid-cols-5",
+          )}
+        >
+          {items.map((item) => {
+            const Icon = navigationIcons[item.icon];
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold leading-none outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+                  active
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                    : "text-slate-500 active:bg-blue-50 active:text-blue-700",
+                )}
+              >
+                <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />
+                <span className="max-w-full truncate">{getMobileLabel(item.label)}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

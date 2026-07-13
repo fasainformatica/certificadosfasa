@@ -12,9 +12,9 @@ export function buttonClass(variant: "primary" | "secondary" | "danger" | "ghost
 }
 
 export const inputClass =
-  "h-11 rounded-2xl border border-blue-100/90 bg-white/90 px-3.5 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
+  "h-11 w-full rounded-2xl border border-blue-100/90 bg-white/90 px-3.5 text-sm text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
 
 export const selectClass = cn(inputClass, "fasa-select");
 
 export const textAreaClass =
-  "min-h-28 resize-y rounded-2xl border border-blue-100/90 bg-white/90 px-3.5 py-3 text-sm leading-6 text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
+  "min-h-28 w-full resize-y rounded-2xl border border-blue-100/90 bg-white/90 px-3.5 py-3 text-sm leading-6 text-slate-950 shadow-sm shadow-blue-950/5 outline-none transition duration-200 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";

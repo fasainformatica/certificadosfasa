@@ -61,10 +61,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           placeholder="Buscar por razão social ou CNPJ"
           className={inputClass}
         />
-        <button
-          type="submit"
-          className={buttonClass("secondary", "h-10")}
-        >
+        <button type="submit" className={buttonClass("secondary", "h-10")}>
           Filtrar
         </button>
       </FilterBar>
@@ -72,40 +69,75 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       {!clientes?.length ? (
         <EmptyState title="Nenhum cliente encontrado" description="Clientes aparecem aqui depois que um certificado é cadastrado ou renovado." />
       ) : (
-        <div className="grid gap-2.5">
-        <TableShell>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Razão social</TableHeaderCell>
-              <TableHeaderCell>CNPJ</TableHeaderCell>
-              <TableHeaderCell>E-mail</TableHeaderCell>
-              <TableHeaderCell>WhatsApp</TableHeaderCell>
-              <TableHeaderCell>Responsável</TableHeaderCell>
-              <TableHeaderCell>Atualizado</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
+        <div className="grid gap-3">
+          <div className="grid gap-3 md:hidden">
             {clientes.map((cliente) => (
-              <tr key={cliente.id} className="transition duration-200 hover:bg-blue-50/48">
-                <TableCell className="font-semibold text-slate-950">{cliente.nome_razao_social}</TableCell>
-                <TableCell className="text-slate-700">{formatCnpj(cliente.cnpj)}</TableCell>
-                <TableCell className="text-slate-700">{cliente.email ?? "-"}</TableCell>
-                <TableCell className="text-slate-700">{formatPhone(cliente.whatsapp ?? cliente.telefone)}</TableCell>
-                <TableCell className="text-slate-700">{cliente.responsavel ?? "-"}</TableCell>
-                <TableCell className="text-slate-700">{formatDateTime(cliente.updated_at)}</TableCell>
-              </tr>
+              <article
+                key={cliente.id}
+                className="rounded-2xl border border-blue-100/70 bg-white p-3 shadow-sm shadow-blue-950/5 ring-1 ring-white/80"
+              >
+                <h3 className="text-sm font-semibold leading-5 text-slate-950">{cliente.nome_razao_social}</h3>
+                <p className="mt-1 text-xs text-slate-500">{formatCnpj(cliente.cnpj)}</p>
+
+                <dl className="mt-3 grid gap-2 text-sm">
+                  <div className="rounded-2xl bg-blue-50/65 p-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">WhatsApp</dt>
+                    <dd className="mt-1 text-slate-800">{formatPhone(cliente.whatsapp ?? cliente.telefone)}</dd>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl bg-slate-50 p-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">E-mail</dt>
+                      <dd className="mt-1 break-words text-slate-800">{cliente.email ?? "-"}</dd>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Responsável</dt>
+                      <dd className="mt-1 text-slate-800">{cliente.responsavel ?? "-"}</dd>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Atualizado</dt>
+                    <dd className="mt-1 text-slate-800">{formatDateTime(cliente.updated_at)}</dd>
+                  </div>
+                </dl>
+              </article>
             ))}
-          </TableBody>
-        </TableShell>
-        <PaginationBar
-          basePath="/clientes"
-          searchParams={{ q: search || undefined }}
-          page={paginationMeta.page}
-          pageSize={paginationMeta.pageSize}
-          total={paginationMeta.total}
-          totalPages={paginationMeta.totalPages}
-          itemLabel="clientes"
-        />
+          </div>
+
+          <div className="hidden md:block">
+            <TableShell>
+              <TableHead>
+                <tr>
+                  <TableHeaderCell>Razão social</TableHeaderCell>
+                  <TableHeaderCell>CNPJ</TableHeaderCell>
+                  <TableHeaderCell>E-mail</TableHeaderCell>
+                  <TableHeaderCell>WhatsApp</TableHeaderCell>
+                  <TableHeaderCell>Responsável</TableHeaderCell>
+                  <TableHeaderCell>Atualizado</TableHeaderCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {clientes.map((cliente) => (
+                  <tr key={cliente.id} className="transition duration-200 hover:bg-blue-50/48">
+                    <TableCell className="font-semibold text-slate-950">{cliente.nome_razao_social}</TableCell>
+                    <TableCell className="text-slate-700">{formatCnpj(cliente.cnpj)}</TableCell>
+                    <TableCell className="text-slate-700">{cliente.email ?? "-"}</TableCell>
+                    <TableCell className="text-slate-700">{formatPhone(cliente.whatsapp ?? cliente.telefone)}</TableCell>
+                    <TableCell className="text-slate-700">{cliente.responsavel ?? "-"}</TableCell>
+                    <TableCell className="text-slate-700">{formatDateTime(cliente.updated_at)}</TableCell>
+                  </tr>
+                ))}
+              </TableBody>
+            </TableShell>
+          </div>
+          <PaginationBar
+            basePath="/clientes"
+            searchParams={{ q: search || undefined }}
+            page={paginationMeta.page}
+            pageSize={paginationMeta.pageSize}
+            total={paginationMeta.total}
+            totalPages={paginationMeta.totalPages}
+            itemLabel="clientes"
+          />
         </div>
       )}
     </section>
