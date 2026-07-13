@@ -97,7 +97,6 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            {!empty ? <Tooltip content={<ChartTooltip />} /> : null}
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

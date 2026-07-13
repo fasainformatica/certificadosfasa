@@ -1,4 +1,5 @@
-import { BadgeCheck, Bell } from "lucide-react";
+import { BadgeCheck, Bell, Settings } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppNavigation } from "@/components/layout/app-navigation";
@@ -49,17 +50,14 @@ export function AppShell({ user, children }: AppShellProps) {
             <div className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-blue-100 bg-white text-slate-500 shadow-sm shadow-blue-950/5 transition hover:-translate-y-0.5 hover:text-blue-700 sm:flex">
               <Bell aria-hidden="true" className="h-4 w-4" />
             </div>
-            <div className="hidden max-w-[280px] rounded-2xl border border-blue-100/80 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm shadow-blue-950/5 sm:block">
-              <span className="inline-block max-w-[170px] truncate align-bottom font-medium text-slate-950">
-                {user.email ?? "Usuário interno"}
-              </span>
-              <span className="ml-2 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
-                {user.role === "admin" ? "Administrador" : "Financeiro"}
-              </span>
-            </div>
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-100 sm:hidden">
-              {user.role === "admin" ? "Admin" : "Financeiro"}
-            </span>
+            <Link
+              href="/configuracoes"
+              className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-blue-100 bg-white text-slate-500 shadow-sm shadow-blue-950/5 transition hover:-translate-y-0.5 hover:text-blue-700 sm:flex"
+              aria-label="Abrir configurações"
+              title="Configurações"
+            >
+              <Settings aria-hidden="true" className="h-4 w-4" />
+            </Link>
             <LogoutButton />
           </div>
         </div>

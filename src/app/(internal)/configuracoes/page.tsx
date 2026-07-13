@@ -42,6 +42,8 @@ export default async function ConfiguracoesPage() {
       />
       <ConfiguracoesForm
         canEdit={user.role === "admin"}
+        userEmail={user.email}
+        userRole={user.role}
         initialSettings={{
           enabled: notificationSettings?.enabled ?? false,
           expired_notifications_enabled: notificationSettings?.expired_notifications_enabled ?? true,

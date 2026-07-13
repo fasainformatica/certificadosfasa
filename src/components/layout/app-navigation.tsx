@@ -3,7 +3,6 @@
 import {
   BarChart3,
   FileKey2,
-  Headphones,
   MessageSquareText,
   Send,
   Settings,

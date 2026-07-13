@@ -89,12 +89,16 @@ function getErrorMessage(payload: ApiErrorPayload | null, fallback: string) {
 
 export function ConfiguracoesForm({
   canEdit,
+  userEmail,
+  userRole,
   initialSettings,
   initialExpiringTemplate,
   initialExpiredTemplate,
   initialRecipients,
 }: {
   canEdit: boolean;
+  userEmail: string | null;
+  userRole: "admin" | "financeiro";
   initialSettings: SettingsFormState;
   initialExpiringTemplate: TemplateFormState;
   initialExpiredTemplate: TemplateFormState;
@@ -282,6 +286,16 @@ export function ConfiguracoesForm({
 
   return (
     <div className="grid gap-4">
+      <section className="rounded-3xl border border-blue-100/70 bg-white/84 p-4 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-950">Conta e acesso</h3>
+            <p className="mt-1 break-all text-sm text-slate-600">{userEmail ?? "Usuário interno"}</p>
+          </div>
+          <Badge tone="blue">{userRole === "admin" ? "Administrador" : "Financeiro"}</Badge>
+        </div>
+      </section>
+
       <div className="flex gap-2 overflow-x-auto rounded-3xl border border-white/75 bg-white/70 p-2 shadow-sm shadow-blue-950/5 ring-1 ring-blue-100/45 backdrop-blur-xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
