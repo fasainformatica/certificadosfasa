@@ -1,3 +1,4 @@
+import { FasaLogo } from "@/components/brand/fasa-logo";
 import { hashPublicDownloadToken } from "@/lib/download/token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -24,9 +25,7 @@ export default async function PublicDownloadPage({ params }: PublicDownloadPageP
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f6f9ff] px-4 py-10">
       <section className="w-full max-w-md rounded-3xl border border-blue-100/70 bg-white p-6 shadow-xl shadow-blue-950/10 ring-1 ring-white/80">
-        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-lg font-semibold text-white shadow-sm shadow-blue-600/25">
-          F
-        </div>
+        <FasaLogo className="mb-5 h-12 w-12" priority />
         <p className="text-sm font-semibold text-blue-700">Fasa Informática</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-normal text-slate-950">Download protegido</h1>
         {available ? (

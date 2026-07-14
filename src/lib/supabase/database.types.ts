@@ -7,7 +7,7 @@ export type Json =
   | Json[];
 
 export type UserRole = "admin" | "financeiro";
-export type CertificadoStatus = "ativo" | "vencendo" | "vencido" | "substituido";
+export type CertificadoStatus = "ativo" | "vencendo" | "vencido" | "invalido";
 export type NotificationEventStatus =
   | "pending"
   | "reserved"
@@ -581,6 +581,7 @@ export type Database = {
           p_hash_arquivo: string;
           p_criado_por: string;
           p_ip: string | null;
+          p_certificado_id_existente?: string | null;
         };
         Returns: string;
       };

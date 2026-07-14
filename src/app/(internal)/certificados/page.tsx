@@ -7,8 +7,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge, StatusBadge } from "@/components/ui/status-badge";
 import { requireInternalUser } from "@/lib/auth/rbac";
+import { wasCertificateRenewed } from "@/lib/certificados/renewal";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { CERTIFICATE_STATUS_LABEL, CERTIFICATE_STATUSES } from "@/lib/certificados/status-labels";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
@@ -42,20 +43,20 @@ type FilterableQuery = {
 function applyStatusFilter<T extends FilterableQuery>(query: T, status: CertificadoStatus | "", today: string, warningDate: string) {
   const builder = query as FilterableQuery;
 
-  if (status === "substituido") {
-    return builder.eq("status", "substituido") as T;
-  }
-
   if (status === "vencido") {
-    return builder.neq("status", "substituido").lt("data_vencimento", today) as T;
+    return builder.lt("data_vencimento", today) as T;
   }
 
   if (status === "vencendo") {
-    return builder.neq("status", "substituido").gte("data_vencimento", today).lte("data_vencimento", warningDate) as T;
+    return builder.gte("data_vencimento", today).lte("data_vencimento", warningDate) as T;
   }
 
   if (status === "ativo") {
-    return builder.neq("status", "substituido").gt("data_vencimento", warningDate) as T;
+    return builder.gt("data_vencimento", warningDate) as T;
+  }
+
+  if (status === "invalido") {
+    return builder.eq("status", "invalido") as T;
   }
 
   return query;
@@ -84,7 +85,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   let query = supabase
     .from("certificados")
     .select(
-      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, nome_arquivo_original, ultimo_upload_em, clientes(nome_razao_social)",
+      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, nome_arquivo_original, ultimo_upload_em, created_at, clientes(nome_razao_social)",
       { count: "exact" },
     )
     .order("data_vencimento", { ascending: true })
@@ -103,10 +104,10 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   const { data: certificados, count } = await query;
   const certificadosWithStatus = (certificados ?? []).map((certificado) => ({
     ...certificado,
-    status:
-      certificado.status === "substituido"
-        ? certificado.status
-        : calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone),
+    status: certificado.status === "invalido"
+      ? certificado.status
+      : calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone),
+    renovado: wasCertificateRenewed(certificado.created_at, certificado.ultimo_upload_em),
   }));
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
 
@@ -168,7 +169,10 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                     </h3>
                     <p className="mt-1 text-xs text-slate-500">{certificado.clientes?.nome_razao_social ?? "Cliente não vinculado"}</p>
                   </div>
-                  <StatusBadge status={certificado.status} />
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    <StatusBadge status={certificado.status} />
+                    {certificado.renovado ? <Badge tone="blue">Atualizado</Badge> : null}
+                  </div>
                 </div>
 
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -216,7 +220,10 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                     <TableCell className="text-slate-700">{formatCnpj(certificado.cnpj)}</TableCell>
                     <TableCell className="text-slate-700">{formatDate(certificado.data_vencimento)}</TableCell>
                     <TableCell>
-                      <StatusBadge status={certificado.status} />
+                      <div className="flex flex-wrap gap-1.5">
+                        <StatusBadge status={certificado.status} />
+                        {certificado.renovado ? <Badge tone="blue">Atualizado</Badge> : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-slate-700">{formatDateTime(certificado.ultimo_upload_em)}</TableCell>
                     <TableCell>

@@ -12,7 +12,7 @@ begin
   end if;
 
   if not exists (select 1 from pg_type where typname = 'certificado_status') then
-    create type public.certificado_status as enum ('ativo', 'vencendo', 'vencido', 'substituido');
+    create type public.certificado_status as enum ('ativo', 'vencendo', 'vencido', 'invalido');
   end if;
 end $$;
 
@@ -207,12 +207,10 @@ create index if not exists certificados_status_idx on public.certificados (statu
 create index if not exists certificados_cliente_id_idx on public.certificados (cliente_id);
 create index if not exists certificados_hash_arquivo_idx on public.certificados (hash_arquivo);
 create index if not exists certificados_storage_path_idx on public.certificados (storage_path);
-create unique index if not exists certificados_um_ativo_por_cliente_idx
-  on public.certificados (cliente_id)
-  where status = 'ativo';
-create unique index if not exists certificados_um_atual_por_cliente_idx
-  on public.certificados (cliente_id)
-  where status in ('ativo', 'vencendo', 'vencido');
+drop index if exists public.certificados_um_ativo_por_cliente_idx;
+drop index if exists public.certificados_um_atual_por_cliente_idx;
+create unique index if not exists certificados_um_por_cliente_idx
+  on public.certificados (cliente_id);
 create unique index if not exists links_download_token_hash_key on public.links_download (token_hash);
 create index if not exists links_download_certificado_id_idx on public.links_download (certificado_id);
 create unique index if not exists links_download_um_ativo_por_certificado_idx
@@ -345,7 +343,10 @@ as $$
 $$;
 
 drop function if exists public.registrar_upload_certificado(
-  text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet
+  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet
+);
+drop function if exists public.registrar_upload_certificado(
+  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet, uuid
 );
 
 create or replace function public.registrar_upload_certificado(
@@ -367,7 +368,8 @@ create or replace function public.registrar_upload_certificado(
   p_nome_arquivo_original text,
   p_hash_arquivo text,
   p_criado_por uuid,
-  p_ip inet
+  p_ip inet,
+  p_certificado_id_existente uuid default null
 )
 returns uuid
 language plpgsql
@@ -377,95 +379,153 @@ as $$
 declare
   v_cliente_id uuid;
   v_certificado_id uuid;
-  v_existing_latest_vencimento date;
-  v_insert_status public.certificado_status := p_status;
+  v_old_data_vencimento date;
+  v_old_hash_arquivo text;
+  v_old_storage_path text;
+  v_is_update boolean := false;
 begin
   if p_cnpj is null or p_cnpj !~ '^[0-9]{14}$' then
     raise exception 'cnpj_invalido';
   end if;
 
-  insert into public.clientes (
-    cnpj,
-    nome_razao_social,
-    email,
-    telefone,
-    whatsapp,
-    responsavel,
-    observacoes
-  )
-  values (
-    p_cnpj,
-    nullif(trim(p_nome_razao_social), ''),
-    nullif(trim(coalesce(p_email, '')), ''),
-    nullif(trim(coalesce(p_telefone, '')), ''),
-    nullif(trim(coalesce(p_whatsapp, '')), ''),
-    nullif(trim(coalesce(p_responsavel, '')), ''),
-    nullif(trim(coalesce(p_observacoes, '')), '')
-  )
-  on conflict (cnpj) do update
+  if p_certificado_id_existente is not null then
+    select id, cliente_id, data_vencimento, hash_arquivo, storage_path
+    into v_certificado_id, v_cliente_id, v_old_data_vencimento, v_old_hash_arquivo, v_old_storage_path
+    from public.certificados
+    where id = p_certificado_id_existente
+    for update;
+
+    if v_certificado_id is null then
+      raise exception 'certificado_nao_encontrado';
+    end if;
+
+    if exists (
+      select 1
+      from public.clientes
+      where cnpj = p_cnpj
+        and id <> v_cliente_id
+    ) then
+      raise exception 'cnpj_ja_vinculado';
+    end if;
+
+    update public.clientes
     set
-      nome_razao_social = coalesce(nullif(trim(excluded.nome_razao_social), ''), public.clientes.nome_razao_social),
-      email = excluded.email,
-      telefone = excluded.telefone,
-      whatsapp = excluded.whatsapp,
-      responsavel = excluded.responsavel,
-      observacoes = excluded.observacoes,
+      cnpj = p_cnpj,
+      nome_razao_social = coalesce(nullif(trim(p_nome_razao_social), ''), public.clientes.nome_razao_social),
+      email = nullif(trim(coalesce(p_email, '')), ''),
+      telefone = nullif(trim(coalesce(p_telefone, '')), ''),
+      whatsapp = nullif(trim(coalesce(p_whatsapp, '')), ''),
+      responsavel = nullif(trim(coalesce(p_responsavel, '')), ''),
+      observacoes = nullif(trim(coalesce(p_observacoes, '')), ''),
       updated_at = now()
-  returning id into v_cliente_id;
-
-  select max(data_vencimento)
-  into v_existing_latest_vencimento
-  from public.certificados
-  where cliente_id = v_cliente_id;
-
-  if v_existing_latest_vencimento is null or p_data_vencimento >= v_existing_latest_vencimento then
-    update public.certificados
-    set status = 'substituido', updated_at = now()
-    where cliente_id = v_cliente_id
-      and status <> 'substituido';
+    where id = v_cliente_id;
   else
-    v_insert_status := 'substituido';
+    insert into public.clientes (
+      cnpj,
+      nome_razao_social,
+      email,
+      telefone,
+      whatsapp,
+      responsavel,
+      observacoes
+    )
+    values (
+      p_cnpj,
+      nullif(trim(p_nome_razao_social), ''),
+      nullif(trim(coalesce(p_email, '')), ''),
+      nullif(trim(coalesce(p_telefone, '')), ''),
+      nullif(trim(coalesce(p_whatsapp, '')), ''),
+      nullif(trim(coalesce(p_responsavel, '')), ''),
+      nullif(trim(coalesce(p_observacoes, '')), '')
+    )
+    on conflict (cnpj) do update
+      set
+        nome_razao_social = coalesce(nullif(trim(excluded.nome_razao_social), ''), public.clientes.nome_razao_social),
+        email = excluded.email,
+        telefone = excluded.telefone,
+        whatsapp = excluded.whatsapp,
+        responsavel = excluded.responsavel,
+        observacoes = excluded.observacoes,
+        updated_at = now()
+    returning id into v_cliente_id;
+
+    select id, data_vencimento, hash_arquivo, storage_path
+    into v_certificado_id, v_old_data_vencimento, v_old_hash_arquivo, v_old_storage_path
+    from public.certificados
+    where cliente_id = v_cliente_id
+    order by updated_at desc
+    limit 1
+    for update;
   end if;
 
-  insert into public.certificados (
-    cliente_id,
-    cnpj,
-    nome_titular,
-    senha_ciphertext,
-    senha_iv,
-    senha_auth_tag,
-    data_emissao,
-    data_vencimento,
-    status,
-    storage_path,
-    nome_arquivo_original,
-    hash_arquivo,
-    criado_por
-  )
-  values (
-    v_cliente_id,
-    p_cnpj,
-    p_nome_titular,
-    p_senha_ciphertext,
-    p_senha_iv,
-    p_senha_auth_tag,
-    p_data_emissao,
-    p_data_vencimento,
-    v_insert_status,
-    p_storage_path,
-    p_nome_arquivo_original,
-    p_hash_arquivo,
-    p_criado_por
-  )
-  returning id into v_certificado_id;
+  if v_certificado_id is not null then
+    v_is_update := true;
+
+    update public.certificados
+    set
+      cnpj = p_cnpj,
+      nome_titular = p_nome_titular,
+      senha_ciphertext = p_senha_ciphertext,
+      senha_iv = p_senha_iv,
+      senha_auth_tag = p_senha_auth_tag,
+      data_emissao = p_data_emissao,
+      data_vencimento = p_data_vencimento,
+      status = p_status,
+      storage_path = p_storage_path,
+      nome_arquivo_original = p_nome_arquivo_original,
+      hash_arquivo = p_hash_arquivo,
+      ultimo_upload_em = now(),
+      updated_at = now()
+    where id = v_certificado_id;
+  else
+    insert into public.certificados (
+      cliente_id,
+      cnpj,
+      nome_titular,
+      senha_ciphertext,
+      senha_iv,
+      senha_auth_tag,
+      data_emissao,
+      data_vencimento,
+      status,
+      storage_path,
+      nome_arquivo_original,
+      hash_arquivo,
+      criado_por
+    )
+    values (
+      v_cliente_id,
+      p_cnpj,
+      p_nome_titular,
+      p_senha_ciphertext,
+      p_senha_iv,
+      p_senha_auth_tag,
+      p_data_emissao,
+      p_data_vencimento,
+      p_status,
+      p_storage_path,
+      p_nome_arquivo_original,
+      p_hash_arquivo,
+      p_criado_por
+    )
+    returning id into v_certificado_id;
+  end if;
 
   insert into public.audit_logs (user_id, acao, certificado_id, ip, metadata)
   values (
     p_criado_por,
-    'upload_certificado',
+    case when v_is_update then 'renovacao_certificado' else 'upload_certificado' end,
     v_certificado_id,
     p_ip,
-    jsonb_build_object('cnpj', p_cnpj, 'hash_arquivo', p_hash_arquivo)
+    jsonb_build_object(
+      'cnpj', p_cnpj,
+      'hash_arquivo', p_hash_arquivo,
+      'renovado', v_is_update,
+      'validade_anterior', v_old_data_vencimento,
+      'nova_validade', p_data_vencimento,
+      'hash_anterior', v_old_hash_arquivo,
+      'storage_path_anterior', v_old_storage_path
+    )
   );
 
   return v_certificado_id;
@@ -531,10 +591,10 @@ end;
 $$;
 
 revoke all on function public.registrar_upload_certificado(
-  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet
+  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet, uuid
 ) from public, anon, authenticated;
 grant execute on function public.registrar_upload_certificado(
-  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet
+  text, text, text, text, text, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet, uuid
 ) to service_role;
 
 revoke all on function public.excluir_certificado_com_cliente(uuid, uuid, inet, jsonb) from public, anon, authenticated;
@@ -1202,7 +1262,7 @@ begin
       when c.data_vencimento <= p_today + warning_days then 'vencendo'::public.certificado_status
       else 'ativo'::public.certificado_status
     end
-  where c.status <> 'substituido'
+  where c.status <> 'invalido'
     and c.status is distinct from case
       when c.data_vencimento < p_today then 'vencido'::public.certificado_status
       when c.data_vencimento <= p_today + warning_days then 'vencendo'::public.certificado_status
@@ -1257,7 +1317,7 @@ certs as (
   from public.certificados c
   left join public.clientes cl on cl.id = c.cliente_id
   cross join today_value tv
-  where c.status <> 'substituido'
+  where c.status <> 'invalido'
 ),
 cert_counts as (
   select
@@ -1546,7 +1606,8 @@ begin
         (
           ne.type = 'certificate_expiring'
           and c.id is not null
-          and c.status in ('ativo','vencendo')
+          and c.status <> 'invalido'::public.certificado_status
+          and c.data_vencimento >= current_today
         )
         or (
           ne.type = 'certificate_expired'

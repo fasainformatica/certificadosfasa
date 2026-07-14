@@ -3,6 +3,9 @@ import createBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  turbopack: {
+    root: process.cwd(),
+  },
 };
 
 const withBundleAnalyzer = createBundleAnalyzer({

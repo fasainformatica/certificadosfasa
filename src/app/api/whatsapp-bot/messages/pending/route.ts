@@ -41,6 +41,12 @@ type CandidateEvent = {
   reservation_expires_at: string | null;
 };
 
+type ActiveCertificateCandidate = {
+  id: string;
+  data_vencimento: string;
+  status: string;
+};
+
 function isRetryDue(event: CandidateEvent, now: Date) {
   return event.status !== "retry" || !event.next_retry_at || new Date(event.next_retry_at).getTime() <= now.getTime();
 }
@@ -105,15 +111,19 @@ async function reservePendingMessagesFallback({
   if (certificadoIds.length > 0) {
     const { data, error } = await admin
       .from("certificados")
-      .select("id")
+      .select("id, data_vencimento, status")
       .in("id", certificadoIds)
-      .in("status", ["ativo", "vencendo"]);
+      .neq("status", "invalido");
 
     if (error) {
       throw new Error(error.message);
     }
 
-    for (const certificado of data ?? []) {
+    for (const certificado of (data ?? []) as ActiveCertificateCandidate[]) {
+      if (certificado.data_vencimento < today) {
+        continue;
+      }
+
       activeCertificados.add(certificado.id);
     }
   }

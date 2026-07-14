@@ -215,7 +215,7 @@ async function loadDashboardMetricsFallback(admin: AdminClient): Promise<Dashboa
       admin
         .from("certificados")
         .select("id, cnpj, nome_titular, data_vencimento, status, clientes(nome_razao_social)")
-        .neq("status", "substituido")
+        .neq("status", "invalido")
         .order("data_vencimento", { ascending: true })
         .limit(1000),
       admin

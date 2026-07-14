@@ -1,7 +1,8 @@
-import { BadgeCheck, Bell, Settings } from "lucide-react";
+import { Bell, Settings } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { FasaLogo } from "@/components/brand/fasa-logo";
 import { AppNavigation } from "@/components/layout/app-navigation";
 import type { NavigationItem } from "@/components/layout/app-navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
@@ -35,9 +36,7 @@ export function AppShell({ user, children }: AppShellProps) {
       <header className="sticky top-0 z-30 border-b border-blue-100/75 bg-white/90 shadow-sm shadow-blue-950/5 backdrop-blur-xl">
         <div className="flex w-full items-center justify-between gap-2 px-3 py-2 sm:px-4 lg:px-5 xl:px-6">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/25 ring-1 ring-white/70 sm:h-11 sm:w-11">
-              <BadgeCheck aria-hidden="true" className="h-5 w-5" />
-            </div>
+            <FasaLogo className="h-10 w-10 sm:h-11 sm:w-11" priority />
             <div className="min-w-0">
               <p className="text-xs font-semibold leading-4 text-blue-700 sm:text-sm">Fasa Informática</p>
               <h1 className="truncate text-base font-semibold tracking-tight text-slate-950 sm:text-lg">

@@ -1,9 +1,11 @@
 import "server-only";
 
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import type { UserRole } from "@/lib/supabase/database.types";
+import { InvalidAuthSessionError, isInvalidRefreshTokenError, sessionCleanupRedirectPath } from "@/lib/supabase/auth-errors";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type CurrentUser = {
@@ -18,9 +20,18 @@ export function canManageSensitiveData(role: UserRole) {
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: User | null;
+
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    if (isInvalidRefreshTokenError(error)) {
+      throw new InvalidAuthSessionError();
+    }
+
+    throw error;
+  }
 
   if (!user) {
     return null;
@@ -44,7 +55,17 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 });
 
 export async function requireInternalUser() {
-  const currentUser = await getCurrentUser();
+  let currentUser: CurrentUser | null;
+
+  try {
+    currentUser = await getCurrentUser();
+  } catch (error) {
+    if (error instanceof InvalidAuthSessionError) {
+      redirect(sessionCleanupRedirectPath());
+    }
+
+    throw error;
+  }
 
   if (!currentUser) {
     redirect("/login");

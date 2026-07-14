@@ -813,7 +813,7 @@ async function loadActiveOrExpiredCertificates(admin: AdminClient, today: string
   const { data, error } = await admin
     .from("certificados")
     .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp)")
-    .in("status", ["ativo", "vencendo", "vencido"])
+    .neq("status", "invalido")
     .lt("data_vencimento", today)
     .order("data_vencimento", { ascending: true });
 
@@ -1010,7 +1010,7 @@ export async function rebuildNotificationSchedule({
     const { data: certificados, error: certificadosError } = await admin
       .from("certificados")
       .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp)")
-      .in("status", ["ativo", "vencendo"]);
+      .neq("status", "invalido");
 
     if (certificadosError) {
       throw new Error(certificadosError.message);

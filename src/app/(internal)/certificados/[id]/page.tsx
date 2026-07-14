@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 
 import { buttonClass } from "@/components/ui/button-styles";
 import { SectionHeader } from "@/components/ui/section-header";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge, StatusBadge } from "@/components/ui/status-badge";
 import { requireInternalUser } from "@/lib/auth/rbac";
+import { wasCertificateRenewed } from "@/lib/certificados/renewal";
+import { calculateCertificateStatus } from "@/lib/certificados/status";
+import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { formatCertificateTitle, formatCnpj, formatDate, formatDateTime, formatPhone } from "@/lib/utils/format";
 
@@ -43,6 +46,19 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
       .limit(1)
       .maybeSingle()
     : { data: null };
+  const { data: settings } = await supabase
+    .from("notification_settings")
+    .select("dias_aviso_vencimento, timezone")
+    .eq("id", SETTINGS_ID)
+    .maybeSingle();
+  const status = certificado.status === "invalido"
+    ? certificado.status
+    : calculateCertificateStatus(
+      certificado.data_vencimento,
+      settings?.dias_aviso_vencimento ?? [30, 15, 7],
+      settings?.timezone ?? "America/Sao_Paulo",
+    );
+  const renovado = wasCertificateRenewed(certificado.created_at, certificado.ultimo_upload_em);
 
   const rows = [
     ["Cliente", certificado.clientes?.nome_razao_social ?? "-"],
@@ -65,7 +81,7 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
         description="Informações do certificado, cliente vinculado e ações administrativas seguras."
         actions={
           <Link
-            href="/certificados/novo"
+            href={`/certificados/novo?cliente_id=${certificado.clientes?.id ?? ""}`}
             className={buttonClass("secondary")}
           >
             Renovar certificado
@@ -75,8 +91,9 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
       <dl className="grid gap-0 overflow-hidden rounded-3xl border border-blue-100/70 bg-white/86 shadow-sm shadow-blue-950/5 ring-1 ring-white/80 backdrop-blur-xl">
         <div className="grid gap-1 border-b border-blue-100/80 bg-blue-50/70 px-4 py-3 md:grid-cols-[180px_1fr]">
           <dt className="text-sm font-medium text-slate-600">Status</dt>
-          <dd>
-            <StatusBadge status={certificado.status} />
+          <dd className="flex flex-wrap gap-1.5">
+            <StatusBadge status={status} />
+            {renovado ? <Badge tone="blue">Atualizado</Badge> : null}
           </dd>
         </div>
         {rows.map(([label, value]) => (

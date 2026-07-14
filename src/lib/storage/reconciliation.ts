@@ -11,7 +11,7 @@ export type StorageReconciliationStatus = "pending" | "processing" | "completed"
 
 function sanitizeStorageError(error: unknown) {
   return (error instanceof Error ? error.message : String(error))
-    .replace(/certificados\/[0-9]{14}\/[a-f0-9]{64}\.pfx/gi, "[storage_path]")
+    .replace(/certificados\/[0-9]{14}\/(?:[a-f0-9]{64}|certificado)\.pfx/gi, "[storage_path]")
     .slice(0, 500);
 }
 

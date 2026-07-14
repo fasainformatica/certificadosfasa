@@ -26,20 +26,20 @@ type FilterableQuery = {
 function applyStatusFilter<T extends FilterableQuery>(query: T, status: CertificadoStatus | null, today: string, warningDate: string) {
   const builder = query as FilterableQuery;
 
-  if (status === "substituido") {
-    return builder.eq("status", "substituido") as T;
-  }
-
   if (status === "vencido") {
-    return builder.neq("status", "substituido").lt("data_vencimento", today) as T;
+    return builder.lt("data_vencimento", today) as T;
   }
 
   if (status === "vencendo") {
-    return builder.neq("status", "substituido").gte("data_vencimento", today).lte("data_vencimento", warningDate) as T;
+    return builder.gte("data_vencimento", today).lte("data_vencimento", warningDate) as T;
   }
 
   if (status === "ativo") {
-    return builder.neq("status", "substituido").gt("data_vencimento", warningDate) as T;
+    return builder.gt("data_vencimento", warningDate) as T;
+  }
+
+  if (status === "invalido") {
+    return builder.eq("status", "invalido") as T;
   }
 
   return query;
@@ -96,10 +96,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     certificados: (data ?? []).map((certificado) => ({
       ...certificado,
-      status:
-        certificado.status === "substituido"
-          ? certificado.status
-          : calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone),
+      status: certificado.status === "invalido"
+        ? certificado.status
+        : calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone),
     })),
     pagination: createPaginationMeta(count, pagination.page, pagination.pageSize),
   });

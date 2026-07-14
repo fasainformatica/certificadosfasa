@@ -4,8 +4,15 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import { UploadCertificateForm } from "./upload-certificate-form";
 
-export default async function NovoCertificadoPage() {
+type NovoCertificadoPageProps = {
+  searchParams: Promise<{
+    cliente_id?: string;
+  }>;
+};
+
+export default async function NovoCertificadoPage({ searchParams }: NovoCertificadoPageProps) {
   await requireAdmin();
+  const params = await searchParams;
   const supabase = await createServerSupabaseClient();
   const { data: clients } = await supabase
     .from("clientes")
@@ -18,7 +25,7 @@ export default async function NovoCertificadoPage() {
         title="Novo certificado"
         description="Envie o certificado e cadastre os dados do cliente em um único fluxo seguro."
       />
-      <UploadCertificateForm clients={clients ?? []} />
+      <UploadCertificateForm clients={clients ?? []} initialClientId={params.cliente_id ?? ""} />
     </section>
   );
 }

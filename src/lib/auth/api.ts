@@ -1,6 +1,9 @@
 import "server-only";
 
+import type { User } from "@supabase/supabase-js";
+
 import { jsonError } from "@/lib/api/errors";
+import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/supabase/database.types";
 
@@ -12,9 +15,18 @@ export type ApiUser = {
 
 export async function requireApiUser(allowedRoles: UserRole[]) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: User | null;
+
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    if (isInvalidRefreshTokenError(error)) {
+      return { response: jsonError("Sessao expirada. Entre novamente.", 401, "sessao_expirada") };
+    }
+
+    throw error;
+  }
 
   if (!user) {
     return { response: jsonError("Sessao obrigatoria.", 401, "nao_autenticado") };

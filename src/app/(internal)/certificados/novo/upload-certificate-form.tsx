@@ -19,22 +19,28 @@ type ClientOption = {
 
 type UploadCertificateFormProps = {
   clients: ClientOption[];
+  initialClientId?: string;
 };
 
-export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
+function getClientFormData(client?: ClientOption) {
+  return {
+    nome_razao_social: client?.nome_razao_social ?? "",
+    cnpj_manual: client?.cnpj ?? "",
+    email: client?.email ?? "",
+    telefone: client?.telefone ?? "",
+    whatsapp: client?.whatsapp ?? "",
+    responsavel: client?.responsavel ?? "",
+    observacoes: client?.observacoes ?? "",
+  };
+}
+
+export function UploadCertificateForm({ clients, initialClientId = "" }: UploadCertificateFormProps) {
   const router = useRouter();
+  const initialClient = clients.find((client) => client.id === initialClientId);
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
-  const [manualClientId, setManualClientId] = useState("");
-  const [clientData, setClientData] = useState({
-    nome_razao_social: "",
-    cnpj_manual: "",
-    email: "",
-    telefone: "",
-    whatsapp: "",
-    responsavel: "",
-    observacoes: "",
-  });
+  const [manualClientId, setManualClientId] = useState(initialClient?.id ?? "");
+  const [clientData, setClientData] = useState(getClientFormData(initialClient));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,18 +53,11 @@ export function UploadCertificateForm({ clients }: UploadCertificateFormProps) {
     const selectedClient = clients.find((client) => client.id === clientId);
 
     if (!selectedClient) {
+      setClientData(getClientFormData());
       return;
     }
 
-    setClientData({
-      nome_razao_social: selectedClient.nome_razao_social,
-      cnpj_manual: selectedClient.cnpj,
-      email: selectedClient.email ?? "",
-      telefone: selectedClient.telefone ?? "",
-      whatsapp: selectedClient.whatsapp ?? "",
-      responsavel: selectedClient.responsavel ?? "",
-      observacoes: selectedClient.observacoes ?? "",
-    });
+    setClientData(getClientFormData(selectedClient));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

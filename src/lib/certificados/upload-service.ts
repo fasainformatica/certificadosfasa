@@ -62,6 +62,13 @@ export type RegisterCertificateUploadInput = {
   preserveExistingClientData?: boolean;
 };
 
+type ExistingCertificate = {
+  id: string;
+  cliente_id: string;
+  storage_path: string;
+  hash_arquivo: string;
+};
+
 function normalizeCnpj(value: string | null | undefined) {
   const digits = String(value ?? "").replace(/\D/g, "");
   return digits.length === 14 ? digits : null;
@@ -95,6 +102,50 @@ async function restoreCertificateObject(admin: AdminClient, storagePath: string,
   }
 
   await admin.storage.from(CERTIFICATES_BUCKET).remove([storagePath]);
+}
+
+async function findExistingCertificateForUpload({
+  admin,
+  cnpj,
+  clienteIdManual,
+}: {
+  admin: AdminClient;
+  cnpj: string;
+  clienteIdManual?: string | null;
+}): Promise<ExistingCertificate | null> {
+  if (clienteIdManual) {
+    const { data } = await admin
+      .from("certificados")
+      .select("id, cliente_id, storage_path, hash_arquivo")
+      .eq("cliente_id", clienteIdManual)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      return data;
+    }
+  }
+
+  const { data: client } = await admin
+    .from("clientes")
+    .select("id")
+    .eq("cnpj", cnpj)
+    .maybeSingle();
+
+  if (!client) {
+    return null;
+  }
+
+  const { data } = await admin
+    .from("certificados")
+    .select("id, cliente_id, storage_path, hash_arquivo")
+    .eq("cliente_id", client.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data ?? null;
 }
 
 function fail(message: string, status: number, code: string): never {
@@ -162,23 +213,19 @@ export async function registerCertificateUpload({
 
   const cnpjManual = normalizeCnpj(clientData.cnpj_manual);
 
-  if (parsedPfx.cnpj && cnpjManual && parsedPfx.cnpj !== cnpjManual) {
+  if (parsedPfx.cnpj && cnpjManual && parsedPfx.cnpj !== cnpjManual && !clientData.cliente_id_manual) {
     fail("O CNPJ manual nao corresponde ao CNPJ extraido do certificado.", 409, "cnpj_divergente");
   }
 
   if (clientData.cliente_id_manual && parsedPfx.cnpj) {
-    const { data: manualClient, error: manualClientError } = await admin
+    const { data: conflictingClient } = await admin
       .from("clientes")
-      .select("cnpj")
-      .eq("id", clientData.cliente_id_manual)
+      .select("id")
+      .eq("cnpj", parsedPfx.cnpj)
       .maybeSingle();
 
-    if (manualClientError || !manualClient) {
-      fail("Cliente manual nao encontrado.", 404, "cliente_nao_encontrado");
-    }
-
-    if (manualClient.cnpj !== parsedPfx.cnpj) {
-      fail("O CNPJ do certificado nao corresponde ao cliente selecionado.", 409, "cnpj_divergente");
+    if (conflictingClient && conflictingClient.id !== clientData.cliente_id_manual) {
+      fail("O CNPJ do certificado ja pertence a outro cliente.", 409, "cnpj_divergente");
     }
   }
 
@@ -205,13 +252,18 @@ export async function registerCertificateUpload({
   }
 
   const hashArquivo = createHash("sha256").update(buffer).digest("hex");
+  const existingCertificate = await findExistingCertificateForUpload({
+    admin,
+    cnpj,
+    clienteIdManual: clientData.cliente_id_manual,
+  });
   const { data: duplicateCertificate } = await admin
     .from("certificados")
     .select("id")
     .eq("hash_arquivo", hashArquivo)
     .maybeSingle();
 
-  if (duplicateCertificate) {
+  if (duplicateCertificate && duplicateCertificate.id !== existingCertificate?.id) {
     fail("Este arquivo de certificado ja foi cadastrado.", 409, "certificado_duplicado");
   }
 
@@ -227,16 +279,19 @@ export async function registerCertificateUpload({
     settings?.timezone ?? "America/Sao_Paulo",
   );
   const encryptedPassword = encryptSecret(password);
-  const storagePath = getCertificateStoragePath(cnpj, hashArquivo);
+  const storagePath = getCertificateStoragePath(cnpj);
+  const previousStoragePath = existingCertificate?.storage_path ?? null;
   const backup = await backupExistingCertificateObject(admin, storagePath);
   const reconciliationJobId = await createStorageReconciliationJob({
     admin,
     operationType: "upload",
-    certificadoId: null,
+    certificadoId: existingCertificate?.id ?? null,
     storagePath,
     metadata: {
       hash_arquivo: hashArquivo,
       nome_arquivo_original: fileName,
+      certificado_existente_id: existingCertificate?.id ?? null,
+      storage_path_anterior: previousStoragePath,
       ...metadata,
     },
   });
@@ -286,6 +341,7 @@ export async function registerCertificateUpload({
     p_hash_arquivo: hashArquivo,
     p_criado_por: userId,
     p_ip: ip,
+    p_certificado_id_existente: existingCertificate?.id ?? null,
   });
 
   if (registerError || !certificadoId) {
@@ -325,6 +381,47 @@ export async function registerCertificateUpload({
     .eq("id", certificadoId)
     .maybeSingle();
   const savedStatus = registeredCertificate?.status ?? status;
+
+  if (previousStoragePath && previousStoragePath !== storagePath) {
+    const deleteOldJobId = await createStorageReconciliationJob({
+      admin,
+      operationType: "delete",
+      certificadoId,
+      storagePath: previousStoragePath,
+      metadata: {
+        stage: "remove_previous_certificate_object_after_renewal",
+        novo_storage_path: storagePath,
+        ...metadata,
+      },
+    });
+    const { error: removeOldError } = await admin.storage.from(CERTIFICATES_BUCKET).remove([previousStoragePath]);
+
+    if (removeOldError) {
+      await markStorageReconciliationJob({
+        admin,
+        jobId: deleteOldJobId,
+        status: "failed",
+        error: removeOldError.message,
+        metadata: { stage: "remove_previous_certificate_object_failed", ...metadata },
+      });
+      await logStorageReconciliationFailure({
+        admin,
+        certificadoId,
+        userId,
+        action: "storage_remove_previous_certificate_failed",
+        error: removeOldError.message,
+        metadata: { previous_storage_path: previousStoragePath, storage_path: storagePath, ...metadata },
+      });
+    } else {
+      await markStorageReconciliationJob({
+        admin,
+        jobId: deleteOldJobId,
+        certificadoId,
+        status: "completed",
+        metadata: { stage: "previous_certificate_object_removed", ...metadata },
+      });
+    }
+  }
 
   await markStorageReconciliationJob({
     admin,
