@@ -645,25 +645,25 @@ export function ConfiguracoesForm({
                   Intervalo mínimo entre mensagens (segundos)
                   <input
                     type="number"
-                    min={30}
+                    min={180}
                     value={settings.delay_minimo_segundos}
                     disabled={disabled}
                     onChange={(event) => patchSettings({ delay_minimo_segundos: Number(event.target.value) })}
                     className={inputClass}
                   />
-                  <span className="text-xs font-normal leading-5 text-slate-500">Tempo mínimo de espera entre mensagens enviadas.</span>
+                  <span className="text-xs font-normal leading-5 text-slate-500">Use pelo menos 180 segundos para reduzir risco de restricao.</span>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
                   Intervalo máximo entre mensagens (segundos)
                   <input
                     type="number"
-                    min={30}
+                    min={180}
                     value={settings.delay_maximo_segundos}
                     disabled={disabled}
                     onChange={(event) => patchSettings({ delay_maximo_segundos: Number(event.target.value) })}
                     className={inputClass}
                   />
-                  <span className="text-xs font-normal leading-5 text-slate-500">Quando maior que o mínimo, o sistema alterna o tempo de espera.</span>
+                  <span className="text-xs font-normal leading-5 text-slate-500">Recomendado: entre 180 e 300 segundos para evitar disparos em rajada.</span>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-800">
                   Máximo de tentativas

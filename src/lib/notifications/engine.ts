@@ -15,8 +15,8 @@ import type { WhatsAppProviderName } from "@/lib/whatsapp/euatendo/types";
 import { normalizeBrazilianPhone } from "@/lib/utils/phone";
 
 export const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
-export const DEFAULT_DELAY_MIN_SECONDS = 30;
-export const DEFAULT_DELAY_MAX_SECONDS = 60;
+export const DEFAULT_DELAY_MIN_SECONDS = 180;
+export const DEFAULT_DELAY_MAX_SECONDS = 300;
 export const DEFAULT_POLLING_INTERVAL_SECONDS = 5;
 export const MAX_POLLING_INTERVAL_SECONDS = 25;
 export const WHATSAPP_SEND_TIMEOUT_SECONDS = 45;

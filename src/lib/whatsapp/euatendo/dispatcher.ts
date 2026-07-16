@@ -62,14 +62,11 @@ export type EuAtendoDispatchBatchResult = {
   results: EuAtendoDispatchResult[];
 };
 
-type DispatchOptions = {
-  ignoreNextAllowedSendAt?: boolean;
-};
-
 const RETRY_BACKOFF_SECONDS = [60, 300, 900, 1800];
-const ABSOLUTE_MIN_DISPATCH_DELAY_SECONDS = 30;
-const DEFAULT_MAX_EVENTS_PER_RUN = 50;
-const HARD_MAX_EVENTS_PER_RUN = 100;
+const ABSOLUTE_MIN_DISPATCH_DELAY_SECONDS = 180;
+const DEFAULT_MAX_DISPATCH_DELAY_SECONDS = 300;
+const DEFAULT_MAX_EVENTS_PER_RUN = 1;
+const HARD_MAX_EVENTS_PER_RUN = 1;
 
 function parseReserveResult(value: Json | null): ReserveRpcResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -137,7 +134,7 @@ function computeDispatchDelaySeconds(settings: {
 } | null) {
   const delays = clampNotificationDelaySettings(settings);
   const min = Math.max(delays.delay_minimo_segundos, ABSOLUTE_MIN_DISPATCH_DELAY_SECONDS);
-  const max = Math.max(delays.delay_maximo_segundos, min);
+  const max = Math.max(delays.delay_maximo_segundos, min, DEFAULT_MAX_DISPATCH_DELAY_SECONDS);
 
   if (max === min) {
     return min;
@@ -293,9 +290,7 @@ async function markFailure(admin: AdminClient, event: ReservedEvent, result: Wha
   return { status, nextRetryAt };
 }
 
-export async function dispatchNextEuAtendoNotification({
-  ignoreNextAllowedSendAt = false,
-}: DispatchOptions = {}): Promise<EuAtendoDispatchResult> {
+export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispatchResult> {
   const configured = getEuAtendoConfigStatus();
   const admin = createSupabaseAdminClient();
 
@@ -326,7 +321,7 @@ export async function dispatchNextEuAtendoNotification({
   const reservationTtlSeconds = calculateReservationTtlSeconds(settings);
   const { data, error } = await admin.rpc("reserve_euatendo_notification_event", {
     p_lock_ttl_seconds: reservationTtlSeconds,
-    p_ignore_next_allowed: ignoreNextAllowedSendAt,
+    p_ignore_next_allowed: false,
   });
 
   if (error) {
@@ -494,13 +489,11 @@ export async function dispatchEuAtendoNotificationBatch(maxEvents = readDispatch
   const results: EuAtendoDispatchResult[] = [];
 
   for (let index = 0; index < boundedMaxEvents; index += 1) {
-    const result = await dispatchNextEuAtendoNotification({
-      ignoreNextAllowedSendAt: index > 0,
-    });
+    const result = await dispatchNextEuAtendoNotification();
 
     results.push(result);
 
-    if (result.status !== "sent" && result.status !== "failed") {
+    if (result.status !== "sent") {
       break;
     }
   }

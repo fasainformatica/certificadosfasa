@@ -220,7 +220,7 @@ O dispatcher esta em `src/lib/whatsapp/euatendo/dispatcher.ts`. Ele:
 7. Atualiza `whatsapp_dispatcher_state.next_allowed_send_at`.
 8. Registra tentativa em `whatsapp_provider_logs`.
 
-O cron usa `dispatchEuAtendoNotificationBatch` e processa ate `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` eventos por execucao, com limite interno de 100. A primeira reserva respeita `next_allowed_send_at`; reservas seguintes da mesma execucao podem ignorar essa janela para reduzir backlog controladamente.
+O cron usa `dispatchEuAtendoNotificationBatch` em modo conservador e processa 1 evento por execucao. Toda reserva respeita `next_allowed_send_at`; o dispatcher nao ignora a janela de cadencia para reduzir risco de restricao no WhatsApp.
 
 ### API euAtendo
 
@@ -240,7 +240,7 @@ WhatsApp automatico depende de:
 - `EUATENDO_API_TOKEN`
 - `EUATENDO_INSTANCE_ID`
 - `EUATENDO_PROVIDER_ENABLED=true`
-- `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` opcional, padrao 50
+- `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` opcional, padrao 1
 - `CRON_SECRET`
 - cron Vercel `euatendo-dispatch` ativo
 - banco com migrations euAtendo aplicadas
@@ -275,11 +275,11 @@ Falhas retryable da euAtendo usam backoff: 60, 300, 900 e 1800 segundos. Falhas 
 
 ### Como faz delay
 
-O dispatcher aplica delay aleatorio entre `delay_minimo_segundos` e `delay_maximo_segundos`, com minimo absoluto de 30 segundos. O estado persistente fica em `whatsapp_dispatcher_state`, entao o delay sobrevive a serverless cold start.
+O dispatcher aplica delay aleatorio entre `delay_minimo_segundos` e `delay_maximo_segundos`, com minimo absoluto de 180 segundos e padrao de 180 a 300 segundos. O estado persistente fica em `whatsapp_dispatcher_state`, entao o delay sobrevive a serverless cold start.
 
 ### Como envia
 
-Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron diario (`20 13 * * *`, 10:20 em `America/Sao_Paulo`) porque a plataforma nao aceita frequencia maior nesse plano. Cada execucao processa um lote configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`; o padrao atual e 50 eventos por execucao, limitado internamente a 100. Para envio frequente ou filas maiores, usar plano Pro ou cron externo chamando a rota com `CRON_SECRET`.
+Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron diario (`20 13 * * *`, 10:20 em `America/Sao_Paulo`) porque a plataforma nao aceita frequencia maior nesse plano. Cada execucao processa no maximo 1 evento. Para enviar varias mensagens no mesmo dia, usar plano Pro ou cron externo chamando a rota com `CRON_SECRET` a cada 5 minutos durante a janela de envio.
 
 ## Configuracoes
 
@@ -297,8 +297,8 @@ Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron di
 
 ### Delay e tentativas
 
-- `delay_minimo_segundos`: minimo 30.
-- `delay_maximo_segundos`: deve ser maior ou igual ao minimo.
+- `delay_minimo_segundos`: minimo 180.
+- `delay_maximo_segundos`: deve ser maior ou igual ao minimo; recomendado 300.
 - `max_attempts`: 1 a 10.
 - `polling_interval_seconds`: legado visual/compatibilidade, 5 a 25.
 
@@ -426,7 +426,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - `runDueNotificationJob`: atualiza status, libera reservas expiradas, cria resumo diario de vencidos e conta eventos elegiveis.
 - `rebuildNotificationSchedule`: recria eventos planejados.
 - `dispatchNextEuAtendoNotification`: envia o proximo evento elegivel.
-- `dispatchEuAtendoNotificationBatch`: drena lote configuravel de eventos euAtendo por execucao de cron.
+- `dispatchEuAtendoNotificationBatch`: envia 1 evento euAtendo por execucao e respeita a cadencia persistente.
 
 ## Historico tecnico
 
@@ -441,7 +441,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - Desktop Bot/QWEP foi removido do runtime operacional.
 - Documentacao foi consolidada em `docs/SYSTEM_CONTEXT.md`.
 - Suite automatizada foi adicionada com Vitest cobrindo validacao de upload PFX, download publico, engine de notificacoes, dispatcher euAtendo, prontidao de ambiente e guarda service-role/RBAC.
-- Dispatcher euAtendo passou a processar lote configuravel por cron.
+- Dispatcher euAtendo passou a usar modo conservador: 1 envio por execucao e intervalo minimo de 180 segundos.
 - Healthcheck administrativo de producao foi criado em `/api/admin/health/production`.
 
 ## Estado atual
@@ -492,7 +492,7 @@ Nenhum bug funcional confirmado nesta consolidacao documental. Nao listar aqui b
 ## Riscos tecnicos
 
 - Migrations podem nao estar aplicadas no Supabase remoto; usar `/api/admin/health/production` para confirmar schema e bucket.
-- Rate limit real da euAtendo precisa ser confirmado em producao antes de aumentar `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`.
+- Rate limit real da euAtendo e qualidade da conta WhatsApp precisam ser confirmados antes de qualquer aumento de cadencia.
 - Importacao em massa pode ser custosa com muitos PFX; limite atual e 80 certificados por envio.
 - Cron Vercel ainda precisa ser confirmado nos logs reais da plataforma.
 - Documentacao voltara a divergir se `SYSTEM_CONTEXT.md` nao for atualizado a cada implementacao relevante.
@@ -505,7 +505,7 @@ Nenhum bug funcional confirmado nesta consolidacao documental. Nao listar aqui b
 4. Ativar `EUATENDO_PROVIDER_ENABLED=true` somente apos homologacao.
 5. Acessar `/api/admin/health/production` como admin e corrigir qualquer check critico.
 6. Confirmar crons Vercel em logs reais.
-7. Monitorar backlog de `notification_events` e ajustar `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` com base no limite real da conta euAtendo.
+7. Monitorar backlog de `notification_events` e configurar cron externo ou Vercel Pro caso a fila precise escoar no mesmo dia.
 
 ## Como iniciar o desenvolvimento
 

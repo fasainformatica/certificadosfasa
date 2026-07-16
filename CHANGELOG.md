@@ -2,9 +2,14 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-07-16
+
+- Ajustado dispatcher euAtendo para modo conservador apos restricao de conta WhatsApp: 1 mensagem por execucao, intervalo minimo absoluto de 180 segundos e janela padrao de 180 a 300 segundos entre envios.
+- Mantido cron Vercel Hobby as 10:20, mas envio de varias mensagens no mesmo dia passa a exigir cron externo recorrente ou Vercel Pro para chamar `/api/cron/euatendo-dispatch` sem formar rajada.
+
 ## 2026-07-15
 
-- Ajustado cron `euatendo-dispatch` para `20 13 * * *`, equivalente a 10:20 em `America/Sao_Paulo`, e ampliado o lote do dispatcher para reduzir backlog no mesmo dia em Vercel Hobby.
+- Ajustado cron `euatendo-dispatch` para `20 13 * * *`, equivalente a 10:20 em `America/Sao_Paulo`.
 - Refatorado visualmente o painel administrativo com nova hierarquia operacional, sidebar responsiva, cabecalhos padronizados, tabelas mais escaneaveis, cards de metricas, estados vazios e mensagens de erro/carregamento revisadas.
 - Padronizado UX writing das rotas internas: Visao geral, Central de avisos, Automacao do WhatsApp, Configuracoes do sistema, Validar conexao, Verificar numero, Enviar mensagem de teste, Aplicar filtros e Limpar filtros.
 - Corrigido encoding/acentuacao em telas, APIs, templates de notificacao, mensagens euAtendo e documentos arquivados.

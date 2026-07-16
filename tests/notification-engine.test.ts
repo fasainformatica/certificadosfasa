@@ -59,8 +59,8 @@ describe("notification engine", () => {
       delay_maximo_segundos: 2,
     });
 
-    expect(delays.delay_minimo_segundos).toBe(30);
-    expect(delays.delay_maximo_segundos).toBe(60);
-    expect(calculateReservationTtlSeconds(delays)).toBeGreaterThan(60);
+    expect(delays.delay_minimo_segundos).toBe(180);
+    expect(delays.delay_maximo_segundos).toBe(300);
+    expect(calculateReservationTtlSeconds(delays)).toBeGreaterThan(300);
   });
 });

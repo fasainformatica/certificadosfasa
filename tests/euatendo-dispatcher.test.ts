@@ -53,7 +53,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/supabase/env", () => ({
-  getOptionalEnv: (name: string) => (name === "EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN" ? "3" : null),
+  getOptionalEnv: (name: string) => (name === "EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN" ? "50" : null),
 }));
 
 vi.mock("@/lib/whatsapp/euatendo/config", () => ({
@@ -112,24 +112,22 @@ describe("dispatcher euAtendo", () => {
     vi.clearAllMocks();
   });
 
-  it("processa lote e ignora a janela de cadencia apenas apos o primeiro envio", async () => {
+  it("processa uma mensagem por execucao e respeita a janela de cadencia", async () => {
     rpcQueue.push(
       { data: reservedEvent("event-1"), error: null },
       { data: reservedEvent("event-2"), error: null },
-      { data: { status: "empty" }, error: null },
     );
 
     const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
     const result = await dispatchEuAtendoNotificationBatch(3);
 
-    expect(result.processed).toBe(2);
-    expect(result.sent).toBe(2);
+    expect(result.max_events).toBe(1);
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(1);
     expect(result.status).toBe("completed");
-    expect(sentMessages).toHaveLength(2);
+    expect(sentMessages).toHaveLength(1);
     expect(rpcCalls).toMatchObject([
       { p_ignore_next_allowed: false },
-      { p_ignore_next_allowed: true },
-      { p_ignore_next_allowed: true },
     ]);
   });
 
@@ -139,29 +137,18 @@ describe("dispatcher euAtendo", () => {
     const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
     const result = await dispatchEuAtendoNotificationBatch(3);
 
+    expect(result.max_events).toBe(1);
     expect(result.processed).toBe(0);
     expect(result.status).toBe("waiting");
     expect(sentMessages).toHaveLength(0);
   });
 
-  it("continua o lote apos falha definitiva de uma mensagem", async () => {
+  it("para a execucao apos falha definitiva para evitar rajada de rejeicoes", async () => {
     rpcQueue.push(
       { data: reservedEvent("event-1"), error: null },
       { data: reservedEvent("event-2"), error: null },
-      { data: reservedEvent("event-3"), error: null },
-      { data: { status: "empty" }, error: null },
     );
     providerResults.push(
-      {
-        accepted: true,
-        providerMessageId: "provider-message-1",
-        providerStatus: "accepted",
-        sanitizedResponse: {},
-        httpStatus: 200,
-        retryAfterSeconds: null,
-        errorCode: null,
-        errorMessage: null,
-      },
       {
         accepted: false,
         providerMessageId: null,
@@ -172,39 +159,31 @@ describe("dispatcher euAtendo", () => {
         errorCode: "INVALID_DESTINATION",
         errorMessage: "Numero invalido.",
       },
-      {
-        accepted: true,
-        providerMessageId: "provider-message-3",
-        providerStatus: "accepted",
-        sanitizedResponse: {},
-        httpStatus: 200,
-        retryAfterSeconds: null,
-        errorCode: null,
-        errorMessage: null,
-      },
     );
 
     const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
     const result = await dispatchEuAtendoNotificationBatch(5);
 
     expect(result.status).toBe("completed");
-    expect(result.processed).toBe(3);
-    expect(result.sent).toBe(2);
+    expect(result.max_events).toBe(1);
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(0);
     expect(result.failed).toBe(1);
-    expect(sentMessages).toHaveLength(3);
+    expect(sentMessages).toHaveLength(1);
+    expect(rpcCalls).toHaveLength(1);
   });
 
-  it("limita lotes grandes ao limite operacional interno", async () => {
-    for (let index = 1; index <= 101; index += 1) {
+  it("limita lotes grandes ao modo seguro de uma mensagem", async () => {
+    for (let index = 1; index <= 3; index += 1) {
       rpcQueue.push({ data: reservedEvent(`event-${index}`), error: null });
     }
 
     const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
     const result = await dispatchEuAtendoNotificationBatch(150);
 
-    expect(result.max_events).toBe(100);
-    expect(result.processed).toBe(100);
-    expect(result.sent).toBe(100);
-    expect(sentMessages).toHaveLength(100);
+    expect(result.max_events).toBe(1);
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(1);
+    expect(sentMessages).toHaveLength(1);
   });
 });

@@ -59,8 +59,8 @@ export const notificationSettingsSchema = z
     dias_aviso_vencimento: z
       .unknown()
       .transform((value, context) => parseNoticeDays(value, context)),
-    delay_minimo_segundos: z.coerce.number().int().min(30).max(3600),
-    delay_maximo_segundos: z.coerce.number().int().min(30).max(3600),
+    delay_minimo_segundos: z.coerce.number().int().min(180).max(3600),
+    delay_maximo_segundos: z.coerce.number().int().min(180).max(3600),
     max_attempts: z.coerce.number().int().min(1).max(10),
     polling_interval_seconds: z.coerce.number().int().min(5).max(25),
     send_window_start: z.string().trim().regex(/^\d{2}:\d{2}$/),
