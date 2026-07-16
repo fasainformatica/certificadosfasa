@@ -12,12 +12,14 @@ O projeto esta preparado para Vercel com Next.js.
 {
   "crons": [
     { "path": "/api/cron/certificados-vencimentos", "schedule": "0 14 * * *" },
-    { "path": "/api/cron/euatendo-dispatch", "schedule": "* * * * *" }
+    { "path": "/api/cron/euatendo-dispatch", "schedule": "5 14 * * *" }
   ]
 }
 ```
 
 A Vercel usa timezone UTC nos cron jobs. `0 14 * * *` equivale a 11:00 em `America/Sao_Paulo`.
+
+Contas Hobby da Vercel aceitam apenas Cron Jobs diarios. Por isso o dispatcher euAtendo esta configurado como `5 14 * * *`. Para envio frequente, use plano Pro ou cron externo chamando `/api/cron/euatendo-dispatch` com `CRON_SECRET`.
 
 ## Variaveis obrigatorias
 
@@ -47,7 +49,7 @@ EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=3
 ## Cron Vercel
 
 - `/api/cron/certificados-vencimentos`: agenda `0 14 * * *` em UTC.
-- `/api/cron/euatendo-dispatch`: agenda `* * * * *`.
+- `/api/cron/euatendo-dispatch`: agenda `5 14 * * *` em UTC por compatibilidade com Vercel Hobby.
 
 Ambas as rotas aceitam `GET` para Vercel Cron e `POST` para execucao manual, sempre com `Authorization: Bearer {CRON_SECRET}`.
 

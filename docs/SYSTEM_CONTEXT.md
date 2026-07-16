@@ -279,7 +279,7 @@ O dispatcher aplica delay aleatorio entre `delay_minimo_segundos` e `delay_maxim
 
 ### Como envia
 
-O cron por minuto chama `GET /api/cron/euatendo-dispatch` pela Vercel. Cada execucao processa um lote pequeno configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`. A cadencia pratica depende do limite configurado, dos retornos da euAtendo e dos estados `waiting`, `locked`, `disabled` ou erro, que interrompem o lote.
+Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron diario (`5 14 * * *`) porque a plataforma nao aceita frequencia maior nesse plano. Cada execucao processa um lote pequeno configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`. Para envio frequente, usar plano Pro ou cron externo chamando a rota com `CRON_SECRET`.
 
 ## Configuracoes
 
