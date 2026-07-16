@@ -51,7 +51,7 @@ CRON_SECRET=
 
 O cron chama `dispatchEuAtendoNotificationBatch`. O padrao processa ate 3 eventos enviados com sucesso por execucao, configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` e limitado internamente a 10.
 
-Na Vercel Hobby, o cron do dispatcher roda diariamente (`5 14 * * *`) porque o plano nao aceita cron por minuto. Para envio frequente, use Vercel Pro ou cron externo autenticado com `CRON_SECRET`.
+Na Vercel Hobby, o cron do dispatcher roda diariamente (`5 13 * * *`, 10:05 em `America/Sao_Paulo`) porque o plano nao aceita cron por minuto. Para envio frequente, use Vercel Pro ou cron externo autenticado com `CRON_SECRET`.
 
 A primeira reserva respeita `whatsapp_dispatcher_state.next_allowed_send_at`. Reservas seguintes da mesma execucao podem ignorar essa janela para drenar backlog controladamente. Se houver `waiting`, `locked`, `disabled`, erro ou falha de envio, o lote para.
 
