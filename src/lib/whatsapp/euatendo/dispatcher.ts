@@ -68,8 +68,8 @@ type DispatchOptions = {
 
 const RETRY_BACKOFF_SECONDS = [60, 300, 900, 1800];
 const ABSOLUTE_MIN_DISPATCH_DELAY_SECONDS = 30;
-const DEFAULT_MAX_EVENTS_PER_RUN = 3;
-const HARD_MAX_EVENTS_PER_RUN = 10;
+const DEFAULT_MAX_EVENTS_PER_RUN = 50;
+const HARD_MAX_EVENTS_PER_RUN = 100;
 
 function parseReserveResult(value: Json | null): ReserveRpcResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -480,10 +480,10 @@ function summarizeBatch(results: EuAtendoDispatchResult[], maxEvents: number): E
     failed,
     errors,
     stopped_reason:
-      last && last.status !== "sent"
-        ? last.error_code ?? last.status
-        : processed >= maxEvents
+      processed >= maxEvents
           ? "max_events"
+          : last && last.status !== "sent"
+            ? last.error_code ?? last.status
           : null,
     results,
   };
@@ -500,7 +500,7 @@ export async function dispatchEuAtendoNotificationBatch(maxEvents = readDispatch
 
     results.push(result);
 
-    if (result.status !== "sent") {
+    if (result.status !== "sent" && result.status !== "failed") {
       break;
     }
   }

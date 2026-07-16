@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/euatendo-dispatch",
-      "schedule": "5 13 * * *"
+      "schedule": "20 13 * * *"
     }
   ]
 }

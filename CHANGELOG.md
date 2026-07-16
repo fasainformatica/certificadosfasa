@@ -4,7 +4,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-07-15
 
-- Ajustado cron `euatendo-dispatch` para `5 13 * * *`, equivalente a 10:05 em `America/Sao_Paulo` e compatível com Vercel Hobby; envio frequente exige Vercel Pro ou cron externo autenticado com `CRON_SECRET`.
+- Ajustado cron `euatendo-dispatch` para `20 13 * * *`, equivalente a 10:20 em `America/Sao_Paulo`, e ampliado o lote do dispatcher para reduzir backlog no mesmo dia em Vercel Hobby.
 - Refatorado visualmente o painel administrativo com nova hierarquia operacional, sidebar responsiva, cabecalhos padronizados, tabelas mais escaneaveis, cards de metricas, estados vazios e mensagens de erro/carregamento revisadas.
 - Padronizado UX writing das rotas internas: Visao geral, Central de avisos, Automacao do WhatsApp, Configuracoes do sistema, Validar conexao, Verificar numero, Enviar mensagem de teste, Aplicar filtros e Limpar filtros.
 - Corrigido encoding/acentuacao em telas, APIs, templates de notificacao, mensagens euAtendo e documentos arquivados.

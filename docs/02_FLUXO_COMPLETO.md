@@ -56,4 +56,4 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 ## Cron
 
 - `certificados-vencimentos`: agenda Vercel `0 14 * * *` em UTC, chama `GET /api/cron/certificados-vencimentos`.
-- `euatendo-dispatch`: agenda Vercel diaria `5 13 * * *`, chama `GET /api/cron/euatendo-dispatch` as 10:05 em `America/Sao_Paulo`.
+- `euatendo-dispatch`: agenda Vercel diaria `20 13 * * *`, chama `GET /api/cron/euatendo-dispatch` as 10:20 em `America/Sao_Paulo`.

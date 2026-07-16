@@ -220,7 +220,7 @@ O dispatcher esta em `src/lib/whatsapp/euatendo/dispatcher.ts`. Ele:
 7. Atualiza `whatsapp_dispatcher_state.next_allowed_send_at`.
 8. Registra tentativa em `whatsapp_provider_logs`.
 
-O cron usa `dispatchEuAtendoNotificationBatch` e processa ate `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` eventos bem-sucedidos por execucao, com limite interno de 10. A primeira reserva respeita `next_allowed_send_at`; reservas seguintes da mesma execucao podem ignorar essa janela para reduzir backlog controladamente.
+O cron usa `dispatchEuAtendoNotificationBatch` e processa ate `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` eventos por execucao, com limite interno de 100. A primeira reserva respeita `next_allowed_send_at`; reservas seguintes da mesma execucao podem ignorar essa janela para reduzir backlog controladamente.
 
 ### API euAtendo
 
@@ -240,7 +240,7 @@ WhatsApp automatico depende de:
 - `EUATENDO_API_TOKEN`
 - `EUATENDO_INSTANCE_ID`
 - `EUATENDO_PROVIDER_ENABLED=true`
-- `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` opcional, padrao 3
+- `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` opcional, padrao 50
 - `CRON_SECRET`
 - cron Vercel `euatendo-dispatch` ativo
 - banco com migrations euAtendo aplicadas
@@ -279,7 +279,7 @@ O dispatcher aplica delay aleatorio entre `delay_minimo_segundos` e `delay_maxim
 
 ### Como envia
 
-Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron diario (`5 13 * * *`, 10:05 em `America/Sao_Paulo`) porque a plataforma nao aceita frequencia maior nesse plano. Cada execucao processa um lote pequeno configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`. Para envio frequente, usar plano Pro ou cron externo chamando a rota com `CRON_SECRET`.
+Na Vercel Hobby, `GET /api/cron/euatendo-dispatch` esta configurado como cron diario (`20 13 * * *`, 10:20 em `America/Sao_Paulo`) porque a plataforma nao aceita frequencia maior nesse plano. Cada execucao processa um lote configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN`; o padrao atual e 50 eventos por execucao, limitado internamente a 100. Para envio frequente ou filas maiores, usar plano Pro ou cron externo chamando a rota com `CRON_SECRET`.
 
 ## Configuracoes
 
@@ -426,7 +426,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - `runDueNotificationJob`: atualiza status, libera reservas expiradas, cria resumo diario de vencidos e conta eventos elegiveis.
 - `rebuildNotificationSchedule`: recria eventos planejados.
 - `dispatchNextEuAtendoNotification`: envia o proximo evento elegivel.
-- `dispatchEuAtendoNotificationBatch`: drena lote pequeno de eventos euAtendo por execucao de cron.
+- `dispatchEuAtendoNotificationBatch`: drena lote configuravel de eventos euAtendo por execucao de cron.
 
 ## Historico tecnico
 

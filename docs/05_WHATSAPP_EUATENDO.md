@@ -24,7 +24,7 @@ EUATENDO_API_URL=https://apicluster.euatendo.app
 EUATENDO_API_TOKEN=
 EUATENDO_INSTANCE_ID=
 EUATENDO_PROVIDER_ENABLED=false
-EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=3
+EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=50
 CRON_SECRET=
 ```
 
@@ -49,11 +49,11 @@ CRON_SECRET=
 
 ## Dispatcher
 
-O cron chama `dispatchEuAtendoNotificationBatch`. O padrao processa ate 3 eventos enviados com sucesso por execucao, configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` e limitado internamente a 10.
+O cron chama `dispatchEuAtendoNotificationBatch`. O padrao processa ate 50 eventos por execucao, configuravel por `EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN` e limitado internamente a 100.
 
-Na Vercel Hobby, o cron do dispatcher roda diariamente (`5 13 * * *`, 10:05 em `America/Sao_Paulo`) porque o plano nao aceita cron por minuto. Para envio frequente, use Vercel Pro ou cron externo autenticado com `CRON_SECRET`.
+Na Vercel Hobby, o cron do dispatcher roda diariamente (`20 13 * * *`, 10:20 em `America/Sao_Paulo`) porque o plano nao aceita cron por minuto. O lote foi ampliado para drenar a fila no mesmo disparo diario quando o volume couber no limite configurado. Para envio frequente ou filas maiores, use Vercel Pro ou cron externo autenticado com `CRON_SECRET`.
 
-A primeira reserva respeita `whatsapp_dispatcher_state.next_allowed_send_at`. Reservas seguintes da mesma execucao podem ignorar essa janela para drenar backlog controladamente. Se houver `waiting`, `locked`, `disabled`, erro ou falha de envio, o lote para.
+A primeira reserva respeita `whatsapp_dispatcher_state.next_allowed_send_at`. Reservas seguintes da mesma execucao podem ignorar essa janela para drenar backlog controladamente. Falhas definitivas de uma mensagem nao bloqueiam os eventos seguintes; se houver `waiting`, `locked`, `disabled`, erro sistemico ou retry temporario, o lote para.
 
 ## Logs
 

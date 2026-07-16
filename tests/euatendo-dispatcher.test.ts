@@ -3,6 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpcCalls: unknown[] = [];
 const rpcQueue: Array<{ data: unknown; error: null }> = [];
 const sentMessages: unknown[] = [];
+const providerResults: Array<{
+  accepted: boolean;
+  providerMessageId: string | null;
+  providerStatus: string | null;
+  sanitizedResponse: Record<string, never>;
+  httpStatus: number;
+  retryAfterSeconds: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}> = [];
 
 function thenableQuery(result = { data: null, error: null }) {
   const chain = {
@@ -60,7 +70,7 @@ vi.mock("@/lib/whatsapp/euatendo/provider", () => ({
     async sendText(input: unknown) {
       sentMessages.push(input);
 
-      return {
+      return providerResults.shift() ?? {
         accepted: true,
         providerMessageId: "provider-message-id",
         providerStatus: "accepted",
@@ -98,6 +108,7 @@ describe("dispatcher euAtendo", () => {
     rpcCalls.length = 0;
     rpcQueue.length = 0;
     sentMessages.length = 0;
+    providerResults.length = 0;
     vi.clearAllMocks();
   });
 
@@ -131,5 +142,69 @@ describe("dispatcher euAtendo", () => {
     expect(result.processed).toBe(0);
     expect(result.status).toBe("waiting");
     expect(sentMessages).toHaveLength(0);
+  });
+
+  it("continua o lote apos falha definitiva de uma mensagem", async () => {
+    rpcQueue.push(
+      { data: reservedEvent("event-1"), error: null },
+      { data: reservedEvent("event-2"), error: null },
+      { data: reservedEvent("event-3"), error: null },
+      { data: { status: "empty" }, error: null },
+    );
+    providerResults.push(
+      {
+        accepted: true,
+        providerMessageId: "provider-message-1",
+        providerStatus: "accepted",
+        sanitizedResponse: {},
+        httpStatus: 200,
+        retryAfterSeconds: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+      {
+        accepted: false,
+        providerMessageId: null,
+        providerStatus: "rejected",
+        sanitizedResponse: {},
+        httpStatus: 400,
+        retryAfterSeconds: null,
+        errorCode: "INVALID_DESTINATION",
+        errorMessage: "Numero invalido.",
+      },
+      {
+        accepted: true,
+        providerMessageId: "provider-message-3",
+        providerStatus: "accepted",
+        sanitizedResponse: {},
+        httpStatus: 200,
+        retryAfterSeconds: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    );
+
+    const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
+    const result = await dispatchEuAtendoNotificationBatch(5);
+
+    expect(result.status).toBe("completed");
+    expect(result.processed).toBe(3);
+    expect(result.sent).toBe(2);
+    expect(result.failed).toBe(1);
+    expect(sentMessages).toHaveLength(3);
+  });
+
+  it("limita lotes grandes ao limite operacional interno", async () => {
+    for (let index = 1; index <= 101; index += 1) {
+      rpcQueue.push({ data: reservedEvent(`event-${index}`), error: null });
+    }
+
+    const { dispatchEuAtendoNotificationBatch } = await import("@/lib/whatsapp/euatendo/dispatcher");
+    const result = await dispatchEuAtendoNotificationBatch(150);
+
+    expect(result.max_events).toBe(100);
+    expect(result.processed).toBe(100);
+    expect(result.sent).toBe(100);
+    expect(sentMessages).toHaveLength(100);
   });
 });
