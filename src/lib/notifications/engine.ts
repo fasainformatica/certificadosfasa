@@ -136,6 +136,20 @@ export type NotificationRebuildResult = {
   errors: string[];
 };
 
+function createNotificationRebuildResult(): NotificationRebuildResult {
+  return {
+    run_id: null,
+    certificados_verificados: 0,
+    destinatarios_ativos: 0,
+    eventos_removidos: 0,
+    eventos_criados: 0,
+    eventos_ignorados_idempotencia: 0,
+    skipped: false,
+    skipped_reason: null,
+    errors: [],
+  };
+}
+
 export type DueNotificationJobResult = {
   run_id: string | null;
   eventos_elegiveis: number;
@@ -584,23 +598,55 @@ async function loadActiveRecipients(admin: AdminClient) {
 async function removeFutureUnsentEvents({
   admin,
   today,
+  clienteId = null,
 }: {
   admin: AdminClient;
   today: string;
+  clienteId?: string | null;
 }) {
-  const { data, error } = await admin
+  let query = admin
     .from("notification_events")
     .delete()
     .eq("type", "certificate_expiring")
     .gte("send_date", today)
-    .in("status", [...REBUILDABLE_STATUSES])
-    .select("id");
+    .in("status", [...REBUILDABLE_STATUSES]);
+
+  if (clienteId) {
+    query = query.eq("cliente_id", clienteId);
+  }
+
+  const { data, error } = await query.select("id");
 
   if (error) {
     throw new Error(error.message);
   }
 
   return data?.length ?? 0;
+}
+
+async function loadPlannableCertificates({
+  admin,
+  clienteId = null,
+}: {
+  admin: AdminClient;
+  clienteId?: string | null;
+}) {
+  let query = admin
+    .from("certificados")
+    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
+    .neq("status", "invalido");
+
+  if (clienteId) {
+    query = query.eq("cliente_id", clienteId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as CertificadoWithCliente[];
 }
 
 async function createPlannedExpirationEvent({
@@ -1129,17 +1175,7 @@ export async function rebuildNotificationSchedule({
 }): Promise<NotificationRebuildResult> {
   const admin = createSupabaseAdminClient();
   let runId: string | null = null;
-  const result: NotificationRebuildResult = {
-    run_id: null,
-    certificados_verificados: 0,
-    destinatarios_ativos: 0,
-    eventos_removidos: 0,
-    eventos_criados: 0,
-    eventos_ignorados_idempotencia: 0,
-    skipped: false,
-    skipped_reason: null,
-    errors: [],
-  };
+  const result = createNotificationRebuildResult();
 
   try {
     const { data: run } = await admin
@@ -1185,18 +1221,104 @@ export async function rebuildNotificationSchedule({
     validateTemplateContent(template.content);
     validateTemplateContent(clientTemplate.content, "client_certificate_expiring");
 
-    const { data: certificados, error: certificadosError } = await admin
-      .from("certificados")
-      .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
-      .neq("status", "invalido");
-
-    if (certificadosError) {
-      throw new Error(certificadosError.message);
-    }
+    const certificados = await loadPlannableCertificates({ admin });
 
     const batchResult = await createPlannedExpirationEventsBatch({
       admin,
-      certificados: (certificados ?? []) as CertificadoWithCliente[],
+      certificados,
+      recipients,
+      settings,
+      template,
+      clientTemplate,
+      noticeDays,
+      today,
+    });
+
+    result.certificados_verificados = batchResult.certificados_verificados;
+    result.eventos_criados = batchResult.eventos_criados;
+    result.eventos_ignorados_idempotencia = batchResult.eventos_ignorados_idempotencia;
+
+    await finishRun(admin, runId, result, "completed");
+    return result;
+  } catch (error) {
+    const message = sanitizeError(error);
+    result.errors.push(message);
+
+    if (runId) {
+      await admin
+        .from("notification_runs")
+        .update({
+          finished_at: new Date().toISOString(),
+          status: "failed",
+          erro: message,
+        })
+        .eq("id", runId);
+    }
+
+    return result;
+  }
+}
+
+export async function rebuildClientNotificationSchedule({
+  clienteId,
+  triggeredBy,
+  userId = null,
+}: {
+  clienteId: string;
+  triggeredBy: "manual" | "system";
+  userId?: string | null;
+}): Promise<NotificationRebuildResult> {
+  const admin = createSupabaseAdminClient();
+  let runId: string | null = null;
+  const result = createNotificationRebuildResult();
+
+  try {
+    const { data: run } = await admin
+      .from("notification_runs")
+      .insert({
+        status: "running",
+        triggered_by: triggeredBy,
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+
+    runId = run?.id ?? null;
+    result.run_id = runId;
+
+    const settings = await loadNotificationSettings(admin);
+    const effectiveTimezone = settings?.timezone || "America/Sao_Paulo";
+    const today = getTodayDateString(effectiveTimezone);
+
+    if (!settings?.enabled) {
+      result.skipped = true;
+      result.skipped_reason = "notifications_disabled";
+      await finishRun(admin, runId, result, "completed");
+      return result;
+    }
+
+    result.eventos_removidos = await removeFutureUnsentEvents({ admin, today, clienteId });
+
+    const noticeDays = normalizeNoticeDays(settings);
+
+    if (noticeDays.length === 0) {
+      result.skipped = true;
+      result.skipped_reason = "notice_days_empty";
+      await finishRun(admin, runId, result, "completed");
+      return result;
+    }
+
+    const certificados = await loadPlannableCertificates({ admin, clienteId });
+    const recipients = await loadActiveRecipients(admin);
+    result.destinatarios_ativos = recipients.length;
+
+    const { expiring: template, clientExpiring: clientTemplate } = await ensureDefaultNotificationTemplates();
+    validateTemplateContent(template.content);
+    validateTemplateContent(clientTemplate.content, "client_certificate_expiring");
+
+    const batchResult = await createPlannedExpirationEventsBatch({
+      admin,
+      certificados,
       recipients,
       settings,
       template,

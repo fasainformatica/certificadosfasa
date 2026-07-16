@@ -50,6 +50,8 @@ Variaveis permitidas ficam em `src/lib/notifications/validation.ts`. Templates c
 7. Cria eventos internos.
 8. Cria eventos para cliente quando provider e `euatendo`, telefone existe e cliente permite.
 
+`rebuildClientNotificationSchedule` usa a mesma regra de templates e idempotencia, mas remove e recria apenas eventos futuros reconstruiveis de um `cliente_id`. Ele e usado por `POST /api/clientes` para sincronizar mudancas de telefone/WhatsApp sem bloquear a tela com um rebuild global.
+
 ## Job do dia
 
 `runDueNotificationJob`:

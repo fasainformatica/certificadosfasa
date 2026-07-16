@@ -186,6 +186,8 @@ Eventos de notificacao passam por `pending`, `reserved`, `processing`, `sent`, `
 
 Clientes podem ser criados manualmente em `/clientes` via `POST /api/clientes` ou automaticamente durante upload/importacao de certificado. O CNPJ e unico. O telefone/WhatsApp alimenta exibicao, envio manual e eventos automaticos para cliente quando permitido.
 
+Quando um cliente e salvo manualmente, a API atualiza apenas os eventos futuros reconstruiveis daquele cliente por `rebuildClientNotificationSchedule`. O rebuild global continua reservado para upload/importacao, configuracoes, templates, destinatarios e endpoints operacionais.
+
 ### Cadastrar certificado
 
 1. Admin acessa `/certificados/novo`.
@@ -251,6 +253,7 @@ WhatsApp automatico depende de:
 
 - Upload individual chama rebuild e job do dia.
 - Importacao em massa chama rebuild e job do dia quando `run_notifications` nao e `false`.
+- Edicao manual de cliente chama rebuild segmentado por cliente para sincronizar telefone/WhatsApp nos avisos futuros sem reconstruir toda a fila.
 - Alteracao de configuracoes, templates ou destinatarios chama rebuild.
 - Endpoint manual `POST /api/notifications/check-expiring` chama rebuild e job do dia.
 - Cron diario `GET /api/cron/certificados-vencimentos` pela Vercel chama `runDueNotificationJob`.

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
-import { rebuildNotificationSchedule } from "@/lib/notifications/engine";
+import { rebuildClientNotificationSchedule } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { clienteInputSchema } from "@/lib/validations/certificados";
@@ -78,7 +78,8 @@ export async function POST(request: NextRequest) {
     return jsonError("Falha ao salvar cliente.", 500, "cliente_salvar");
   }
 
-  const notificationRebuild = await rebuildNotificationSchedule({
+  const notificationRebuild = await rebuildClientNotificationSchedule({
+    clienteId: data.id,
     triggeredBy: "system",
     userId: auth.user.id,
   });

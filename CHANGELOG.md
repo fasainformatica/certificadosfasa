@@ -4,6 +4,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-07-16
 
+- Ajustado `POST /api/clientes` para reconstruir apenas os avisos futuros do cliente alterado, evitando que edicoes de telefone aguardem o rebuild global de todos os certificados.
 - Ajustado dispatcher euAtendo para modo conservador apos restricao de conta WhatsApp: 1 mensagem por execucao, intervalo minimo absoluto de 180 segundos e janela padrao de 180 a 300 segundos entre envios.
 - Mantido cron Vercel Hobby as 10:20, mas envio de varias mensagens no mesmo dia passa a exigir cron externo recorrente ou Vercel Pro para chamar `/api/cron/euatendo-dispatch` sem formar rajada.
 
