@@ -36,14 +36,20 @@ function normalizeStatusName(value: string) {
     .toLowerCase();
 }
 
-function getCertificateStatusHref(name: string) {
+export function getCertificateStatusHref(name: string) {
   const normalized = normalizeStatusName(name);
 
   if (normalized === "validos" || normalized.includes("lidos")) {
     return "/certificados?status=ativo";
   }
 
-  if (normalized === "vencendo") {
+  if (
+    normalized === "vencendo" ||
+    normalized === "vence em breve" ||
+    normalized === "vencem em breve" ||
+    normalized === "proximo" ||
+    normalized === "proximos"
+  ) {
     return "/certificados?status=vencendo";
   }
 
