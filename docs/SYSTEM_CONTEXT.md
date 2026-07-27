@@ -55,7 +55,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 ### Fluxos
 
 - Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
-- Download publico: admin gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
+- Download publico: `admin` ou `financeiro` gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
 - Avisos: engine planeja eventos em `notification_events`; dispatcher euAtendo reserva um evento por execucao, envia, registra sucesso/falha e aplica delay/retry.
 - Crons: Vercel chama endpoints protegidos por `CRON_SECRET`; GitHub Actions pode chamar o dispatcher euAtendo a cada 5 minutos para escoar fila no mesmo dia sem Vercel Pro.
 
@@ -391,19 +391,19 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ### Certificados
 
-`/certificados` lista certificados com filtros, status e acoes. O detalhe permite editar cliente, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente e, apenas para admin, revelar a senha PFX mediante senha administrativa configurada no Supabase.
+`/certificados` lista certificados com filtros, status e acoes. Usuarios com role `admin` ou `financeiro` podem enviar, renovar, importar, editar cliente, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente e revelar a senha PFX mediante senha administrativa configurada no Supabase.
 
 ### Avisos
 
-`/notificacoes` exibe eventos, status, filtros, destinatarios e configuracoes relacionadas a notificacoes.
+`/notificacoes` exibe eventos, status, filtros, destinatarios e acoes operacionais de reenvio para `admin` e `financeiro`.
 
 ### Configuracoes
 
-`/configuracoes` centraliza avisos ativos, dias, delays, templates e destinatarios internos.
+`/configuracoes` centraliza avisos ativos, dias, delays, templates e destinatarios internos. A tela e as APIs de configuracao sao exclusivas para `admin`.
 
 ### Canal WhatsApp
 
-`/whatsapp` mostra estado do provider euAtendo, logs sanitizados, filas e ferramentas de homologacao.
+`/whatsapp` mostra estado do provider euAtendo, logs sanitizados, filas e ferramentas de homologacao. A tela e as APIs de homologacao do WhatsApp sao exclusivas para `admin`.
 
 ## Backend
 

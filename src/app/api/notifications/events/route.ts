@@ -2,11 +2,11 @@
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { buildNotificationEventSearchFilter } from "@/lib/notifications/event-search";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { NotificationEventStatus } from "@/lib/supabase/database.types";
-import { maskPhone } from "@/lib/utils/phone";
 
 export const runtime = "nodejs";
 
@@ -24,12 +24,6 @@ const TYPE_FILTERS = new Set(["certificate_expiring", "certificate_expired", "ma
 const PROVIDER_FILTERS = new Set(["euatendo"]);
 const AUDIENCE_FILTERS = new Set(["internal", "client"]);
 
-type EmbeddedRecipient = {
-  nome?: string | null;
-  telefone_normalizado?: string | null;
-  ativo?: boolean | null;
-};
-
 type EventApiRow = {
   id: string;
   cliente_id: string | null;
@@ -44,7 +38,7 @@ type EventApiRow = {
   created_at: string;
   updated_at: string;
   telefone_destino?: string | null;
-  notification_recipients?: EmbeddedRecipient | EmbeddedRecipient[] | null;
+  notification_recipients?: unknown;
   clientes?: unknown;
   certificados?: unknown;
   provider_response?: unknown;
@@ -55,37 +49,6 @@ function cleanSearch(value: string | null) {
   return value?.trim().replace(/[%,()]/g, "") ?? "";
 }
 
-function toFinanceiroEventDto(event: EventApiRow) {
-  const recipient = Array.isArray(event.notification_recipients)
-    ? event.notification_recipients[0]
-    : event.notification_recipients;
-
-  return {
-    id: event.id,
-    cliente_id: event.cliente_id,
-    certificado_id: event.certificado_id,
-    type: event.type,
-    audience: event.audience ?? "internal",
-    dias_restantes: event.dias_restantes,
-    send_date: event.send_date,
-    status: event.status,
-    sent_at: event.sent_at,
-    failed_at: event.failed_at,
-    created_at: event.created_at,
-    updated_at: event.updated_at,
-    cliente: event.clientes ?? null,
-    certificado: event.certificados ?? null,
-    destinatario: recipient
-      ? {
-          nome: recipient.nome,
-          telefone_mascarado: maskPhone(recipient.telefone_normalizado ?? event.telefone_destino ?? ""),
-          ativo: recipient.ativo,
-        }
-      : null,
-    erro: event.status === "failed" ? "Falha no envio. Um administrador pode consultar os detalhes técnicos." : null,
-  };
-}
-
 function toAdminEventDto(event: EventApiRow) {
   const safeEvent = { ...event };
   delete safeEvent.provider_response;
@@ -93,7 +56,7 @@ function toAdminEventDto(event: EventApiRow) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser(["admin", "financeiro"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -156,9 +119,7 @@ export async function GET(request: NextRequest) {
     return jsonError("Falha ao listar eventos.", 500, "eventos_erro");
   }
 
-  const events = (data ?? []).map((event) =>
-    auth.user.role === "financeiro" ? toFinanceiroEventDto(event as EventApiRow) : toAdminEventDto(event as EventApiRow),
-  );
+  const events = (data ?? []).map((event) => toAdminEventDto(event as EventApiRow));
 
   return NextResponse.json({
     events,

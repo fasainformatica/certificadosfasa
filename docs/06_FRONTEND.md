@@ -29,7 +29,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - Telas internas usam Server Components quando possivel.
 - Componentes interativos ficam como Client Components locais.
 - Acoes sensiveis chamam APIs server-side.
-- Dados secretos nunca sao expostos ao browser, exceto a senha PFX revelada explicitamente para admin apos senha administrativa e auditoria.
+- Dados secretos nunca sao expostos ao browser, exceto a senha PFX revelada explicitamente para `admin` ou `financeiro` apos senha administrativa e auditoria.
 
 ## Refatoracao visual e UX
 

@@ -3,12 +3,12 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button-styles";
 import { SectionHeader } from "@/components/ui/section-header";
-import { requireAdmin } from "@/lib/auth/rbac";
+import { requireOperationalUser } from "@/lib/auth/rbac";
 
 import { BulkImportCertificatesForm } from "./bulk-import-certificates-form";
 
 export default async function ImportarCertificadosPage() {
-  await requireAdmin();
+  await requireOperationalUser();
 
   return (
     <section>

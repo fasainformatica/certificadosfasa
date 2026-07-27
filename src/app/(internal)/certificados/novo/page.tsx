@@ -1,5 +1,5 @@
 import { SectionHeader } from "@/components/ui/section-header";
-import { requireAdmin } from "@/lib/auth/rbac";
+import { requireOperationalUser } from "@/lib/auth/rbac";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import { UploadCertificateForm } from "./upload-certificate-form";
@@ -11,7 +11,7 @@ type NovoCertificadoPageProps = {
 };
 
 export default async function NovoCertificadoPage({ searchParams }: NovoCertificadoPageProps) {
-  await requireAdmin();
+  await requireOperationalUser();
   const params = await searchParams;
   const supabase = await createServerSupabaseClient();
   const { data: clients } = await supabase

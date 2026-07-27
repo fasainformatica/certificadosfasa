@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { ADMIN_ROLES } from "@/lib/auth/permissions";
 import { rebuildNotificationSchedule } from "@/lib/notifications/engine";
 import { notificationRecipientUpdateSchema } from "@/lib/notifications/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -15,7 +16,7 @@ type RecipientRouteProps = {
 };
 
 export async function PATCH(request: NextRequest, { params }: RecipientRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(ADMIN_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -78,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RecipientRouteProp
 }
 
 export async function DELETE(_request: NextRequest, { params }: RecipientRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(ADMIN_ROLES);
 
   if ("response" in auth) {
     return auth.response;

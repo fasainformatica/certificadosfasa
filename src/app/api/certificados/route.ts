@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { CERTIFICATE_STATUSES } from "@/lib/certificados/status-labels";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -46,7 +47,7 @@ function applyStatusFilter<T extends FilterableQuery>(query: T, status: Certific
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser(["admin", "financeiro"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

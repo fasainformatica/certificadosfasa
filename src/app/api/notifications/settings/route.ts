@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { ADMIN_ROLES } from "@/lib/auth/permissions";
 import { SETTINGS_ID, rebuildNotificationSchedule } from "@/lib/notifications/engine";
 import { notificationSettingsSchema } from "@/lib/notifications/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +10,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const auth = await requireApiUser(["admin", "financeiro"]);
+  const auth = await requireApiUser(ADMIN_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -26,7 +27,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(ADMIN_ROLES);
 
   if ("response" in auth) {
     return auth.response;

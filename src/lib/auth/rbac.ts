@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
+import { canManageOperationalData } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/supabase/database.types";
 import { InvalidAuthSessionError, isInvalidRefreshTokenError, sessionCleanupRedirectPath } from "@/lib/supabase/auth-errors";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ export type CurrentUser = {
 };
 
 export function canManageSensitiveData(role: UserRole) {
-  return role === "admin";
+  return canManageOperationalData(role);
 }
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
@@ -78,6 +79,16 @@ export async function requireAdmin() {
   const currentUser = await requireInternalUser();
 
   if (currentUser.role !== "admin") {
+    redirect("/dashboard?erro=sem-permissao");
+  }
+
+  return currentUser;
+}
+
+export async function requireOperationalUser() {
+  const currentUser = await requireInternalUser();
+
+  if (!canManageOperationalData(currentUser.role)) {
     redirect("/dashboard?erro=sem-permissao");
   }
 

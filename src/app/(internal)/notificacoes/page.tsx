@@ -9,6 +9,7 @@ import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge, type Tone } from "@/components/ui/status-badge";
+import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { daysUntilDate } from "@/lib/certificados/status";
 import { buildNotificationEventSearchFilter } from "@/lib/notifications/event-search";
@@ -173,6 +174,7 @@ async function loadNotificationSummary(admin: ReturnType<typeof createSupabaseAd
 export default async function NotificacoesPage({ searchParams }: NotificacoesPageProps) {
   const params = await searchParams;
   const user = await requireInternalUser();
+  const canManageNotifications = canManageOperationalData(user.role);
   const status = params.status && statuses.includes(params.status as NotificationEventStatus)
     ? (params.status as NotificationEventStatus)
     : null;
@@ -388,7 +390,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                     <p><span className="font-medium text-slate-950">Última tentativa:</span> {formatDateTimeShort(lastAttempt)}</p>
                     <p className="sm:col-span-2"><span className="font-medium text-slate-950">Próxima ação:</span> {getRecommendedAction(event)}</p>
                   </div>
-                  {user.role === "admin" && ["failed", "cancelled", "skipped"].includes(event.status) ? (
+                  {canManageNotifications && ["failed", "cancelled", "skipped"].includes(event.status) ? (
                     <div className="mt-3">
                       <RetryEventButton eventId={event.id} />
                     </div>
@@ -467,7 +469,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                         </p>
                       </TableCell>
                       <TableCell>
-                        {user.role === "admin" && ["failed", "cancelled", "skipped"].includes(event.status) ? (
+                        {canManageNotifications && ["failed", "cancelled", "skipped"].includes(event.status) ? (
                           <RetryEventButton eventId={event.id} />
                         ) : (
                           <span className="text-slate-400">-</span>

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import {
   SETTINGS_ID,
   calculateDaysUntilExpiration,
@@ -136,7 +137,7 @@ async function logManualAttempt({
 }
 
 export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { rebuildNotificationSchedule } from "@/lib/notifications/engine";
 import { CERTIFICATES_BUCKET } from "@/lib/storage/certificates";
 import {
@@ -63,7 +64,7 @@ async function restoreStorageObject(storagePath: string, backup: StorageBackup) 
 }
 
 export async function GET(_request: NextRequest, { params }: CertificadoRouteProps) {
-  const auth = await requireApiUser(["admin", "financeiro"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -91,7 +92,7 @@ export async function GET(_request: NextRequest, { params }: CertificadoRoutePro
 }
 
 export async function DELETE(request: NextRequest, { params }: CertificadoRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

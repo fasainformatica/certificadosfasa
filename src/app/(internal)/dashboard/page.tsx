@@ -17,6 +17,8 @@ import { SectionCard } from "@/components/ui/section-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
+import { canAccessAdminOnlyArea } from "@/lib/auth/permissions";
+import { requireInternalUser } from "@/lib/auth/rbac";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -301,6 +303,8 @@ async function loadDashboardMetrics(admin: AdminClient) {
 }
 
 export default async function DashboardPage() {
+  const user = await requireInternalUser();
+  const canAccessWhatsapp = canAccessAdminOnlyArea(user.role);
   const admin = createSupabaseAdminClient();
   const [metrics, euAtendoStateResult, euAtendoPendingResult] = await Promise.all([
     loadDashboardMetrics(admin),
@@ -341,7 +345,7 @@ export default async function DashboardPage() {
           },
         ]
       : []),
-    ...(!euAtendoConfig.enabled
+    ...(!euAtendoConfig.enabled && canAccessWhatsapp
       ? [
           {
             key: "canal-whatsapp-pausado",

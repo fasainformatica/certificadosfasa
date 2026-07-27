@@ -13,7 +13,7 @@ export type ApiUser = {
   role: UserRole;
 };
 
-export async function requireApiUser(allowedRoles: UserRole[]) {
+export async function requireApiUser(allowedRoles: readonly UserRole[]) {
   const supabase = await createServerSupabaseClient();
   let user: User | null;
 

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { rebuildClientNotificationSchedule } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { clienteInputSchema } from "@/lib/validations/certificados";
 
@@ -14,7 +16,7 @@ function cleanSearch(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser(["admin", "financeiro"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -67,8 +69,8 @@ export async function POST(request: NextRequest) {
     return jsonError(parsed.error.issues[0]?.message ?? "Dados inválidos.", 400, "validacao");
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
     .from("clientes")
     .upsert(parsed.data, { onConflict: "cnpj" })
     .select("id, nome_razao_social, cnpj, email, telefone, whatsapp, whatsapp_notifications_enabled, responsavel, observacoes, created_at, updated_at")

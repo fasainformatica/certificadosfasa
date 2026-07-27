@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ type RetryRouteProps = {
 };
 
 export async function POST(request: NextRequest, { params }: RetryRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

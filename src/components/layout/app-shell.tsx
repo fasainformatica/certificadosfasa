@@ -7,6 +7,7 @@ import { AppNavigation } from "@/components/layout/app-navigation";
 import type { NavigationItem } from "@/components/layout/app-navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { PageTransition } from "@/components/layout/page-transition";
+import { canAccessAdminOnlyArea } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/rbac";
 
 type AppShellNavigationItem = NavigationItem & {
@@ -19,7 +20,7 @@ const navigation = [
   { href: "/clientes", label: "Clientes", icon: "clients" },
   { href: "/notificacoes", label: "Central de avisos", icon: "notifications" },
   { href: "/whatsapp", label: "WhatsApp", icon: "whatsapp", adminOnly: true },
-  { href: "/configuracoes", label: "Configurações", icon: "settings" },
+  { href: "/configuracoes", label: "Configurações", icon: "settings", adminOnly: true },
 ] satisfies AppShellNavigationItem[];
 
 type AppShellProps = {
@@ -28,7 +29,8 @@ type AppShellProps = {
 };
 
 export function AppShell({ user, children }: AppShellProps) {
-  const visibleNavigation = navigation.filter((item) => !item.adminOnly || user.role === "admin");
+  const isAdmin = canAccessAdminOnlyArea(user.role);
+  const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950">
@@ -48,14 +50,16 @@ export function AppShell({ user, children }: AppShellProps) {
             <div className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex">
               <Bell aria-hidden="true" className="h-4 w-4" />
             </div>
-            <Link
-              href="/configuracoes"
-              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex"
-              aria-label="Abrir configurações"
-              title="Configurações"
-            >
-              <Settings aria-hidden="true" className="h-4 w-4" />
-            </Link>
+            {isAdmin ? (
+              <Link
+                href="/configuracoes"
+                className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex"
+                aria-label="Abrir configurações"
+                title="Configurações"
+              >
+                <Settings aria-hidden="true" className="h-4 w-4" />
+              </Link>
+            ) : null}
             <LogoutButton />
           </div>
         </div>

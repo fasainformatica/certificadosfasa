@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { CertificateUploadError, registerCertificateUpload } from "@/lib/certificados/upload-service";
 import { rebuildNotificationSchedule, runDueNotificationJob } from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -15,7 +16,7 @@ function getClientIp(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

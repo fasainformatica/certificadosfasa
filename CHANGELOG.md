@@ -4,6 +4,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-07-27
 
+- Ajustada matriz de permissoes: `financeiro` passa a ter permissao operacional completa em certificados, clientes e central de avisos, mantendo WhatsApp, Configuracoes e rotas `/api/admin/*` exclusivas para `admin`.
 - Ajustado upload/renovacao de certificados para salvar cada PFX em `certificados/{cnpj}/{hash_arquivo}.pfx`, mantendo o arquivo antigo no Storage e exibindo no sistema apenas o certificado atual vinculado no banco.
 
 ## 2026-07-22

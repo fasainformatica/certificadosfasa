@@ -9,6 +9,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
+import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { wasCertificateRenewed } from "@/lib/certificados/renewal";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
@@ -115,6 +116,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   }
 
   const { data: certificados, count } = await query;
+  const canManageCertificates = canManageOperationalData(user.role);
   const certificadosWithStatus = (certificados ?? []).map((certificado) => ({
     ...certificado,
     status: certificado.status === "invalido"
@@ -132,7 +134,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         title="Certificados"
         description="Gerencie certificados, acompanhe vencimentos e inicie ações de renovação."
         actions={
-          user.role === "admin" ? (
+          canManageCertificates ? (
             <>
               <Link href="/certificados/novo" className={buttonClass("primary", "w-full sm:w-auto")}>
                 <Upload aria-hidden="true" className="h-4 w-4" />
@@ -182,7 +184,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
               : "Envie o primeiro certificado para começar a acompanhar vencimentos."
           }
           action={
-            user.role === "admin" && !hasFilters ? (
+            canManageCertificates && !hasFilters ? (
               <Link href="/certificados/novo" className={buttonClass("primary")}>
                 Enviar certificado
               </Link>
@@ -229,7 +231,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                   <Link className={buttonClass("secondary", "min-h-10 w-full px-3 text-sm")} href={`/certificados/${certificado.id}`}>
                     Ver detalhes
                   </Link>
-                  {user.role === "admin" ? <ManualNoticeButton certificadoId={certificado.id} /> : null}
+                  {canManageCertificates ? <ManualNoticeButton certificadoId={certificado.id} /> : null}
                 </div>
               </article>
             ))}
@@ -273,7 +275,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                         <Link className={buttonClass("secondary", "min-h-8 px-3 text-xs")} href={`/certificados/${certificado.id}`}>
                           Ver detalhes
                         </Link>
-                        {user.role === "admin" ? <ManualNoticeButton certificadoId={certificado.id} /> : null}
+                        {canManageCertificates ? <ManualNoticeButton certificadoId={certificado.id} /> : null}
                       </div>
                     </TableCell>
                   </tr>

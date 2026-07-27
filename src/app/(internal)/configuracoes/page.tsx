@@ -1,5 +1,5 @@
 ﻿import { SectionHeader } from "@/components/ui/section-header";
-import { requireInternalUser } from "@/lib/auth/rbac";
+import { requireAdmin } from "@/lib/auth/rbac";
 import {
   SETTINGS_ID,
   clampNotificationDelaySettings,
@@ -11,7 +11,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ConfiguracoesForm } from "./configuracoes-form";
 
 export default async function ConfiguracoesPage() {
-  const user = await requireInternalUser();
+  const user = await requireAdmin();
   const admin = createSupabaseAdminClient();
   await ensureDefaultNotificationTemplates();
   const { data: notificationSettings } = await admin

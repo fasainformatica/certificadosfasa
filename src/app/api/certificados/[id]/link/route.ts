@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
+import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { createOneTimeDownloadPassword, hashDownloadPassword } from "@/lib/download/password";
 import { createPublicDownloadToken, hashPublicDownloadToken } from "@/lib/download/token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -120,7 +121,7 @@ async function updateLinkPassword(certificadoId: string, userId: string, ip: str
 }
 
 export async function POST(request: NextRequest, { params }: LinkRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest, { params }: LinkRouteProps) {
 }
 
 export async function PATCH(request: NextRequest, { params }: LinkRouteProps) {
-  const auth = await requireApiUser(["admin"]);
+  const auth = await requireApiUser(OPERATIONAL_ROLES);
 
   if ("response" in auth) {
     return auth.response;

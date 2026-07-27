@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { buttonClass } from "@/components/ui/button-styles";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
+import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { wasCertificateRenewed } from "@/lib/certificados/renewal";
 import { calculateCertificateStatus } from "@/lib/certificados/status";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { formatCertificateTitle, formatCnpj, formatDate, formatDateTime, formatDisplayName, formatPhone } from "@/lib/utils/format";
 
@@ -38,8 +40,10 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
     notFound();
   }
 
-  const { data: activeLink } = user.role === "admin"
-    ? await supabase
+  const canManageCertificate = canManageOperationalData(user.role);
+  const admin = canManageCertificate ? createSupabaseAdminClient() : null;
+  const { data: activeLink } = admin
+    ? await admin
       .from("links_download")
       .select("id, ativo, usado, usado_em, invalidado_em, criado_em, atualizado_em, ip_uso, user_agent_uso, tentativas_invalidas, bloqueado_ate")
       .eq("certificado_id", id)
@@ -105,7 +109,7 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           </div>
         ))}
       </dl>
-      {user.role === "admin" && certificado.clientes ? (
+      {canManageCertificate && certificado.clientes ? (
         <ClientEditForm
           initialClient={{
             nome_razao_social: certificado.clientes.nome_razao_social,
@@ -119,9 +123,9 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           }}
         />
       ) : null}
-      {user.role === "admin" ? <CertificatePasswordReveal certificadoId={id} /> : null}
-      {user.role === "admin" ? <DownloadLinkManager certificadoId={id} initialLink={activeLink ?? null} /> : null}
-      {user.role === "admin" ? <DeleteCertificateButton certificadoId={id} /> : null}
+      {canManageCertificate ? <CertificatePasswordReveal certificadoId={id} /> : null}
+      {canManageCertificate ? <DownloadLinkManager certificadoId={id} initialLink={activeLink ?? null} /> : null}
+      {canManageCertificate ? <DeleteCertificateButton certificadoId={id} /> : null}
     </section>
   );
 }
