@@ -44,6 +44,8 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 ## Regras importantes
 
 - Bucket `certificados-pfx` deve ser privado.
+- Cada PFX atual usa `storage_path` versionado por hash em `certificados/{cnpj}/{hash_arquivo}.pfx`.
+- Em renovacoes, arquivos PFX antigos podem permanecer na pasta do CNPJ no Storage, mas nao aparecem no sistema porque o registro `certificados.storage_path` aponta apenas para a versao atual.
 - Token publico nunca e salvo em claro.
 - Senha real do PFX nunca e salva em claro.
 - `notification_events.idempotency_key` evita duplicidade.

@@ -2,6 +2,10 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-07-27
+
+- Ajustado upload/renovacao de certificados para salvar cada PFX em `certificados/{cnpj}/{hash_arquivo}.pfx`, mantendo o arquivo antigo no Storage e exibindo no sistema apenas o certificado atual vinculado no banco.
+
 ## 2026-07-22
 
 - Adicionado workflow GitHub Actions `.github/workflows/euatendo-dispatch-cron.yml` para chamar o dispatcher euAtendo a cada 5 minutos, mantendo 1 mensagem por execucao.

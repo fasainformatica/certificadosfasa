@@ -282,7 +282,7 @@ export async function registerCertificateUpload({
     settings?.timezone ?? "America/Sao_Paulo",
   );
   const encryptedPassword = encryptSecret(password);
-  const storagePath = getCertificateStoragePath(cnpj);
+  const storagePath = getCertificateStoragePath(cnpj, hashArquivo);
   const previousStoragePath = existingCertificate?.storage_path ?? null;
   const backup = await backupExistingCertificateObject(admin, storagePath);
   const reconciliationJobId = await createStorageReconciliationJob({
@@ -295,6 +295,7 @@ export async function registerCertificateUpload({
       nome_arquivo_original: fileName,
       certificado_existente_id: existingCertificate?.id ?? null,
       storage_path_anterior: previousStoragePath,
+      preservar_storage_path_anterior: Boolean(previousStoragePath && previousStoragePath !== storagePath),
       ...metadata,
     },
   });
@@ -386,47 +387,6 @@ export async function registerCertificateUpload({
     .maybeSingle();
   const savedStatus = registeredCertificate?.status ?? status;
 
-  if (previousStoragePath && previousStoragePath !== storagePath) {
-    const deleteOldJobId = await createStorageReconciliationJob({
-      admin,
-      operationType: "delete",
-      certificadoId,
-      storagePath: previousStoragePath,
-      metadata: {
-        stage: "remove_previous_certificate_object_after_renewal",
-        novo_storage_path: storagePath,
-        ...metadata,
-      },
-    });
-    const { error: removeOldError } = await admin.storage.from(CERTIFICATES_BUCKET).remove([previousStoragePath]);
-
-    if (removeOldError) {
-      await markStorageReconciliationJob({
-        admin,
-        jobId: deleteOldJobId,
-        status: "failed",
-        error: removeOldError.message,
-        metadata: { stage: "remove_previous_certificate_object_failed", ...metadata },
-      });
-      await logStorageReconciliationFailure({
-        admin,
-        certificadoId,
-        userId,
-        action: "storage_remove_previous_certificate_failed",
-        error: removeOldError.message,
-        metadata: { previous_storage_path: previousStoragePath, storage_path: storagePath, ...metadata },
-      });
-    } else {
-      await markStorageReconciliationJob({
-        admin,
-        jobId: deleteOldJobId,
-        certificadoId,
-        status: "completed",
-        metadata: { stage: "previous_certificate_object_removed", ...metadata },
-      });
-    }
-  }
-
   await markStorageReconciliationJob({
     admin,
     jobId: reconciliationJobId,
@@ -436,6 +396,7 @@ export async function registerCertificateUpload({
       certificado_id: certificadoId,
       hash_arquivo: hashArquivo,
       stage: "upload_and_database_registered",
+      storage_path_anterior_preservado: previousStoragePath && previousStoragePath !== storagePath ? previousStoragePath : null,
       ...metadata,
     },
   });

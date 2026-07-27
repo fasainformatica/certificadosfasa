@@ -54,7 +54,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 
 ### Fluxos
 
-- Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage, registra banco por RPC e recalcula avisos.
+- Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
 - Download publico: admin gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
 - Avisos: engine planeja eventos em `notification_events`; dispatcher euAtendo reserva um evento por execucao, envia, registra sucesso/falha e aplica delay/retry.
 - Crons: Vercel chama endpoints protegidos por `CRON_SECRET`; GitHub Actions pode chamar o dispatcher euAtendo a cada 5 minutos para escoar fila no mesmo dia sem Vercel Pro.
@@ -147,7 +147,7 @@ docs/reference
 
 - `user_profiles`: perfil interno e role do usuario autenticado.
 - `clientes`: dados do cliente, CNPJ, contato, WhatsApp e flag `whatsapp_notifications_enabled`.
-- `certificados`: metadados do PFX, validade, status, senha criptografada e `storage_path`.
+- `certificados`: metadados do PFX atual, validade, status, senha criptografada e `storage_path` versionado por hash.
 - `links_download`: links publicos com `token_hash`, `senha_hash`, uso unico, bloqueio por tentativas e auditoria de uso.
 - `audit_logs`: trilha de auditoria de acoes administrativas e publicas relevantes.
 - `storage_reconciliation_jobs`: controle de reconciliacao quando Storage e banco podem divergir.
@@ -199,11 +199,12 @@ Quando um cliente e salvo manualmente, a API atualiza apenas os eventos futuros 
 3. Backend valida extensao, tamanho, assinatura inicial e senha do PFX.
 4. `node-forge` extrai CNPJ, titular, emissao e vencimento quando disponivel.
 5. Senha real do PFX e criptografada com `CERT_ENCRYPTION_KEY`.
-6. Arquivo e salvo no bucket privado `certificados-pfx`.
+6. Arquivo e salvo no bucket privado `certificados-pfx` em `certificados/{cnpj}/{hash_arquivo}.pfx`.
 7. RPC `registrar_upload_certificado` cria ou atualiza cliente/certificado.
 8. Se ja existir certificado para o cliente, o registro e atualizado sem duplicar.
-9. Sistema registra auditoria e job de reconciliacao de Storage.
-10. Notification engine recalcula agenda e eventos do dia.
+9. Em renovacao, o arquivo PFX anterior permanece na pasta do CNPJ no Storage, mas nao aparece no sistema porque o banco passa a apontar apenas para o novo `storage_path`.
+10. Sistema registra auditoria e job de reconciliacao de Storage.
+11. Notification engine recalcula agenda e eventos do dia.
 
 ### Planejamento
 

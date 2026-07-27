@@ -15,9 +15,10 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 2. API `POST /api/certificados/upload` valida formulario e arquivo.
 3. `registerCertificateUpload` valida PFX, extrai dados e calcula status.
 4. Senha e criptografada com AES-256-GCM.
-5. PFX e salvo em Storage privado.
+5. PFX e salvo em Storage privado em `certificados/{cnpj}/{hash_arquivo}.pfx`.
 6. RPC `registrar_upload_certificado` cria ou atualiza cliente/certificado.
-7. Rebuild de notificacoes recalcula eventos.
+7. Em renovacao, o registro do certificado passa a apontar para o novo `storage_path`; o arquivo antigo permanece na pasta do CNPJ, mas deixa de aparecer no sistema porque nao fica vinculado ao registro atual.
+8. Rebuild de notificacoes recalcula eventos.
 
 ## Importacao em massa
 
