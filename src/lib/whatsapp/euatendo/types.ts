@@ -1,8 +1,8 @@
 import type { Json } from "@/lib/supabase/database.types";
+import { EUATENDO_PROVIDER } from "@/lib/whatsapp/providers";
 
-export const EUATENDO_PROVIDER = "euatendo" as const;
-
-export type WhatsAppProviderName = typeof EUATENDO_PROVIDER;
+export { EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
+export type { WhatsAppProviderName } from "@/lib/whatsapp/providers";
 
 export type EuAtendoErrorCode =
   | "CONFIGURATION_ERROR"

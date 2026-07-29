@@ -6,7 +6,8 @@ import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { buildNotificationEventSearchFilter } from "@/lib/notifications/event-search";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { NotificationEventStatus } from "@/lib/supabase/database.types";
+import type { NotificationEventStatus, NotificationProvider } from "@/lib/supabase/database.types";
+import { isWhatsAppProviderName } from "@/lib/whatsapp/providers";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,6 @@ const STATUS_FILTERS = new Set<NotificationEventStatus>([
   "skipped",
 ]);
 const TYPE_FILTERS = new Set(["certificate_expiring", "certificate_expired", "manual_test"]);
-const PROVIDER_FILTERS = new Set(["euatendo"]);
 const AUDIENCE_FILTERS = new Set(["internal", "client"]);
 
 type EventApiRow = {
@@ -91,8 +91,8 @@ export async function GET(request: NextRequest) {
     query = query.eq("type", type);
   }
 
-  if (provider && PROVIDER_FILTERS.has(provider)) {
-    query = query.eq("provider", provider as "euatendo");
+  if (isWhatsAppProviderName(provider)) {
+    query = query.eq("provider", provider as NotificationProvider);
   }
 
   if (audience && AUDIENCE_FILTERS.has(audience)) {

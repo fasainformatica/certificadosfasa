@@ -19,6 +19,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { NotificationEventStatus } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils/cn";
 import {
+  EUATENDO_PROVIDER,
+  WHATSAPP_EXTENSION_PROVIDER,
+  getWhatsAppProviderLabel,
+} from "@/lib/whatsapp/providers";
+import {
   formatCertificateTitle,
   formatCnpj,
   formatDate,
@@ -46,7 +51,7 @@ type NotificacoesPageProps = {
 
 const statuses = ["pending", "reserved", "processing", "retry", "sent", "failed", "cancelled", "skipped"] as const;
 const types = ["certificate_expiring", "certificate_expired"] as const;
-const providers = ["euatendo"] as const;
+const providers = [EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER] as const;
 const audiences = ["internal", "client"] as const;
 
 const TYPE_LABELS: Record<(typeof types)[number], string> = {
@@ -66,7 +71,8 @@ const STATUS_LABELS: Record<NotificationEventStatus, { label: string; tone: Tone
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
-  euatendo: "WhatsApp",
+  [EUATENDO_PROVIDER]: "WhatsApp euAtendo",
+  [WHATSAPP_EXTENSION_PROVIDER]: "Extensao do Chrome",
 };
 
 const AUDIENCE_LABELS: Record<(typeof audiences)[number], string> = {
@@ -75,7 +81,7 @@ const AUDIENCE_LABELS: Record<(typeof audiences)[number], string> = {
 };
 
 function getProviderLabel(provider: string | null | undefined) {
-  return provider ? (PROVIDER_LABELS[provider] ?? "Canal legado") : "WhatsApp";
+  return provider ? (PROVIDER_LABELS[provider] ?? getWhatsAppProviderLabel(provider)) : "WhatsApp";
 }
 
 function getQuickFilters(today: string) {

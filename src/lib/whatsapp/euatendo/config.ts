@@ -5,7 +5,12 @@ import { z } from "zod";
 import { getOptionalEnv } from "@/lib/supabase/env";
 
 import { EuAtendoProviderError } from "./errors";
-import { EUATENDO_PROVIDER, type EuAtendoConfigStatus, type WhatsAppProviderName } from "./types";
+import {
+  EUATENDO_PROVIDER,
+  WHATSAPP_EXTENSION_PROVIDER,
+  type EuAtendoConfigStatus,
+  type WhatsAppProviderName,
+} from "./types";
 
 const configSchema = z.object({
   apiUrl: z.string().trim().url(),
@@ -64,5 +69,11 @@ export function getEuAtendoConfig({ requireCredentials = false }: { requireCrede
 }
 
 export function getActiveNotificationProvider(): WhatsAppProviderName {
+  const rawProvider = getOptionalEnv("WHATSAPP_PROVIDER")?.trim().toLowerCase();
+
+  if (rawProvider === WHATSAPP_EXTENSION_PROVIDER) {
+    return WHATSAPP_EXTENSION_PROVIDER;
+  }
+
   return EUATENDO_PROVIDER;
 }

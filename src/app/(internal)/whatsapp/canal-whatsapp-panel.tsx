@@ -19,12 +19,19 @@ import { buttonClass, inputClass } from "@/components/ui/button-styles";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge, type Tone } from "@/components/ui/status-badge";
 import { formatDateTimeShort } from "@/lib/utils/format";
+import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type EuAtendoConfig = {
   enabled: boolean;
   apiUrlConfigured: boolean;
   tokenConfigured: boolean;
   instanceConfigured: boolean;
+};
+
+type ExtensionConfig = {
+  enabled: boolean;
+  tokenConfigured: boolean;
+  activeProvider: boolean;
 };
 
 type EuAtendoStats = {
@@ -211,6 +218,10 @@ export function CanalWhatsAppPanel({
 }: {
   euAtendo: {
     config: EuAtendoConfig;
+    extensionConfig: ExtensionConfig;
+    activeProvider: string;
+    activeProviderLabel: string;
+    notificationSettingsEnabled: boolean;
     stats: EuAtendoStats;
     state: EuAtendoState;
     logs: EuAtendoLog[];
@@ -221,7 +232,13 @@ export function CanalWhatsAppPanel({
   const [health, setHealth] = useState<EuAtendoHealthPayload["health"] | null>(null);
   const [numberCheck, setNumberCheck] = useState<CheckNumberPayload["result"] | null>(null);
   const [testResult, setTestResult] = useState<TestMessagePayload["result"] | null>(null);
-  const configured = euAtendo.config.apiUrlConfigured && euAtendo.config.tokenConfigured && euAtendo.config.instanceConfigured;
+  const activeProviderIsExtension = euAtendo.activeProvider === WHATSAPP_EXTENSION_PROVIDER;
+  const configured = activeProviderIsExtension
+    ? euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured
+    : euAtendo.config.apiUrlConfigured && euAtendo.config.tokenConfigured && euAtendo.config.instanceConfigured;
+  const automationEnabled = activeProviderIsExtension
+    ? euAtendo.notificationSettingsEnabled && euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured
+    : euAtendo.notificationSettingsEnabled && euAtendo.config.enabled;
   const healthStatus = health?.ok
     ? { label: "Conectado", tone: "green" as const }
     : health
@@ -306,15 +323,21 @@ export function CanalWhatsAppPanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-950">WhatsApp euAtendo</h2>
+              <h2 className="text-lg font-semibold text-slate-950">WhatsApp automatico</h2>
+              <Badge tone="blue">Canal ativo: {euAtendo.activeProviderLabel}</Badge>
               <Badge tone={healthStatus.tone}>{healthStatus.label}</Badge>
-              <Badge tone={euAtendo.config.enabled ? "green" : "slate"}>
-                {euAtendo.config.enabled ? "Envio automático ativo" : "Envio automático pausado"}
+              <Badge tone={automationEnabled ? "green" : "slate"}>
+                {automationEnabled ? "Envio automático ativo" : "Envio automático pausado"}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-slate-600">
-              Canal oficial para envio automático dos avisos de vencimento.
+              Acompanhe a fila dos avisos de vencimento e valide o canal oficial quando necessario.
             </p>
+            {!euAtendo.notificationSettingsEnabled ? (
+              <p className="mt-2 text-sm font-medium text-amber-700">
+                O envio automatico esta pausado nas Configuracoes do sistema.
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -331,7 +354,7 @@ export function CanalWhatsAppPanel({
           <MetricCard
             title="Integração configurada"
             value={<Badge tone={configured ? "green" : "red"}>{configured ? "Sim" : "Não"}</Badge>}
-            description="Variáveis server-only presentes"
+            description={activeProviderIsExtension ? "Token da extensao configurado no servidor" : "Variáveis server-only presentes"}
             icon={<ShieldCheck className="h-4 w-4" />}
             tone={configured ? "green" : "red"}
           />
@@ -456,8 +479,8 @@ export function CanalWhatsAppPanel({
             <h2 className="text-lg font-semibold text-slate-950">Fila automática</h2>
             <p className="mt-1 text-sm text-slate-600">Cadência, reserva atual e últimos envios sanitizados.</p>
           </div>
-          <Badge tone={euAtendo.config.enabled ? "green" : "slate"}>
-            {euAtendo.config.enabled ? "Envio automático ativo" : "Envio automático pausado"}
+          <Badge tone={automationEnabled ? "green" : "slate"}>
+            {automationEnabled ? "Envio automático ativo" : "Envio automático pausado"}
           </Badge>
         </div>
 

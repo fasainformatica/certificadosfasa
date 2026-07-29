@@ -4,6 +4,9 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-07-29
 
+- Adicionado provider alternativo `whatsapp_extension` para a extensao Chrome `Fasa Certificados WhatsApp`, com rotas `/sistema/api/whatsapp/{validate,messages,status,received}`, Basic Auth server-only, reserva transacional de 1 mensagem por chamada e processamento de acks.
+- Criada migration `20260729153000_add_whatsapp_extension_provider.sql`, permitindo `whatsapp_extension` em `notification_events`, `whatsapp_dispatcher_state` e `whatsapp_provider_logs`, com indice proprio de fila e RPC `reserve_whatsapp_extension_notification_event`.
+- Atualizados notification engine, Central de avisos, dashboard, pagina WhatsApp e readiness para reconhecer `WHATSAPP_PROVIDER=euatendo|whatsapp_extension`, mantendo euAtendo como padrao.
 - Adicionada situacao operacional de renovacao em certificados, com filtro em `/certificados`, edicao no detalhe, API `PATCH /api/certificados/[id]/renovacao`, auditoria e cancelamento de avisos pendentes quando o cliente renovou fora, nao vai renovar ou esta inativo.
 - Ajustados dashboard, notification engine e RPCs SQL para considerar apenas certificados em acompanhamento ou renovados pela Fasa no planejamento automatico e nas metricas operacionais.
 - Criada migration `20260729120000_add_certificate_renewal_status.sql` e atualizado o schema consolidado com colunas `renovacao_status`, `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atualizado_por`.

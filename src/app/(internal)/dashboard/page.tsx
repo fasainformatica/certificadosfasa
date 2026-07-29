@@ -31,7 +31,9 @@ import {
   formatDateTimeShort,
   formatRelativeExpiration,
 } from "@/lib/utils/format";
-import { getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
+import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
+import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -162,6 +164,28 @@ function normalizeMetrics(value: Json | null): DashboardMetrics {
   };
 }
 
+function getActiveWhatsAppAutomationStatus() {
+  const activeProvider = getActiveNotificationProvider();
+
+  if (activeProvider === WHATSAPP_EXTENSION_PROVIDER) {
+    const extension = getWhatsAppExtensionConfigStatus();
+
+    return {
+      activeProvider,
+      label: "Extensao do Chrome",
+      enabled: extension.enabled && extension.tokenConfigured,
+    };
+  }
+
+  const euAtendo = getEuAtendoConfigStatus();
+
+  return {
+    activeProvider,
+    label: "euAtendo",
+    enabled: euAtendo.enabled,
+  };
+}
+
 function buildChartsFromCertificates(
   certificates: DashboardAttentionCertificate[],
   counts: Pick<DashboardMetrics, "certificados_validos" | "certificados_vencendo" | "certificados_vencidos">,
@@ -282,7 +306,7 @@ async function loadDashboardMetricsFallback(admin: AdminClient): Promise<Dashboa
     falhas_hoje: failedTodayResult.count ?? 0,
     avisos_planejados: plannedResult.count ?? 0,
     ultimo_envio: lastSentResult.data?.sent_at ?? null,
-    status_canal_whatsapp: getEuAtendoConfigStatus().enabled,
+    status_canal_whatsapp: getActiveWhatsAppAutomationStatus().enabled,
     mensagens_aguardando: waitingResult.count ?? 0,
     enviadas_hoje: sentTodayResult.count ?? 0,
     status_chart: charts.statusChart,
@@ -308,20 +332,26 @@ export default async function DashboardPage() {
   const user = await requireInternalUser();
   const canAccessWhatsapp = canAccessAdminOnlyArea(user.role);
   const admin = createSupabaseAdminClient();
-  const [metrics, euAtendoStateResult, euAtendoPendingResult] = await Promise.all([
+  const whatsappAutomation = getActiveWhatsAppAutomationStatus();
+  const [metrics, whatsappStateResult, whatsappPendingResult, notificationSettingsResult] = await Promise.all([
     loadDashboardMetrics(admin),
     admin
       .from("whatsapp_dispatcher_state")
       .select("last_dispatch_at, next_allowed_send_at, locked_until, updated_at")
-      .eq("provider", "euatendo")
+      .eq("provider", whatsappAutomation.activeProvider)
       .maybeSingle(),
     admin
       .from("notification_events")
       .select("id", { count: "exact", head: true })
-      .eq("provider", "euatendo")
+      .eq("provider", whatsappAutomation.activeProvider)
       .in("status", ["pending", "retry", "reserved", "processing"]),
+    admin
+      .from("notification_settings")
+      .select("enabled")
+      .eq("id", SETTINGS_ID)
+      .maybeSingle(),
   ]);
-  const euAtendoConfig = getEuAtendoConfigStatus();
+  const automationEnabled = whatsappAutomation.enabled && notificationSettingsResult.data?.enabled === true;
   const falhasHoje = metrics.falhas_hoje || metrics.falhas_envio;
 
   const attentionItems = [
@@ -347,13 +377,13 @@ export default async function DashboardPage() {
           },
         ]
       : []),
-    ...(!euAtendoConfig.enabled && canAccessWhatsapp
+    ...(!automationEnabled && canAccessWhatsapp
       ? [
           {
             key: "canal-whatsapp-pausado",
             title: "Envio automático pausado",
-            description: "O envio pela euAtendo está desativado",
-            meta: "Valide a integração na tela de WhatsApp",
+            description: `O envio pelo ${whatsappAutomation.label} esta desativado`,
+            meta: "Valide a integracao na tela de WhatsApp",
             status: "vencido" as const,
             href: "/whatsapp",
           },
@@ -447,7 +477,7 @@ export default async function DashboardPage() {
               <h2 className="text-base font-semibold text-slate-950">Avisos e WhatsApp</h2>
               <p className="text-sm text-slate-500">Resumo da operação de hoje.</p>
             </div>
-            {!euAtendoConfig.enabled ? <Badge tone="red">Envio pausado</Badge> : <Badge tone="green">Envio ativo</Badge>}
+            {!automationEnabled ? <Badge tone="red">Envio pausado</Badge> : <Badge tone="green">Envio ativo</Badge>}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2.5">
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
@@ -467,12 +497,14 @@ export default async function DashboardPage() {
               <p className="mt-1 text-2xl font-bold text-slate-950">{falhasHoje}</p>
             </div>
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-700">Fila euAtendo</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{euAtendoPendingResult.count ?? 0}</p>
+              <p className="text-xs font-semibold text-blue-700">Fila WhatsApp</p>
+              <p className="mt-1 text-2xl font-bold text-slate-950">{whatsappPendingResult.count ?? 0}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-3">
               <p className="text-xs font-semibold text-slate-600">Integração</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{euAtendoConfig.enabled ? "Configurada" : "Pausada"}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950">
+                {automationEnabled ? whatsappAutomation.label : "Pausada"}
+              </p>
             </div>
           </div>
           <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
@@ -485,7 +517,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between gap-3">
               <span>Última sincronização</span>
               <span className="text-right font-semibold text-slate-950">
-                {euAtendoStateResult.data?.last_dispatch_at ? formatDateTimeShort(euAtendoStateResult.data.last_dispatch_at) : "-"}
+                {whatsappStateResult.data?.last_dispatch_at ? formatDateTimeShort(whatsappStateResult.data.last_dispatch_at) : "-"}
               </span>
             </div>
           </div>

@@ -48,7 +48,7 @@ Variaveis permitidas ficam em `src/lib/notifications/validation.ts`. Templates c
 5. Carrega destinatarios ativos.
 6. Garante templates padrao.
 7. Cria eventos internos.
-8. Cria eventos para cliente quando provider e `euatendo`, telefone existe e cliente permite.
+8. Cria eventos para cliente quando o provider ativo suporta envio ao cliente (`euatendo` ou `whatsapp_extension`), telefone existe e cliente permite.
 
 Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `cliente_inativo` nao entram no planejamento automatico nem no resumo diario de vencidos. Ao marcar um certificado fora do acompanhamento, a API cancela eventos `certificate_expiring` ainda nao enviados daquele certificado.
 
@@ -62,6 +62,8 @@ Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `clie
 2. Libera reservas expiradas.
 3. Cria resumo diario de vencidos quando ativo.
 4. Conta eventos elegiveis para envio.
+
+O provider de novos eventos e definido por `WHATSAPP_PROVIDER`. O valor padrao e `euatendo`; quando `WHATSAPP_PROVIDER=whatsapp_extension`, a extensao Chrome consome os eventos por `/sistema/api/whatsapp/messages`.
 
 ## Idempotencia
 

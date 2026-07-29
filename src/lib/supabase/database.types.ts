@@ -23,7 +23,7 @@ export type NotificationEventStatus =
   | "failed"
   | "cancelled"
   | "skipped";
-export type NotificationProvider = "euatendo";
+export type NotificationProvider = "euatendo" | "whatsapp_extension";
 export type NotificationAudience = "internal" | "client";
 
 export type Database = {
@@ -437,7 +437,7 @@ export type Database = {
       };
       whatsapp_dispatcher_state: {
         Row: {
-          provider: "euatendo";
+          provider: NotificationProvider;
           last_dispatch_at: string | null;
           next_allowed_send_at: string;
           locked_until: string | null;
@@ -445,7 +445,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          provider: "euatendo";
+          provider: NotificationProvider;
           last_dispatch_at?: string | null;
           next_allowed_send_at?: string;
           locked_until?: string | null;
@@ -590,6 +590,13 @@ export type Database = {
         Returns: Json;
       };
       reserve_euatendo_notification_event: {
+        Args: {
+          p_lock_ttl_seconds?: number;
+          p_ignore_next_allowed?: boolean;
+        };
+        Returns: Json;
+      };
+      reserve_whatsapp_extension_notification_event: {
         Args: {
           p_lock_ttl_seconds?: number;
           p_ignore_next_allowed?: boolean;

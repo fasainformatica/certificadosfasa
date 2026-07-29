@@ -1005,7 +1005,7 @@ create table if not exists public.notification_events (
   updated_at timestamptz not null default now(),
   constraint notification_events_phone_check check (telefone_destino ~ '^55[0-9]{10,11}$'),
   constraint notification_events_type_check check (type in ('certificate_expiring','certificate_expired','manual_test')),
-  constraint notification_events_provider_check check (provider in ('euatendo')),
+  constraint notification_events_provider_check check (provider in ('euatendo','whatsapp_extension')),
   constraint notification_events_channel_check check (channel in ('whatsapp')),
   constraint notification_events_send_date_check check (send_date >= date '2000-01-01'),
   constraint notification_events_attempt_count_check check (attempt_count >= 0),
@@ -1017,7 +1017,7 @@ alter table public.notification_events add constraint notification_events_type_c
   check (type in ('certificate_expiring','certificate_expired','manual_test'));
 alter table public.notification_events drop constraint if exists notification_events_provider_check;
 alter table public.notification_events add constraint notification_events_provider_check
-  check (provider in ('euatendo'));
+  check (provider in ('euatendo','whatsapp_extension'));
 
 alter table public.notification_events add column if not exists recipient_id uuid references public.notification_recipients(id) on delete set null;
 alter table public.notification_events add column if not exists send_date date;
@@ -1149,6 +1149,9 @@ create unique index if not exists notification_events_idempotency_key_unique_idx
 create index if not exists notification_events_euatendo_pending_idx
   on public.notification_events (status, send_date, next_retry_at, created_at)
   where provider = 'euatendo' and status in ('pending','retry');
+create index if not exists notification_events_whatsapp_extension_pending_idx
+  on public.notification_events (status, send_date, next_retry_at, created_at)
+  where provider = 'whatsapp_extension' and status in ('pending','retry');
 create index if not exists notification_events_provider_message_idx
   on public.notification_events (provider, provider_message_id)
   where provider_message_id is not null;
@@ -1348,7 +1351,7 @@ event_counts as (
     max(sent_at) filter (where status = 'sent') as ultimo_envio
   from public.notification_events ne
   cross join today_value tv
-  where ne.provider = 'euatendo'
+  where ne.provider in ('euatendo','whatsapp_extension')
 ),
 channel_state as (
   select jsonb_build_object(
@@ -1359,7 +1362,8 @@ channel_state as (
     'available', (locked_until is null or locked_until < now())
   ) as state
   from public.whatsapp_dispatcher_state
-  where provider = 'euatendo'
+  where provider in ('euatendo','whatsapp_extension')
+  order by case when provider = 'euatendo' then 0 else 1 end
   limit 1
 ),
 period_counts as (
@@ -1585,7 +1589,7 @@ alter table public.notification_events
 
 alter table public.notification_events drop constraint if exists notification_events_provider_check;
 alter table public.notification_events add constraint notification_events_provider_check
-  check (provider in ('euatendo'));
+  check (provider in ('euatendo','whatsapp_extension'));
 
 create table if not exists public.whatsapp_dispatcher_state (
   provider text primary key,
@@ -1594,7 +1598,7 @@ create table if not exists public.whatsapp_dispatcher_state (
   locked_until timestamptz,
   lock_id uuid,
   updated_at timestamptz not null default now(),
-  constraint whatsapp_dispatcher_state_provider_check check (provider in ('euatendo')),
+  constraint whatsapp_dispatcher_state_provider_check check (provider in ('euatendo','whatsapp_extension')),
   constraint whatsapp_dispatcher_state_lock_check check (locked_until is null or lock_id is not null)
 );
 
@@ -1615,7 +1619,7 @@ create table if not exists public.whatsapp_provider_logs (
   response_id text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  constraint whatsapp_provider_logs_provider_check check (provider in ('euatendo')),
+  constraint whatsapp_provider_logs_provider_check check (provider in ('euatendo','whatsapp_extension')),
   constraint whatsapp_provider_logs_status_check check (status in ('started','sent','retry','failed','skipped','locked','waiting','error'))
 );
 
@@ -1627,6 +1631,9 @@ for each row execute function public.set_updated_at();
 create index if not exists notification_events_euatendo_ready_idx
   on public.notification_events (send_date, next_retry_at, created_at)
   where provider = 'euatendo' and status in ('pending','retry');
+create index if not exists notification_events_whatsapp_extension_ready_idx
+  on public.notification_events (send_date, next_retry_at, created_at)
+  where provider = 'whatsapp_extension' and status in ('pending','retry');
 
 create index if not exists notification_events_audience_idx
   on public.notification_events (audience, provider, status, send_date);
@@ -1639,6 +1646,9 @@ create index if not exists whatsapp_provider_logs_event_idx
 
 insert into public.whatsapp_dispatcher_state (provider)
 values ('euatendo')
+on conflict (provider) do nothing;
+insert into public.whatsapp_dispatcher_state (provider)
+values ('whatsapp_extension')
 on conflict (provider) do nothing;
 
 insert into public.notification_templates (type, title, content, active)
@@ -2033,6 +2043,179 @@ begin
 end;
 $$;
 
+create or replace function public.reserve_whatsapp_extension_notification_event(
+  p_lock_ttl_seconds integer default 120,
+  p_ignore_next_allowed boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_settings public.notification_settings;
+  v_today date;
+  v_state public.whatsapp_dispatcher_state;
+  v_event public.notification_events;
+  v_lock_id uuid := gen_random_uuid();
+  v_lock_ttl integer := greatest(60, least(coalesce(p_lock_ttl_seconds, 120), 600));
+begin
+  select * into v_settings
+  from public.notification_settings
+  where id = '00000000-0000-0000-0000-000000000001'::uuid
+  limit 1;
+
+  if v_settings.id is null or v_settings.enabled is not true then
+    return jsonb_build_object('status', 'skipped', 'reason', 'notifications_disabled');
+  end if;
+
+  v_today := (now() at time zone coalesce(v_settings.timezone, 'America/Sao_Paulo'))::date;
+
+  insert into public.whatsapp_dispatcher_state (provider)
+  values ('whatsapp_extension')
+  on conflict (provider) do nothing;
+
+  select * into v_state
+  from public.whatsapp_dispatcher_state
+  where provider = 'whatsapp_extension'
+  for update;
+
+  if v_state.locked_until is not null and v_state.locked_until > now() then
+    return jsonb_build_object('status', 'locked', 'locked_until', v_state.locked_until);
+  end if;
+
+  if p_ignore_next_allowed is not true and v_state.next_allowed_send_at > now() then
+    return jsonb_build_object('status', 'waiting', 'next_allowed_send_at', v_state.next_allowed_send_at);
+  end if;
+
+  update public.notification_events
+  set
+    status = case when attempt_count >= max_attempts then 'failed'::public.notification_event_status else 'retry'::public.notification_event_status end,
+    next_retry_at = case when attempt_count >= max_attempts then null else now() + interval '1 minute' end,
+    failed_at = case when attempt_count >= max_attempts then now() else failed_at end,
+    error_message = coalesce(error_message, 'Reserva da extensao do WhatsApp expirada antes do envio.'),
+    reservation_id = null,
+    reserved_at = null,
+    reservation_expires_at = null,
+    processing_started_at = null,
+    updated_at = now()
+  where provider = 'whatsapp_extension'
+    and status = 'reserved'
+    and dispatched_at is null
+    and reservation_expires_at is not null
+    and reservation_expires_at < now();
+
+  update public.notification_events
+  set
+    status = 'failed',
+    failed_at = now(),
+    error_message = 'Processamento pela extensao interrompido apos inicio do disparo. Revise manualmente para evitar duplicidade.',
+    reservation_id = null,
+    reserved_at = null,
+    reservation_expires_at = null,
+    processing_started_at = null,
+    updated_at = now()
+  where provider = 'whatsapp_extension'
+    and status = 'processing'
+    and dispatched_at is not null
+    and reservation_expires_at is not null
+    and reservation_expires_at < now();
+
+  select ne.*
+  into v_event
+  from public.notification_events ne
+  where ne.provider = 'whatsapp_extension'
+    and ne.status in ('pending','retry')
+    and ne.send_date <= v_today
+    and (ne.next_retry_at is null or ne.next_retry_at <= now())
+    and (
+      ne.type = 'manual_test'
+      or
+      (
+        (
+          ne.audience = 'internal'
+          and ne.recipient_id is not null
+          and exists (
+            select 1
+            from public.notification_recipients nr
+            where nr.id = ne.recipient_id
+              and nr.ativo is true
+          )
+        )
+        or
+        (
+          ne.audience = 'client'
+          and ne.cliente_id is not null
+          and exists (
+            select 1
+            from public.clientes cl
+            where cl.id = ne.cliente_id
+              and cl.whatsapp_notifications_enabled is true
+          )
+        )
+      )
+    )
+    and (
+      ne.type = 'certificate_expired'
+      or ne.type = 'manual_test'
+      or (
+        ne.type = 'certificate_expiring'
+        and exists (
+          select 1
+          from public.certificados c
+          where c.id = ne.certificado_id
+            and c.status <> 'invalido'::public.certificado_status
+            and coalesce(c.renovacao_status, 'em_acompanhamento') in ('em_acompanhamento','renovou_fasa')
+            and c.data_vencimento >= v_today
+        )
+      )
+    )
+  order by ne.send_date asc, ne.created_at asc
+  for update skip locked
+  limit 1;
+
+  if v_event.id is null then
+    return jsonb_build_object('status', 'empty');
+  end if;
+
+  update public.whatsapp_dispatcher_state
+  set
+    lock_id = v_lock_id,
+    locked_until = now() + make_interval(secs => v_lock_ttl),
+    updated_at = now()
+  where provider = 'whatsapp_extension';
+
+  update public.notification_events
+  set
+    status = 'reserved',
+    reservation_id = v_lock_id,
+    reserved_at = now(),
+    reservation_expires_at = now() + make_interval(secs => v_lock_ttl),
+    processing_started_at = null,
+    attempt_count = attempt_count + 1,
+    error_message = null,
+    updated_at = now()
+  where id = v_event.id
+  returning * into v_event;
+
+  return jsonb_build_object(
+    'status', 'reserved',
+    'lock_id', v_lock_id,
+    'event', jsonb_build_object(
+      'id', v_event.id,
+      'audience', v_event.audience,
+      'type', v_event.type,
+      'telefone_destino', v_event.telefone_destino,
+      'mensagem_renderizada', v_event.mensagem_renderizada,
+      'attempt_count', v_event.attempt_count,
+      'max_attempts', v_event.max_attempts,
+      'idempotency_key', v_event.idempotency_key,
+      'reservation_id', v_event.reservation_id
+    )
+  );
+end;
+$$;
+
 revoke all on function public.registrar_upload_certificado(
   text, text, text, text, text, boolean, text, text, text, text, text, text, date, date, public.certificado_status, text, text, text, uuid, inet, uuid
 ) from public, anon, authenticated;
@@ -2042,6 +2225,11 @@ grant execute on function public.registrar_upload_certificado(
 
 revoke all on function public.reserve_euatendo_notification_event(integer, boolean) from public, anon, authenticated;
 grant execute on function public.reserve_euatendo_notification_event(integer, boolean) to service_role;
+revoke all on function public.reserve_whatsapp_extension_notification_event(integer, boolean) from public, anon, authenticated;
+grant execute on function public.reserve_whatsapp_extension_notification_event(integer, boolean) to service_role;
+
+comment on function public.reserve_whatsapp_extension_notification_event(integer, boolean) is
+  'Reserva transacional de uma mensagem WhatsApp para a extensao Chrome, respeitando lock e cadencia por provider.';
 
 alter table public.whatsapp_dispatcher_state enable row level security;
 alter table public.whatsapp_provider_logs enable row level security;

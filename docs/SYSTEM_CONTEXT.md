@@ -14,7 +14,7 @@ Este arquivo deve refletir sempre o estado atual do projeto.
 
 O Fasa Certificados PFX e um sistema interno para administrar certificados digitais PFX de clientes da Fasa Informatica. Ele permite cadastrar clientes, importar ou subir certificados PFX, guardar o arquivo em Storage privado, criptografar a senha real do PFX, gerar links publicos de download de uso unico e controlar avisos de vencimento por WhatsApp.
 
-O sistema atual usa Next.js App Router no frontend/backend, Supabase Auth/Postgres/Storage no banco e API euAtendo como unico canal oficial de WhatsApp. O antigo Desktop Bot/QWEP foi removido do runtime operacional. O codigo ainda preserva historico consultavel no banco quando aplicavel, mas novos envios devem usar `provider = 'euatendo'`.
+O sistema atual usa Next.js App Router no frontend/backend, Supabase Auth/Postgres/Storage no banco e API euAtendo como canal oficial de WhatsApp. Existe tambem um provider alternativo por extensao Chrome, identificado como `provider = 'whatsapp_extension'`, para operar a mesma fila sem remover a API euAtendo. O antigo Desktop Bot/QWEP foi removido do runtime operacional. O codigo ainda preserva historico consultavel no banco quando aplicavel, mas novos envios devem usar `provider = 'euatendo'` por padrao ou `provider = 'whatsapp_extension'` quando `WHATSAPP_PROVIDER=whatsapp_extension`.
 
 Estado local desta consolidacao: o codigo, migrations e documentacao foram reorganizados para refletir o modelo atual. Nao foi assumido que as migrations ja foram aplicadas no Supabase remoto, nem que as credenciais euAtendo e crons Vercel estejam ativos no ambiente de producao.
 
@@ -41,6 +41,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Regras de upload em `src/lib/certificados/upload-service.ts`.
 - Notification engine em `src/lib/notifications/engine.ts`.
 - Provider euAtendo em `src/lib/whatsapp/euatendo/`.
+- Provider alternativo da extensao Chrome em `src/lib/whatsapp/extension/` e rotas `src/app/sistema/api/whatsapp/**`.
 
 ### Banco
 
@@ -50,13 +51,13 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Storage privado no bucket `certificados-pfx`.
 - Tabelas de dominio: `clientes`, `certificados`, `links_download`, `audit_logs`, `configuracoes_sistema`.
 - Tabelas de notificacao: `notification_settings`, `notification_templates`, `notification_recipients`, `notification_events`, `notification_runs`.
-- Tabelas euAtendo: `whatsapp_dispatcher_state`, `whatsapp_provider_logs`.
+- Tabelas de dispatcher WhatsApp: `whatsapp_dispatcher_state`, `whatsapp_provider_logs`, segmentadas por `provider`.
 
 ### Fluxos
 
 - Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
 - Download publico: `admin` ou `financeiro` gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
-- Avisos: engine planeja eventos em `notification_events`; dispatcher euAtendo reserva um evento por execucao, envia, registra sucesso/falha e aplica delay/retry.
+- Avisos: engine planeja eventos em `notification_events`; o provider ativo e definido por `WHATSAPP_PROVIDER`. O dispatcher euAtendo envia via API server-side. O provider `whatsapp_extension` expoe `/sistema/api/whatsapp/messages` para a extensao reservar uma mensagem por vez, registrar acks e aplicar delay/retry pela mesma tabela de cadencia.
 - Crons: Vercel chama endpoints protegidos por `CRON_SECRET`; GitHub Actions pode chamar o dispatcher euAtendo a cada 5 minutos para escoar fila no mesmo dia sem Vercel Pro.
 
 ## Estrutura de pastas
@@ -157,8 +158,8 @@ docs/reference
 - `notification_recipients`: destinatarios internos.
 - `notification_events`: outbox idempotente de mensagens.
 - `notification_runs`: historico de execucoes do engine.
-- `whatsapp_dispatcher_state`: lock e cadencia persistente do dispatcher euAtendo.
-- `whatsapp_provider_logs`: logs sanitizados dos envios euAtendo.
+- `whatsapp_dispatcher_state`: lock e cadencia persistente por provider (`euatendo` ou `whatsapp_extension`).
+- `whatsapp_provider_logs`: logs sanitizados dos envios WhatsApp por provider.
 
 ### Senha administrativa de certificado
 
@@ -194,7 +195,7 @@ As colunas `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atuali
 
 ### Status de eventos
 
-Eventos de notificacao passam por `pending`, `reserved`, `processing`, `sent`, `retry`, `failed`, `cancelled` ou `skipped`. O dispatcher euAtendo consome apenas eventos `pending` ou `retry`, com `provider = 'euatendo'`, `send_date <= hoje` e `next_retry_at` nulo ou vencido.
+Eventos de notificacao passam por `pending`, `reserved`, `processing`, `sent`, `retry`, `failed`, `cancelled` ou `skipped`. O dispatcher euAtendo consome eventos `pending` ou `retry` com `provider = 'euatendo'`. A extensao consome eventos equivalentes com `provider = 'whatsapp_extension'`. Em ambos os casos, `send_date <= hoje`, `next_retry_at` nulo ou vencido, cliente/destinatario ativo e certificado elegivel sao obrigatorios.
 
 ## Fluxo completo do sistema
 

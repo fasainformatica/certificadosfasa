@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const apiRoot = path.join(root, "src", "app", "api");
+const apiRoots = [
+  path.join(root, "src", "app", "api"),
+  path.join(root, "src", "app", "sistema", "api"),
+];
 const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const allowedPublicPrefixes = [
   path.join("src", "app", "api", "cron") + path.sep,
@@ -59,7 +62,7 @@ function findFunctionBody(source, methodName) {
 
 const failures = [];
 
-for (const filePath of listRouteFiles(apiRoot)) {
+for (const filePath of apiRoots.flatMap((apiRoot) => listRouteFiles(apiRoot))) {
   const source = fs.readFileSync(filePath, "utf8");
   const usesServiceRole = source.includes("createSupabaseAdminClient");
 
@@ -69,8 +72,11 @@ for (const filePath of listRouteFiles(apiRoot)) {
 
   const relative = path.relative(root, filePath);
 
-  if (!source.includes("requireApiUser(")) {
-    failures.push(`${relative}: usa service role sem requireApiUser.`);
+  const usesInternalRbac = source.includes("requireApiUser(");
+  const usesExtensionAuth = source.includes("authenticateWhatsAppExtension(");
+
+  if (!usesInternalRbac && !usesExtensionAuth) {
+    failures.push(`${relative}: usa service role sem requireApiUser ou authenticateWhatsAppExtension.`);
     continue;
   }
 
@@ -81,11 +87,15 @@ for (const filePath of listRouteFiles(apiRoot)) {
       continue;
     }
 
-    const authIndex = body.indexOf("requireApiUser(");
+    const authIndexes = [
+      body.indexOf("requireApiUser("),
+      body.indexOf("authenticateWhatsAppExtension("),
+    ].filter((index) => index >= 0);
+    const authIndex = authIndexes.length ? Math.min(...authIndexes) : -1;
     const adminIndex = body.indexOf("createSupabaseAdminClient(");
 
     if (authIndex < 0 || adminIndex < authIndex) {
-      failures.push(`${relative}: ${method} cria Supabase Admin antes de validar RBAC.`);
+      failures.push(`${relative}: ${method} cria Supabase Admin antes de validar autenticacao.`);
     }
   }
 }

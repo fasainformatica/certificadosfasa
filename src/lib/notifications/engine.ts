@@ -13,6 +13,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
 import type { WhatsAppProviderName } from "@/lib/whatsapp/euatendo/types";
+import { providerSupportsClientNotifications } from "@/lib/whatsapp/providers";
 import { normalizeBrazilianPhone } from "@/lib/utils/phone";
 
 export const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
@@ -815,7 +816,7 @@ async function createPlannedExpirationEventsBatch({
 }) {
   const rows: DatabaseNotificationEventInsert[] = [];
   const provider = getActiveNotificationProvider();
-  const clientEventsEnabled = provider === "euatendo";
+  const clientEventsEnabled = providerSupportsClientNotifications(provider);
   let certificadosVerificados = 0;
 
   for (const certificado of certificados) {
@@ -968,7 +969,7 @@ async function createPlannedExpirationEventsBatch({
           }
         }
 
-        if (provider === "euatendo") {
+        if (clientEventsEnabled) {
           const cliente = getCliente(certificado);
           const clienteTelefoneDestino = getClienteWhatsappDestination(cliente);
 

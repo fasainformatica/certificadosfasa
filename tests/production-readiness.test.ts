@@ -33,6 +33,19 @@ describe("production readiness", () => {
     expect(euAtendo?.severity).toBe("critical");
   });
 
+  it("exige feature flag e token quando a extensao e o provider ativo", () => {
+    const checks = evaluateProductionEnvironment({
+      ...validEnv,
+      WHATSAPP_PROVIDER: "whatsapp_extension",
+      WHATSAPP_EXTENSION_ENABLED: "false",
+      WHATSAPP_EXTENSION_TOKEN: "",
+    });
+    const extension = checks.find((item) => item.id === "whatsapp_extension_credentials");
+
+    expect(extension?.ok).toBe(false);
+    expect(extension?.severity).toBe("critical");
+  });
+
   it("falha quando chave de criptografia nao tem 32 bytes em base64", () => {
     const checks = evaluateProductionEnvironment({
       ...validEnv,

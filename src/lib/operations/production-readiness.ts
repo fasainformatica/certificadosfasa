@@ -5,6 +5,7 @@ import { CERTIFICATES_BUCKET } from "@/lib/storage/certificates";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import { EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo/provider";
+import { EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -93,6 +94,12 @@ export function evaluateProductionEnvironment(env: NodeJS.ProcessEnv = process.e
   const euAtendoEnabled = ["1", "true", "yes", "sim"].includes(
     (env.EUATENDO_PROVIDER_ENABLED ?? "false").trim().toLowerCase(),
   );
+  const activeProvider = (env.WHATSAPP_PROVIDER ?? EUATENDO_PROVIDER).trim().toLowerCase();
+  const extensionSelected = activeProvider === WHATSAPP_EXTENSION_PROVIDER;
+  const extensionEnabled = ["1", "true", "yes", "sim"].includes(
+    (env.WHATSAPP_EXTENSION_ENABLED ?? "false").trim().toLowerCase(),
+  );
+  const extensionTokenConfigured = hasValue(env, "WHATSAPP_EXTENSION_TOKEN") || hasValue(env, "WHATSAPP_EXTENSION_API_TOKEN");
 
   return [
     check({
@@ -139,6 +146,13 @@ export function evaluateProductionEnvironment(env: NodeJS.ProcessEnv = process.e
       failMessage: "Confirme que o deploy roda na Vercel e que os crons de vercel.json aparecem em Settings > Cron Jobs.",
     }),
     check({
+      id: "whatsapp_provider",
+      label: "Provider WhatsApp ativo",
+      ok: activeProvider === EUATENDO_PROVIDER || activeProvider === WHATSAPP_EXTENSION_PROVIDER,
+      okMessage: `WHATSAPP_PROVIDER configurado como ${activeProvider}.`,
+      failMessage: "WHATSAPP_PROVIDER deve ser euatendo ou whatsapp_extension.",
+    }),
+    check({
       id: "euatendo_credentials",
       label: "Credenciais euAtendo",
       ok: !euAtendoEnabled || (hasValue(env, "EUATENDO_API_TOKEN") && hasValue(env, "EUATENDO_INSTANCE_ID")),
@@ -146,6 +160,15 @@ export function evaluateProductionEnvironment(env: NodeJS.ProcessEnv = process.e
         ? "euAtendo habilitado com token e instancia configurados."
         : "euAtendo automatico desabilitado; credenciais nao sao obrigatorias para deploy.",
       failMessage: "EUATENDO_PROVIDER_ENABLED=true exige EUATENDO_API_TOKEN e EUATENDO_INSTANCE_ID.",
+    }),
+    check({
+      id: "whatsapp_extension_credentials",
+      label: "Credenciais da extensao WhatsApp",
+      ok: !extensionSelected || (extensionEnabled && extensionTokenConfigured),
+      okMessage: extensionSelected
+        ? "Extensao selecionada com feature flag e token configurados."
+        : "Extensao nao selecionada como provider ativo.",
+      failMessage: "WHATSAPP_PROVIDER=whatsapp_extension exige WHATSAPP_EXTENSION_ENABLED=true e WHATSAPP_EXTENSION_TOKEN.",
     }),
   ];
 }
