@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 3
     env:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      CERTIFICADOSFASA_BASE_URL: ${{ vars.CERTIFICADOSFASA_BASE_URL || 'https://certificadosfasa-neon.vercel.app' }}
+      CERTIFICADOSFASA_BASE_URL: ${{ vars.CERTIFICADOSFASA_BASE_URL || 'https://certificadosfasa.vercel.app' }}
     steps:
       - name: Validate required secret
         run: |

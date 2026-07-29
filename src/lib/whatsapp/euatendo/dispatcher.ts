@@ -2,7 +2,12 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 
-import { clampNotificationDelaySettings, calculateReservationTtlSeconds, SETTINGS_ID } from "@/lib/notifications/engine";
+import {
+  DEFAULT_DELAY_MIN_SECONDS,
+  clampNotificationDelaySettings,
+  calculateReservationTtlSeconds,
+  SETTINGS_ID,
+} from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json, NotificationAudience } from "@/lib/supabase/database.types";
 import { getOptionalEnv } from "@/lib/supabase/env";
@@ -26,6 +31,27 @@ type ReservedEvent = {
   idempotency_key: string | null;
   reservation_id: string;
 };
+
+type DispatchDelaySettings = {
+  delay_minimo_segundos?: number | null;
+  delay_maximo_segundos?: number | null;
+} | null;
+
+export type EuAtendoSendCadenceSlot =
+  | {
+      allowed: true;
+      lockId: string;
+      lockedUntil: string;
+      settings: DispatchDelaySettings;
+    }
+  | {
+      allowed: false;
+      reason: "locked" | "waiting" | "unavailable";
+      retryAfterSeconds: number;
+      lockedUntil?: string | null;
+      nextAllowedSendAt?: string | null;
+      errorMessage?: string | null;
+    };
 
 type ReserveRpcResult =
   | {
@@ -113,6 +139,20 @@ function addSeconds(seconds: number) {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
+function secondsUntil(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+
+  if (!Number.isFinite(timestamp)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+}
+
 function computeBackoffSeconds(attemptCount: number, retryAfterSeconds: number | null) {
   if (retryAfterSeconds !== null && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
     return Math.min(Math.ceil(retryAfterSeconds), 3600);
@@ -143,6 +183,15 @@ function computeDispatchDelaySeconds(settings: {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function computeNextAllowedDispatchSeconds(settings: DispatchDelaySettings, retryAfterSeconds: number | null = null) {
+  const providerDelay =
+    retryAfterSeconds !== null && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? Math.min(Math.ceil(retryAfterSeconds), 3600)
+      : 0;
+
+  return Math.max(computeDispatchDelaySeconds(settings), providerDelay);
+}
+
 function readDispatchMaxEventsPerRun() {
   const raw = Number(getOptionalEnv("EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN") ?? DEFAULT_MAX_EVENTS_PER_RUN);
 
@@ -161,6 +210,131 @@ async function loadNotificationSettings(admin: AdminClient) {
     .maybeSingle();
 
   return data;
+}
+
+async function ensureDispatcherState(admin: AdminClient) {
+  const { error } = await admin
+    .from("whatsapp_dispatcher_state")
+    .upsert({ provider: "euatendo" }, { onConflict: "provider", ignoreDuplicates: true });
+
+  if (error) {
+    throw new Error("Nao foi possivel preparar a cadencia do WhatsApp.");
+  }
+}
+
+export function formatEuAtendoCadenceWaitMessage(slot: Extract<EuAtendoSendCadenceSlot, { allowed: false }>) {
+  const seconds = Math.max(1, slot.retryAfterSeconds);
+
+  return `Aguarde ${seconds}s para enviar outra mensagem pelo WhatsApp.`;
+}
+
+export async function reserveEuAtendoSendCadenceSlot(
+  admin: AdminClient,
+  settings: DispatchDelaySettings = null,
+): Promise<EuAtendoSendCadenceSlot> {
+  await ensureDispatcherState(admin);
+
+  const effectiveSettings = settings ?? (await loadNotificationSettings(admin));
+  const lockId = randomUUID();
+  const now = new Date().toISOString();
+  const lockedUntil = addSeconds(calculateReservationTtlSeconds(effectiveSettings));
+  const { data, error } = await admin
+    .from("whatsapp_dispatcher_state")
+    .update({
+      lock_id: lockId,
+      locked_until: lockedUntil,
+      updated_at: now,
+    })
+    .eq("provider", "euatendo")
+    .lte("next_allowed_send_at", now)
+    .or(`locked_until.is.null,locked_until.lt.${now}`)
+    .select("lock_id, locked_until, next_allowed_send_at")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Nao foi possivel reservar a cadencia do WhatsApp.");
+  }
+
+  if (data?.lock_id === lockId) {
+    return {
+      allowed: true,
+      lockId,
+      lockedUntil,
+      settings: effectiveSettings,
+    };
+  }
+
+  const { data: state, error: stateError } = await admin
+    .from("whatsapp_dispatcher_state")
+    .select("locked_until, next_allowed_send_at")
+    .eq("provider", "euatendo")
+    .maybeSingle();
+
+  if (stateError) {
+    throw new Error("Nao foi possivel consultar a cadencia do WhatsApp.");
+  }
+
+  const lockedUntilState = state?.locked_until ?? null;
+  const nextAllowedSendAt = state?.next_allowed_send_at ?? null;
+
+  if (secondsUntil(lockedUntilState) > 0) {
+    return {
+      allowed: false,
+      reason: "locked",
+      retryAfterSeconds: secondsUntil(lockedUntilState),
+      lockedUntil: lockedUntilState,
+      nextAllowedSendAt,
+    };
+  }
+
+  if (secondsUntil(nextAllowedSendAt) > 0) {
+    return {
+      allowed: false,
+      reason: "waiting",
+      retryAfterSeconds: secondsUntil(nextAllowedSendAt),
+      lockedUntil: lockedUntilState,
+      nextAllowedSendAt,
+    };
+  }
+
+  return {
+    allowed: false,
+    reason: "unavailable",
+    retryAfterSeconds: DEFAULT_DELAY_MIN_SECONDS,
+    lockedUntil: lockedUntilState,
+    nextAllowedSendAt,
+    errorMessage: "A cadencia do WhatsApp foi reservada por outra execucao.",
+  };
+}
+
+export async function completeEuAtendoSendCadenceSlot({
+  admin,
+  slot,
+  retryAfterSeconds = null,
+}: {
+  admin: AdminClient;
+  slot: Extract<EuAtendoSendCadenceSlot, { allowed: true }>;
+  retryAfterSeconds?: number | null;
+}) {
+  const now = new Date().toISOString();
+  const nextAllowedSendAt = addSeconds(computeNextAllowedDispatchSeconds(slot.settings, retryAfterSeconds));
+  const { error } = await admin
+    .from("whatsapp_dispatcher_state")
+    .update({
+      last_dispatch_at: now,
+      next_allowed_send_at: nextAllowedSendAt,
+      locked_until: null,
+      lock_id: null,
+      updated_at: now,
+    })
+    .eq("provider", "euatendo")
+    .eq("lock_id", slot.lockId);
+
+  if (error) {
+    throw new Error("Nao foi possivel liberar a cadencia do WhatsApp.");
+  }
+
+  return nextAllowedSendAt;
 }
 
 async function logProviderAttempt(
@@ -370,7 +544,7 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       renderedMessage: event.mensagem_renderizada,
     });
     const durationMs = Date.now() - startedAt;
-    const delaySeconds = computeDispatchDelaySeconds(settings);
+    const delaySeconds = computeNextAllowedDispatchSeconds(settings, result.retryAfterSeconds);
     const nextAllowedSendAt = addSeconds(delaySeconds);
 
     if (result.accepted) {
@@ -426,7 +600,7 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha inesperada no dispatcher euAtendo.";
-    await clearDispatcherLock(admin, new Date().toISOString());
+    await clearDispatcherLock(admin, addSeconds(computeNextAllowedDispatchSeconds(settings)));
     await logProviderAttempt(admin, {
       event,
       operation: "dispatch",

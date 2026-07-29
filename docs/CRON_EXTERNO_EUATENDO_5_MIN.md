@@ -51,7 +51,7 @@ POST /api/cron/euatendo-dispatch
 URL padrao:
 
 ```text
-https://certificadosfasa-neon.vercel.app/api/cron/euatendo-dispatch
+https://certificadosfasa.vercel.app/api/cron/euatendo-dispatch
 ```
 
 ## Secret obrigatorio no GitHub
@@ -77,10 +77,10 @@ CERTIFICADOSFASA_BASE_URL
 Exemplo:
 
 ```text
-https://certificadosfasa-neon.vercel.app
+https://certificadosfasa.vercel.app
 ```
 
-Se essa variavel nao existir, o workflow usa `https://certificadosfasa-neon.vercel.app`.
+Se essa variavel nao existir, o workflow usa `https://certificadosfasa.vercel.app`.
 
 ## Como configurar no GitHub
 

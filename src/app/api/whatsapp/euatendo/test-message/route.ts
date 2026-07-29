@@ -7,6 +7,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
 import { euAtendoTestMessageSchema } from "@/lib/whatsapp/euatendo/schemas";
 import { EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo";
+import {
+  completeEuAtendoSendCadenceSlot,
+  formatEuAtendoCadenceWaitMessage,
+  reserveEuAtendoSendCadenceSlot,
+} from "@/lib/whatsapp/euatendo/dispatcher";
+import type { WhatsAppSendResult } from "@/lib/whatsapp/euatendo/types";
 
 export const runtime = "nodejs";
 
@@ -91,12 +97,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await provider.sendText({
-      eventId: "manual_test",
-      idempotencyKey: null,
-      destinationNumber: normalizedNumber,
-      renderedMessage: parsed.data.message,
-    });
+    const cadenceSlot = await reserveEuAtendoSendCadenceSlot(admin);
+
+    if (!cadenceSlot.allowed) {
+      return jsonError(formatEuAtendoCadenceWaitMessage(cadenceSlot), 429, "cadencia_whatsapp");
+    }
+
+    let result: WhatsAppSendResult | null = null;
+    let cadenceReleaseError: string | null = null;
+
+    try {
+      result = await provider.sendText({
+        eventId: "manual_test",
+        idempotencyKey: null,
+        destinationNumber: normalizedNumber,
+        renderedMessage: parsed.data.message,
+      });
+    } finally {
+      try {
+        await completeEuAtendoSendCadenceSlot({
+          admin,
+          slot: cadenceSlot,
+          retryAfterSeconds: result?.retryAfterSeconds ?? null,
+        });
+      } catch (error) {
+        cadenceReleaseError = error instanceof Error ? error.message : "Falha ao liberar cadencia do WhatsApp.";
+      }
+    }
+
+    if (!result) {
+      return jsonError("Nao foi possivel enviar a mensagem de teste pela euAtendo.", 502, "euatendo_test_message");
+    }
 
     await admin.from("audit_logs").insert({
       user_id: auth.user.id,
@@ -108,6 +139,7 @@ export async function POST(request: NextRequest) {
         provider_status: result.providerStatus,
         http_status: result.httpStatus,
         error_code: result.errorCode,
+        cadence_release_error: cadenceReleaseError,
       },
     });
 

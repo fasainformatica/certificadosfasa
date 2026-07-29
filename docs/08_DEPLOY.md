@@ -60,7 +60,7 @@ Ambas as rotas aceitam `GET` para Vercel Cron e `POST` para execucao manual, sem
 - Workflow: `.github/workflows/euatendo-dispatch-cron.yml`.
 - Agenda: `2-59/5 * * * *`.
 - Secret obrigatorio no GitHub: `CRON_SECRET`, com o mesmo valor da Vercel.
-- Variavel opcional: `CERTIFICADOSFASA_BASE_URL`, padrao `https://certificadosfasa-neon.vercel.app`.
+- Variavel opcional: `CERTIFICADOSFASA_BASE_URL`, padrao `https://certificadosfasa.vercel.app`.
 - Comportamento: cada execucao chama o dispatcher uma vez; o dispatcher envia no maximo 1 mensagem.
 
 ## Validacao recomendada

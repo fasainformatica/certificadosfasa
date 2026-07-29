@@ -18,7 +18,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
 import { getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
+import {
+  completeEuAtendoSendCadenceSlot,
+  formatEuAtendoCadenceWaitMessage,
+  reserveEuAtendoSendCadenceSlot,
+} from "@/lib/whatsapp/euatendo/dispatcher";
 import { EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo/provider";
+import type { WhatsAppSendResult } from "@/lib/whatsapp/euatendo/types";
 
 export const runtime = "nodejs";
 
@@ -274,12 +280,38 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
       return jsonError("Número não confirmado como WhatsApp válido pela euAtendo.", 400, "numero_sem_whatsapp");
     }
 
-    const result = await provider.sendText({
-      eventId: typedCertificado.id,
-      idempotencyKey: `manual:${typedCertificado.id}:${Date.now()}`,
-      destinationNumber: telefoneDestino,
-      renderedMessage: mensagemRenderizada,
-    });
+    const cadenceSlot = await reserveEuAtendoSendCadenceSlot(admin);
+
+    if (!cadenceSlot.allowed) {
+      return jsonError(formatEuAtendoCadenceWaitMessage(cadenceSlot), 429, "cadencia_whatsapp");
+    }
+
+    let result: WhatsAppSendResult | null = null;
+    let cadenceReleaseError: string | null = null;
+
+    try {
+      result = await provider.sendText({
+        eventId: typedCertificado.id,
+        idempotencyKey: `manual:${typedCertificado.id}:${Date.now()}`,
+        destinationNumber: telefoneDestino,
+        renderedMessage: mensagemRenderizada,
+      });
+    } finally {
+      try {
+        await completeEuAtendoSendCadenceSlot({
+          admin,
+          slot: cadenceSlot,
+          retryAfterSeconds: result?.retryAfterSeconds ?? null,
+        });
+      } catch (error) {
+        cadenceReleaseError = error instanceof Error ? error.message : "Falha ao liberar cadencia do WhatsApp.";
+      }
+    }
+
+    if (!result) {
+      return jsonError("Nao foi possivel enviar o aviso manual pela euAtendo.", 502, "aviso_manual");
+    }
+
     const durationMs = Date.now() - startedAt;
 
     await logManualAttempt({
@@ -297,6 +329,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
         http_status: result.httpStatus,
         provider_status: result.providerStatus,
         accepted: result.accepted,
+        cadence_release_error: cadenceReleaseError,
       },
     });
 
