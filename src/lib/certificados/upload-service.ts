@@ -387,6 +387,29 @@ export async function registerCertificateUpload({
     .maybeSingle();
   const savedStatus = registeredCertificate?.status ?? status;
 
+  if (existingCertificate) {
+    const { error: renewalStatusError } = await admin
+      .from("certificados")
+      .update({
+        renovacao_status: "renovou_fasa",
+        renovacao_observacao: null,
+        renovacao_atualizado_em: new Date().toISOString(),
+        renovacao_atualizado_por: userId,
+      })
+      .eq("id", certificadoId);
+
+    if (renewalStatusError) {
+      await markStorageReconciliationJob({
+        admin,
+        jobId: reconciliationJobId,
+        status: "failed",
+        error: renewalStatusError.message,
+        metadata: { stage: "renewal_status_update_failed", ...metadata },
+      });
+      fail("Certificado registrado, mas nao foi possivel atualizar a situacao de renovacao.", 500, "renovacao_status");
+    }
+  }
+
   await markStorageReconciliationJob({
     admin,
     jobId: reconciliationJobId,

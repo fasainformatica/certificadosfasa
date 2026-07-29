@@ -2,6 +2,12 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-07-29
+
+- Adicionada situacao operacional de renovacao em certificados, com filtro em `/certificados`, edicao no detalhe, API `PATCH /api/certificados/[id]/renovacao`, auditoria e cancelamento de avisos pendentes quando o cliente renovou fora, nao vai renovar ou esta inativo.
+- Ajustados dashboard, notification engine e RPCs SQL para considerar apenas certificados em acompanhamento ou renovados pela Fasa no planejamento automatico e nas metricas operacionais.
+- Criada migration `20260729120000_add_certificate_renewal_status.sql` e atualizado o schema consolidado com colunas `renovacao_status`, `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atualizado_por`.
+
 ## 2026-07-27
 
 - Ajustada matriz de permissoes: `financeiro` passa a ter permissao operacional completa em certificados, clientes e central de avisos, mantendo WhatsApp, Configuracoes e rotas `/api/admin/*` exclusivas para `admin`.

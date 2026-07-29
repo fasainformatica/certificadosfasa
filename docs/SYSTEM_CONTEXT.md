@@ -147,7 +147,7 @@ docs/reference
 
 - `user_profiles`: perfil interno e role do usuario autenticado.
 - `clientes`: dados do cliente, CNPJ, contato, WhatsApp e flag `whatsapp_notifications_enabled`.
-- `certificados`: metadados do PFX atual, validade, status, senha criptografada e `storage_path` versionado por hash.
+- `certificados`: metadados do PFX atual, validade, status, situacao de renovacao, senha criptografada e `storage_path` versionado por hash.
 - `links_download`: links publicos com `token_hash`, `senha_hash`, uso unico, bloqueio por tentativas e auditoria de uso.
 - `audit_logs`: trilha de auditoria de acoes administrativas e publicas relevantes.
 - `storage_reconciliation_jobs`: controle de reconciliacao quando Storage e banco podem divergir.
@@ -180,6 +180,18 @@ docs/reference
 - `vencido`: data de vencimento anterior ao dia atual na timezone configurada.
 - `invalido`: certificado removido/inutilizado logicamente.
 
+### Situacao de renovacao
+
+`certificados.renovacao_status` controla se o certificado ainda entra no acompanhamento operacional:
+
+- `em_acompanhamento`: certificado monitorado normalmente.
+- `renovou_fasa`: certificado renovado pela Fasa; continua monitorado para o proximo ciclo.
+- `renovou_externo`: cliente informou renovacao em outro lugar; sai da dashboard operacional e do planejamento automatico.
+- `nao_renovar`: cliente nao vai renovar agora; sai do planejamento automatico.
+- `cliente_inativo`: cliente inativo; sai do planejamento automatico.
+
+As colunas `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atualizado_por` registram contexto e auditoria da decisao sem apagar historico.
+
 ### Status de eventos
 
 Eventos de notificacao passam por `pending`, `reserved`, `processing`, `sent`, `retry`, `failed`, `cancelled` ou `skipped`. O dispatcher euAtendo consome apenas eventos `pending` ou `retry`, com `provider = 'euatendo'`, `send_date <= hoje` e `next_retry_at` nulo ou vencido.
@@ -203,12 +215,15 @@ Quando um cliente e salvo manualmente, a API atualiza apenas os eventos futuros 
 7. RPC `registrar_upload_certificado` cria ou atualiza cliente/certificado.
 8. Se ja existir certificado para o cliente, o registro e atualizado sem duplicar.
 9. Em renovacao, o arquivo PFX anterior permanece na pasta do CNPJ no Storage, mas nao aparece no sistema porque o banco passa a apontar apenas para o novo `storage_path`.
-10. Sistema registra auditoria e job de reconciliacao de Storage.
-11. Notification engine recalcula agenda e eventos do dia.
+10. Se o upload atualiza um certificado existente, a situacao de renovacao e marcada como `renovou_fasa`.
+11. Sistema registra auditoria e job de reconciliacao de Storage.
+12. Notification engine recalcula agenda e eventos do dia.
 
 ### Planejamento
 
 O planejamento dos avisos acontece em `rebuildNotificationSchedule`. Ele carrega configuracoes, atualiza status dos certificados, remove eventos futuros ainda nao enviados e recria eventos planejados para cada dia configurado.
+
+Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `cliente_inativo` nao entram no planejamento automatico, no resumo operacional da dashboard nem no resumo diario de vencidos. Ao marcar uma dessas situacoes no detalhe do certificado, eventos `certificate_expiring` ainda nao enviados sao cancelados.
 
 ### Fila
 
@@ -391,7 +406,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ### Certificados
 
-`/certificados` lista certificados com filtros, status e acoes. Usuarios com role `admin` ou `financeiro` podem enviar, renovar, importar, editar cliente, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente e revelar a senha PFX mediante senha administrativa configurada no Supabase.
+`/certificados` lista certificados com filtros de status e situacao de renovacao. Por padrao, mostra certificados em acompanhamento; o filtro permite ver todos, renovados com a Fasa, renovados em outro lugar, nao renovados e clientes inativos. Usuarios com role `admin` ou `financeiro` podem enviar, renovar, importar, editar cliente, marcar situacao de renovacao, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente quando ele ainda esta em acompanhamento e revelar a senha PFX mediante senha administrativa configurada no Supabase.
 
 ### Avisos
 
@@ -417,6 +432,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - `POST/PATCH /api/certificados/[id]/link`
 - `POST /api/certificados/[id]/senha`
 - `POST /api/certificados/[id]/aviso`
+- `PATCH /api/certificados/[id]/renovacao`
 - `POST /api/download/[token]/validar`
 - `GET/PUT /api/notifications/settings`
 - `GET/PUT /api/notifications/templates`
@@ -458,6 +474,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - Suite automatizada foi adicionada com Vitest cobrindo validacao de upload PFX, download publico, engine de notificacoes, dispatcher euAtendo, prontidao de ambiente e guarda service-role/RBAC.
 - Dispatcher euAtendo passou a usar modo conservador: 1 envio por execucao e intervalo minimo de 180 segundos.
 - Healthcheck administrativo de producao foi criado em `/api/admin/health/production`.
+- Situacao operacional de renovacao foi adicionada aos certificados para filtrar clientes que renovaram fora, retirar esses itens da dashboard operacional e cancelar avisos futuros do certificado sem apagar historico.
 
 ## Estado atual
 
@@ -480,6 +497,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - Crons Vercel configurados em `vercel.json`.
 - Suite `npm test` com testes automatizados e checagem service-role/RBAC.
 - Healthcheck admin de prontidao de producao.
+- Filtro e acao de situacao de renovacao em certificados.
 - Documentacao consolidada.
 
 ### Funcionamento depende de ambiente
@@ -491,7 +509,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - Instancia euAtendo conectada.
 - Vercel Cron ativo.
 - `EUATENDO_PROVIDER_ENABLED=true` para envio automatico.
-- As migrations `20260715150000_add_euatendo_dispatch_batching.sql` e `20260715151000_fix_euatendo_reserve_outer_join.sql` aplicadas para lote do dispatcher.
+- As migrations `20260715150000_add_euatendo_dispatch_batching.sql`, `20260715151000_fix_euatendo_reserve_outer_join.sql` e `20260729120000_add_certificate_renewal_status.sql` aplicadas para lote do dispatcher e situacao de renovacao.
 
 ### Em homologacao ou a confirmar
 

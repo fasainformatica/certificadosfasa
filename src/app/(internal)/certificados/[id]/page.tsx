@@ -7,6 +7,12 @@ import { Badge, StatusBadge } from "@/components/ui/status-badge";
 import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
 import { wasCertificateRenewed } from "@/lib/certificados/renewal";
+import {
+  CERTIFICATE_RENEWAL_STATUS_LABEL,
+  CERTIFICATE_RENEWAL_STATUS_TONE,
+  isCertificateRenewalStatus,
+  shouldShowRenewalBadge,
+} from "@/lib/certificados/renewal-status";
 import { calculateCertificateStatus } from "@/lib/certificados/status";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +23,7 @@ import { CertificatePasswordReveal } from "./certificate-password-reveal";
 import { ClientEditForm } from "./client-edit-form";
 import { DeleteCertificateButton } from "./delete-certificate-button";
 import { DownloadLinkManager } from "./download-link-manager";
+import { RenewalStatusForm } from "./renewal-status-form";
 
 type CertificadoDetalhePageProps = {
   params: Promise<{
@@ -31,7 +38,7 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
   const { data: certificado } = await supabase
     .from("certificados")
     .select(
-      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(id, nome_razao_social, cnpj, email, telefone, whatsapp, whatsapp_notifications_enabled, responsavel, observacoes)",
+      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, renovacao_status, renovacao_observacao, renovacao_atualizado_em, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(id, nome_razao_social, cnpj, email, telefone, whatsapp, whatsapp_notifications_enabled, responsavel, observacoes)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -64,6 +71,9 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
       settings?.timezone ?? "America/Sao_Paulo",
     );
   const renovado = wasCertificateRenewed(certificado.created_at, certificado.ultimo_upload_em);
+  const renewalStatus = isCertificateRenewalStatus(certificado.renovacao_status)
+    ? certificado.renovacao_status
+    : "em_acompanhamento";
 
   const rows = [
     ["Cliente", formatDisplayName(certificado.clientes?.nome_razao_social) || "-"],
@@ -75,6 +85,12 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
     ["CNPJ", formatCnpj(certificado.cnpj)],
     ["Emissão", formatDate(certificado.data_emissao)],
     ["Vencimento", formatDate(certificado.data_vencimento)],
+    ["Renovação", CERTIFICATE_RENEWAL_STATUS_LABEL[renewalStatus]],
+    [
+      "Atualização da renovação",
+      certificado.renovacao_atualizado_em ? formatDateTime(certificado.renovacao_atualizado_em) : "-",
+    ],
+    ["Observação da renovação", certificado.renovacao_observacao ?? "-"],
     ["Arquivo", certificado.nome_arquivo_original],
     ["Identificador do arquivo", certificado.hash_arquivo],
     ["Último upload", formatDateTime(certificado.ultimo_upload_em)],
@@ -100,6 +116,11 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           <dd className="flex flex-wrap gap-1.5">
             <StatusBadge status={status} />
             {renovado ? <Badge tone="blue">Atualizado</Badge> : null}
+            {shouldShowRenewalBadge(renewalStatus) ? (
+              <Badge tone={CERTIFICATE_RENEWAL_STATUS_TONE[renewalStatus]}>
+                {CERTIFICATE_RENEWAL_STATUS_LABEL[renewalStatus]}
+              </Badge>
+            ) : null}
           </dd>
         </div>
         {rows.map(([label, value]) => (
@@ -109,6 +130,13 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           </div>
         ))}
       </dl>
+      {canManageCertificate ? (
+        <RenewalStatusForm
+          certificadoId={id}
+          initialStatus={renewalStatus}
+          initialObservation={certificado.renovacao_observacao}
+        />
+      ) : null}
       {canManageCertificate && certificado.clientes ? (
         <ClientEditForm
           initialClient={{

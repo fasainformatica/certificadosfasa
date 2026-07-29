@@ -40,7 +40,7 @@ export function getCertificateStatusHref(name: string) {
   const normalized = normalizeStatusName(name);
 
   if (normalized === "validos" || normalized.includes("lidos")) {
-    return "/certificados?status=ativo";
+    return "/certificados?status=ativo&renovacao=acompanhamento";
   }
 
   if (
@@ -50,11 +50,11 @@ export function getCertificateStatusHref(name: string) {
     normalized === "proximo" ||
     normalized === "proximos"
   ) {
-    return "/certificados?status=vencendo";
+    return "/certificados?status=vencendo&renovacao=acompanhamento";
   }
 
   if (normalized === "vencidos") {
-    return "/certificados?status=vencido";
+    return "/certificados?status=vencido&renovacao=acompanhamento";
   }
 
   return null;

@@ -8,6 +8,7 @@ import {
   REQUIRED_TEMPLATE_VARIABLES,
 } from "@/lib/notifications/validation";
 import { refreshCertificateStatuses } from "@/lib/certificados/status";
+import { PLANNABLE_CERTIFICATE_RENEWAL_STATUSES } from "@/lib/certificados/renewal-status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
@@ -108,6 +109,7 @@ type CertificadoWithCliente = {
   nome_titular: string;
   data_vencimento: string;
   status: string;
+  renovacao_status?: string | null;
   clientes: ClienteRow | ClienteRow[] | null;
 };
 
@@ -599,20 +601,27 @@ async function removeFutureUnsentEvents({
   admin,
   today,
   clienteId = null,
+  certificadoId = null,
 }: {
   admin: AdminClient;
   today: string;
   clienteId?: string | null;
+  certificadoId?: string | null;
 }) {
   let query = admin
     .from("notification_events")
     .delete()
     .eq("type", "certificate_expiring")
-    .gte("send_date", today)
     .in("status", [...REBUILDABLE_STATUSES]);
 
   if (clienteId) {
     query = query.eq("cliente_id", clienteId);
+  }
+
+  if (certificadoId) {
+    query = query.eq("certificado_id", certificadoId);
+  } else {
+    query = query.gte("send_date", today);
   }
 
   const { data, error } = await query.select("id");
@@ -633,8 +642,9 @@ async function loadPlannableCertificates({
 }) {
   let query = admin
     .from("certificados")
-    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
-    .neq("status", "invalido");
+    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, renovacao_status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
+    .neq("status", "invalido")
+    .in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES]);
 
   if (clienteId) {
     query = query.eq("cliente_id", clienteId);
@@ -1039,8 +1049,9 @@ async function createPlannedExpirationEventsBatch({
 async function loadActiveOrExpiredCertificates(admin: AdminClient, today: string) {
   const { data, error } = await admin
     .from("certificados")
-    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
+    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, renovacao_status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
     .neq("status", "invalido")
+    .in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES])
     .lt("data_vencimento", today)
     .order("data_vencimento", { ascending: true });
 

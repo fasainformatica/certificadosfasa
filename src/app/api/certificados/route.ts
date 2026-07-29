@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { CERTIFICATE_STATUSES } from "@/lib/certificados/status-labels";
+import {
+  DEFAULT_CERTIFICATE_RENEWAL_FILTER,
+  parseCertificateRenewalFilter,
+  PLANNABLE_CERTIFICATE_RENEWAL_STATUSES,
+  type CertificateRenewalFilter,
+} from "@/lib/certificados/renewal-status";
 import { requireApiUser } from "@/lib/auth/api";
 import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
@@ -18,6 +24,7 @@ function cleanSearch(value: string | null) {
 type FilterableQuery = {
   eq: (column: string, value: string) => FilterableQuery;
   neq: (column: string, value: string) => FilterableQuery;
+  in: (column: string, value: readonly string[]) => FilterableQuery;
   gte: (column: string, value: string) => FilterableQuery;
   lt: (column: string, value: string) => FilterableQuery;
   lte: (column: string, value: string) => FilterableQuery;
@@ -46,6 +53,20 @@ function applyStatusFilter<T extends FilterableQuery>(query: T, status: Certific
   return query;
 }
 
+function applyRenewalFilter<T extends FilterableQuery>(query: T, renewalFilter: CertificateRenewalFilter) {
+  const builder = query as FilterableQuery;
+
+  if (renewalFilter === "todos") {
+    return query;
+  }
+
+  if (renewalFilter === "acompanhamento") {
+    return builder.in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES]) as T;
+  }
+
+  return builder.eq("renovacao_status", renewalFilter) as T;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireApiUser(OPERATIONAL_ROLES);
 
@@ -56,6 +77,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const url = new URL(request.url);
   const status = url.searchParams.get("status") as CertificadoStatus | null;
+  const renewalFilter = parseCertificateRenewalFilter(url.searchParams.get("renovacao") ?? DEFAULT_CERTIFICATE_RENEWAL_FILTER);
   const search = cleanSearch(url.searchParams.get("q"));
   const pagination = parsePagination(url.searchParams);
   const { data: settings } = await supabase
@@ -70,7 +92,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("certificados")
     .select(
-      "id, cliente_id, cnpj, nome_titular, data_emissao, data_vencimento, status, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(nome_razao_social)",
+      "id, cliente_id, cnpj, nome_titular, data_emissao, data_vencimento, status, renovacao_status, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(nome_razao_social)",
       { count: "exact" },
     )
     .order("data_vencimento", { ascending: true })
@@ -79,6 +101,8 @@ export async function GET(request: NextRequest) {
   if (status && CERTIFICATE_STATUSES.includes(status)) {
     query = applyStatusFilter(query, status, today, warningDate);
   }
+
+  query = applyRenewalFilter(query, renewalFilter);
 
   if (search) {
     const digits = search.replace(/\D/g, "");

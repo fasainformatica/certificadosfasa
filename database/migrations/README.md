@@ -5,7 +5,7 @@ Migrations incrementais do projeto.
 Aplicar em ordem cronologica pelo nome do arquivo. A migration mais recente nesta consolidacao e:
 
 ```text
-20260715151000_fix_euatendo_reserve_outer_join.sql
+20260729120000_add_certificate_renewal_status.sql
 ```
 
 ## Regra

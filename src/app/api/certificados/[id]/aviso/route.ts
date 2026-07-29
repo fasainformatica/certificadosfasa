@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
+import { CERTIFICATE_RENEWAL_STATUS_LABEL, isCertificateRenewalPlannable } from "@/lib/certificados/renewal-status";
 import {
   SETTINGS_ID,
   calculateDaysUntilExpiration,
@@ -43,6 +44,7 @@ type CertificadoRow = {
   nome_titular: string;
   data_vencimento: string;
   status: string;
+  renovacao_status: string | null;
   clientes: ClienteRow | ClienteRow[] | null;
 };
 
@@ -164,7 +166,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
   const admin = createSupabaseAdminClient();
   const { data: certificado, error: certificadoError } = await admin
     .from("certificados")
-    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
+    .select("id, cliente_id, cnpj, nome_titular, data_vencimento, status, renovacao_status, clientes(id,nome_razao_social,cnpj,telefone,whatsapp,whatsapp_notifications_enabled)")
     .eq("id", id)
     .maybeSingle();
 
@@ -178,6 +180,15 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
 
   const typedCertificado = certificado as CertificadoRow;
   const cliente = getCliente(typedCertificado);
+
+  if (!isCertificateRenewalPlannable(typedCertificado.renovacao_status)) {
+    const label =
+      typedCertificado.renovacao_status && typedCertificado.renovacao_status in CERTIFICATE_RENEWAL_STATUS_LABEL
+        ? CERTIFICATE_RENEWAL_STATUS_LABEL[typedCertificado.renovacao_status as keyof typeof CERTIFICATE_RENEWAL_STATUS_LABEL]
+        : "Fora do acompanhamento";
+
+    return jsonError(`Não foi possível enviar o aviso. Este certificado está marcado como ${label}.`, 400, "renovacao_bloqueada");
+  }
 
   if (!cliente) {
     return jsonError("Certificado sem cliente vinculado.", 400, "cliente_nao_vinculado");

@@ -19,6 +19,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
 import { canAccessAdminOnlyArea } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
+import { PLANNABLE_CERTIFICATE_RENEWAL_STATUSES } from "@/lib/certificados/renewal-status";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -206,8 +207,9 @@ async function loadDashboardMetricsFallback(admin: AdminClient): Promise<Dashboa
     await Promise.all([
       admin
         .from("certificados")
-        .select("id, cnpj, nome_titular, data_vencimento, status, clientes(nome_razao_social)")
+        .select("id, cnpj, nome_titular, data_vencimento, status, renovacao_status, clientes(nome_razao_social)")
         .neq("status", "invalido")
+        .in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES])
         .order("data_vencimento", { ascending: true })
         .limit(1000),
       admin

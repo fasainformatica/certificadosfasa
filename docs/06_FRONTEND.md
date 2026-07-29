@@ -10,7 +10,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `/certificados`: listagem de certificados.
 - `/certificados/novo`: upload individual.
 - `/certificados/importar`: importacao em massa.
-- `/certificados/[id]`: detalhe, link publico, edicao de cliente, senha PFX sob autorizacao extra e aviso manual.
+- `/certificados/[id]`: detalhe, situacao de renovacao, link publico, edicao de cliente, senha PFX sob autorizacao extra e aviso manual.
 - `/notificacoes`: eventos, destinatarios e status.
 - `/configuracoes`: configuracoes de avisos e templates.
 - `/whatsapp`: homologacao e monitoramento euAtendo.
@@ -45,6 +45,7 @@ Atualizacao de 2026-07-15:
 - Estados vazios usam `EmptyState` com titulo especifico, descricao e acao quando aplicavel.
 - Feedbacks de erro e processamento usam mensagens orientadas a acao, sem stack trace, token, service role, storage path ou payload bruto do provider.
 - Dias de aviso em Configuracoes sao editados como chips numericos, mantendo o contrato de API como array de numeros.
+- Certificados usam filtro de situacao de renovacao. Por padrao, `/certificados` mostra itens em acompanhamento; o detalhe permite marcar `renovou_externo`, `nao_renovar` ou `cliente_inativo` sem apagar historico.
 
 ## Tokens visuais
 

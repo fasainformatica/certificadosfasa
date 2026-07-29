@@ -8,6 +8,12 @@ export type Json =
 
 export type UserRole = "admin" | "financeiro";
 export type CertificadoStatus = "ativo" | "vencendo" | "vencido" | "invalido";
+export type CertificateRenewalStatus =
+  | "em_acompanhamento"
+  | "renovou_fasa"
+  | "renovou_externo"
+  | "nao_renovar"
+  | "cliente_inativo";
 export type NotificationEventStatus =
   | "pending"
   | "reserved"
@@ -91,6 +97,10 @@ export type Database = {
           nome_arquivo_original: string;
           hash_arquivo: string;
           ultimo_upload_em: string;
+          renovacao_status: CertificateRenewalStatus;
+          renovacao_observacao: string | null;
+          renovacao_atualizado_em: string | null;
+          renovacao_atualizado_por: string | null;
           criado_por: string | null;
           created_at: string;
           updated_at: string;
@@ -110,6 +120,10 @@ export type Database = {
           nome_arquivo_original: string;
           hash_arquivo: string;
           ultimo_upload_em?: string;
+          renovacao_status?: CertificateRenewalStatus;
+          renovacao_observacao?: string | null;
+          renovacao_atualizado_em?: string | null;
+          renovacao_atualizado_por?: string | null;
           criado_por?: string | null;
           created_at?: string;
           updated_at?: string;

@@ -56,15 +56,43 @@ create table if not exists public.certificados (
   nome_arquivo_original text not null,
   hash_arquivo text not null,
   ultimo_upload_em timestamptz not null default now(),
+  renovacao_status text not null default 'em_acompanhamento',
+  renovacao_observacao text,
+  renovacao_atualizado_em timestamptz,
+  renovacao_atualizado_por uuid references auth.users(id) on delete set null,
   criado_por uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint certificados_cnpj_digits_check check (cnpj ~ '^[0-9]{14}$'),
   constraint certificados_hash_sha256_check check (hash_arquivo ~ '^[a-f0-9]{64}$'),
+  constraint certificados_renovacao_status_check check (
+    renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo')
+  ),
+  constraint certificados_renovacao_observacao_check check (
+    renovacao_observacao is null or length(renovacao_observacao) <= 500
+  ),
   constraint certificados_senha_crypto_check check (
     length(senha_ciphertext) > 0 and length(senha_iv) > 0 and length(senha_auth_tag) > 0
   )
 );
+
+alter table public.certificados add column if not exists renovacao_status text not null default 'em_acompanhamento';
+alter table public.certificados add column if not exists renovacao_observacao text;
+alter table public.certificados add column if not exists renovacao_atualizado_em timestamptz;
+alter table public.certificados add column if not exists renovacao_atualizado_por uuid;
+update public.certificados
+set renovacao_status = 'em_acompanhamento'
+where renovacao_status is null
+   or renovacao_status not in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo');
+alter table public.certificados drop constraint if exists certificados_renovacao_status_check;
+alter table public.certificados add constraint certificados_renovacao_status_check
+  check (renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo'));
+alter table public.certificados drop constraint if exists certificados_renovacao_observacao_check;
+alter table public.certificados add constraint certificados_renovacao_observacao_check
+  check (renovacao_observacao is null or length(renovacao_observacao) <= 500);
+alter table public.certificados drop constraint if exists certificados_renovacao_atualizado_por_fkey;
+alter table public.certificados add constraint certificados_renovacao_atualizado_por_fkey
+  foreign key (renovacao_atualizado_por) references auth.users(id) on delete set null;
 
 create table if not exists public.configuracoes_sistema (
   id uuid primary key default gen_random_uuid(),
@@ -207,6 +235,7 @@ create index if not exists certificados_nome_titular_trgm_idx
   on public.certificados using gin (nome_titular gin_trgm_ops);
 create index if not exists certificados_data_vencimento_idx on public.certificados (data_vencimento);
 create index if not exists certificados_status_idx on public.certificados (status);
+create index if not exists certificados_renovacao_status_idx on public.certificados (renovacao_status, data_vencimento);
 create index if not exists certificados_cliente_id_idx on public.certificados (cliente_id);
 create index if not exists certificados_hash_arquivo_idx on public.certificados (hash_arquivo);
 create index if not exists certificados_storage_path_idx on public.certificados (storage_path);
@@ -478,6 +507,10 @@ begin
       nome_arquivo_original = p_nome_arquivo_original,
       hash_arquivo = p_hash_arquivo,
       ultimo_upload_em = now(),
+      renovacao_status = 'renovou_fasa',
+      renovacao_observacao = null,
+      renovacao_atualizado_em = now(),
+      renovacao_atualizado_por = p_criado_por,
       updated_at = now()
     where id = v_certificado_id;
   else
@@ -725,6 +758,10 @@ grant select (
   data_emissao,
   data_vencimento,
   status,
+  renovacao_status,
+  renovacao_observacao,
+  renovacao_atualizado_em,
+  renovacao_atualizado_por,
   nome_arquivo_original,
   hash_arquivo,
   ultimo_upload_em,
@@ -768,6 +805,10 @@ grant select (
 comment on table public.user_profiles is 'Perfis internos vinculados ao Supabase Auth; RBAC real e checado por RLS.';
 comment on table public.clientes is 'Clientes identificados por CNPJ normalizado, criados ou atualizados no upload do PFX.';
 comment on table public.certificados is 'Historico de certificados PFX, com senha criptografada por AES-256-GCM no backend.';
+comment on column public.certificados.renovacao_status is 'Situacao operacional da renovacao. Valores fora do acompanhamento nao entram no planejamento automatico de avisos.';
+comment on column public.certificados.renovacao_observacao is 'Observacao curta sobre a decisao de renovacao, sem senhas, tokens ou dados sensiveis.';
+comment on column public.certificados.renovacao_atualizado_em is 'Data/hora da ultima alteracao da situacao de renovacao.';
+comment on column public.certificados.renovacao_atualizado_por is 'Usuario interno que alterou a situacao de renovacao.';
 comment on table public.configuracoes_sistema is 'Configuracoes operacionais globais sem e-mail; usada para limiares internos de vencimento.';
 comment on column public.configuracoes_sistema.senha_admin_certificado_hash is 'Hash scrypt da senha administrativa exigida para revelar a senha criptografada de um certificado PFX.';
 comment on table public.links_download is 'Links publicos de alta entropia. Token puro nao e armazenado; somente token_hash, senha_hash e metadados de uso unico.';
@@ -1197,6 +1238,7 @@ begin
       else 'ativo'::public.certificado_status
     end
   where c.status <> 'invalido'
+    and coalesce(c.renovacao_status, 'em_acompanhamento') in ('em_acompanhamento','renovou_fasa')
     and c.status is distinct from case
       when c.data_vencimento < p_today then 'vencido'::public.certificado_status
       when c.data_vencimento <= p_today + warning_days then 'vencendo'::public.certificado_status
@@ -1284,6 +1326,7 @@ certs as (
   left join public.clientes cl on cl.id = c.cliente_id
   cross join today_value tv
   where c.status <> 'invalido'
+    and coalesce(c.renovacao_status, 'em_acompanhamento') in ('em_acompanhamento','renovou_fasa')
 ),
 cert_counts as (
   select
@@ -1761,6 +1804,10 @@ begin
       nome_arquivo_original = p_nome_arquivo_original,
       hash_arquivo = p_hash_arquivo,
       ultimo_upload_em = now(),
+      renovacao_status = 'renovou_fasa',
+      renovacao_observacao = null,
+      renovacao_atualizado_em = now(),
+      renovacao_atualizado_por = p_criado_por,
       updated_at = now()
     where id = v_certificado_id;
   else
@@ -1935,6 +1982,7 @@ begin
           from public.certificados c
           where c.id = ne.certificado_id
             and c.status <> 'invalido'::public.certificado_status
+            and coalesce(c.renovacao_status, 'em_acompanhamento') in ('em_acompanhamento','renovou_fasa')
             and c.data_vencimento >= v_today
         )
       )

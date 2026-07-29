@@ -75,7 +75,7 @@ export async function GET(_request: NextRequest, { params }: CertificadoRoutePro
   const { data, error } = await supabase
     .from("certificados")
     .select(
-      "id, cliente_id, cnpj, nome_titular, data_emissao, data_vencimento, status, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(nome_razao_social)",
+      "id, cliente_id, cnpj, nome_titular, data_emissao, data_vencimento, status, renovacao_status, renovacao_observacao, renovacao_atualizado_em, nome_arquivo_original, hash_arquivo, ultimo_upload_em, created_at, clientes(nome_razao_social)",
     )
     .eq("id", id)
     .maybeSingle();
