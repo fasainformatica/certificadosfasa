@@ -15,9 +15,9 @@ import {
 } from "@/lib/notifications/engine";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { Json } from "@/lib/supabase/database.types";
+import type { Database, Json, NotificationProvider } from "@/lib/supabase/database.types";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
-import { getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
+import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import {
   completeEuAtendoSendCadenceSlot,
   formatEuAtendoCadenceWaitMessage,
@@ -25,6 +25,8 @@ import {
 } from "@/lib/whatsapp/euatendo/dispatcher";
 import { EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo/provider";
 import type { WhatsAppSendResult } from "@/lib/whatsapp/euatendo/types";
+import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 export const runtime = "nodejs";
 
@@ -53,6 +55,8 @@ type CertificadoRow = {
   renovacao_status: string | null;
   clientes: ClienteRow | ClienteRow[] | null;
 };
+
+type ProviderLogStatus = Database["public"]["Tables"]["whatsapp_provider_logs"]["Insert"]["status"];
 
 function getCliente(certificado: CertificadoRow) {
   if (Array.isArray(certificado.clientes)) {
@@ -90,11 +94,17 @@ function getDestinationPhone(cliente: ClienteRow) {
   return normalizeBrazilianPhone(rawPhone);
 }
 
+function getTodayDateString(timezone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 async function logManualAttempt({
   admin,
   userId,
   certificado,
   telefone,
+  provider = EUATENDO_PROVIDER,
+  eventId = null,
   status,
   durationMs,
   errorCode = null,
@@ -106,7 +116,9 @@ async function logManualAttempt({
   userId: string;
   certificado: CertificadoRow;
   telefone: string;
-  status: "sent" | "failed" | "error";
+  provider?: NotificationProvider;
+  eventId?: string | null;
+  status: ProviderLogStatus;
   durationMs?: number | null;
   errorCode?: string | null;
   errorMessage?: string | null;
@@ -115,8 +127,8 @@ async function logManualAttempt({
 }) {
   await Promise.all([
     admin.from("whatsapp_provider_logs").insert({
-      provider: "euatendo",
-      event_id: null,
+      provider,
+      event_id: eventId,
       audience: "client",
       operation: "manual_certificate_notice",
       telefone_mascarado: maskPhone(telefone),
@@ -135,13 +147,109 @@ async function logManualAttempt({
       acao: "enviar_aviso_manual_certificado",
       certificado_id: certificado.id,
       metadata: {
-        provider: "euatendo",
+        provider,
         telefone: maskPhone(telefone),
         status,
         error_code: errorCode,
       },
     }),
   ]);
+}
+
+async function enqueueWhatsAppExtensionManualNotice({
+  admin,
+  userId,
+  certificado,
+  cliente,
+  telefone,
+  templateId,
+  mensagemRenderizada,
+  dias,
+  sendDate,
+  maxAttempts,
+}: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  userId: string;
+  certificado: CertificadoRow;
+  cliente: ClienteRow;
+  telefone: string;
+  templateId: string | null;
+  mensagemRenderizada: string;
+  dias: number;
+  sendDate: string;
+  maxAttempts: number;
+}) {
+  const eventType = dias < 0 ? "certificate_expired" : "certificate_expiring";
+  const idempotencyKey = `manual:${certificado.id}:client:${cliente.id}:${randomUUID()}`;
+  const payload = {
+    source: "manual_certificate_notice",
+    audience: "client",
+    cliente_id: cliente.id,
+    certificado_id: certificado.id,
+    cliente_nome: cliente.nome_razao_social,
+    certificado_nome: certificado.nome_titular,
+    nome_titular: certificado.nome_titular,
+    data_vencimento: certificado.data_vencimento,
+    dias,
+    send_date: sendDate,
+  } satisfies Json;
+
+  const { data: event, error } = await admin
+    .from("notification_events")
+    .insert({
+      cliente_id: certificado.cliente_id,
+      certificado_id: certificado.id,
+      recipient_id: null,
+      telefone_destino: telefone,
+      template_id: templateId,
+      type: eventType,
+      dias_restantes: dias,
+      send_date: sendDate,
+      mensagem_renderizada: mensagemRenderizada,
+      status: "pending",
+      provider: WHATSAPP_EXTENSION_PROVIDER,
+      channel: "whatsapp",
+      audience: "client",
+      attempt_count: 0,
+      max_attempts: maxAttempts,
+      idempotency_key: idempotencyKey,
+      payload,
+    })
+    .select("id")
+    .single();
+
+  if (error || !event) {
+    await logManualAttempt({
+      admin,
+      userId,
+      certificado,
+      telefone,
+      provider: WHATSAPP_EXTENSION_PROVIDER,
+      status: "error",
+      errorCode: "extension_queue_error",
+      errorMessage: error?.message ?? "Falha ao adicionar aviso a fila da extensao.",
+      metadata: { stage: "queue_extension_notice" },
+    });
+
+    throw new Error("Nao foi possivel adicionar o aviso a fila da extensao.");
+  }
+
+  await logManualAttempt({
+    admin,
+    userId,
+    certificado,
+    telefone,
+    provider: WHATSAPP_EXTENSION_PROVIDER,
+    eventId: event.id,
+    status: "waiting",
+    metadata: {
+      dias,
+      event_id: event.id,
+      stage: "queued",
+    },
+  });
+
+  return event.id;
 }
 
 export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
@@ -151,7 +259,25 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
     return auth.response;
   }
 
-  const providerConfig = getEuAtendoConfigStatus();
+  const activeProvider = getActiveNotificationProvider();
+
+  if (activeProvider === WHATSAPP_EXTENSION_PROVIDER) {
+    const extensionConfig = getWhatsAppExtensionConfigStatus();
+
+    if (!extensionConfig.enabled || !extensionConfig.tokenConfigured) {
+      return jsonError("A extensão do WhatsApp não está configurada no ambiente.", 400, "whatsapp_extension_config");
+    }
+  }
+
+  const providerConfig =
+    activeProvider === EUATENDO_PROVIDER
+      ? getEuAtendoConfigStatus()
+      : {
+          enabled: true,
+          apiUrlConfigured: true,
+          tokenConfigured: true,
+          instanceConfigured: true,
+        };
 
   if (!providerConfig.enabled) {
     return jsonError("A integração euAtendo não está ativa no ambiente.", 400, "euatendo_desativado");
@@ -214,7 +340,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
 
   const { data: settings } = await admin
     .from("notification_settings")
-    .select("timezone")
+    .select("enabled, timezone, max_attempts")
     .eq("id", SETTINGS_ID)
     .maybeSingle();
   const timezone = settings?.timezone ?? "America/Sao_Paulo";
@@ -238,6 +364,42 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
     dias,
     templateType: "client_certificate_expiring",
   });
+
+  if (activeProvider === WHATSAPP_EXTENSION_PROVIDER) {
+    if (!settings?.enabled) {
+      return jsonError("O envio automático está pausado. Ative o envio nas configurações antes de adicionar avisos à fila.", 400, "notifications_disabled");
+    }
+
+    try {
+      const eventId = await enqueueWhatsAppExtensionManualNotice({
+        admin,
+        userId: auth.user.id,
+        certificado: typedCertificado,
+        cliente,
+        telefone: telefoneDestino,
+        templateId: clientExpiring.id,
+        mensagemRenderizada,
+        dias,
+        sendDate: getTodayDateString(timezone),
+        maxAttempts: settings.max_attempts ?? 3,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mensagem: "Aviso adicionado à fila de envio.",
+        result: {
+          accepted: true,
+          queued: true,
+          provider: WHATSAPP_EXTENSION_PROVIDER,
+          event_id: eventId,
+          dias,
+          telefone: maskPhone(telefoneDestino),
+        },
+      });
+    } catch {
+      return jsonError("Não foi possível adicionar o aviso à fila da extensão. Tente novamente em alguns instantes.", 502, "aviso_manual_fila");
+    }
+  }
 
   const provider = new EuAtendoWhatsAppProvider();
   const startedAt = Date.now();
