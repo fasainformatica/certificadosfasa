@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { type ChangeEvent, type FormEvent, type InputHTMLAttributes, useMemo, useState } from "react";
 
 import { buttonClass } from "@/components/ui/button-styles";
+import {
+  getBulkImportBatchErrorMessage,
+  getBulkImportCommunicationErrorMessage,
+  getBulkImportEmptySelectionMessage,
+  getBulkImportNoBatchMessage,
+  getBulkImportProgressLabel,
+} from "@/lib/certificados/bulk-import-presentation";
 import { formatCnpj, formatDate } from "@/lib/utils/format";
 
 type ImportItem = {
@@ -208,7 +215,7 @@ async function postImportBatch(batchFiles: File[]) {
   const payload = (await response.json()) as ImportResponse & ImportErrorResponse;
 
   if (!response.ok) {
-    throw new Error(payload.error?.message ?? "Não foi possível importar este lote.");
+    throw new Error(payload.error?.message ?? getBulkImportBatchErrorMessage());
   }
 
   return payload;
@@ -276,6 +283,7 @@ function ImportResultList({ title, items, tone }: { title: string; items: Import
 export function BulkImportCertificatesForm() {
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
+  const [inputKey, setInputKey] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResponse | null>(null);
@@ -292,6 +300,7 @@ export function BulkImportCertificatesForm() {
 
     return { pfx, txt, folders, batches, ignored: files.length - acceptedFiles.length };
   }, [files]);
+  const folderMissing = error === getBulkImportEmptySelectionMessage();
 
   function handleFilesChange(event: ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -300,20 +309,37 @@ export function BulkImportCertificatesForm() {
     setFiles(Array.from(event.target.files ?? []));
   }
 
+  function handleClearSelection() {
+    if (pending) {
+      return;
+    }
+
+    setFiles([]);
+    setError(null);
+    setResult(null);
+    setProgress(null);
+    setInputKey((current) => current + 1);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (pending) {
+      return;
+    }
+
     setError(null);
     setResult(null);
 
     if (files.length === 0) {
-      setError("Selecione a pasta onde estão os certificados.");
+      setError(getBulkImportEmptySelectionMessage());
       return;
     }
 
     const batches = createImportBatches(files);
 
     if (batches.length === 0) {
-      setError("Nenhum certificado .pfx com arquivo .txt direto na pasta do cliente foi encontrado.");
+      setError(getBulkImportNoBatchMessage());
       return;
     }
 
@@ -339,7 +365,7 @@ export function BulkImportCertificatesForm() {
       setProgress(null);
       router.refresh();
     } catch {
-      setError("Falha de comunicação com o servidor.");
+      setError(getBulkImportCommunicationErrorMessage());
       setPending(false);
       setProgress(null);
     }
@@ -347,7 +373,12 @@ export function BulkImportCertificatesForm() {
 
   return (
     <div className="grid gap-4">
-      <form onSubmit={handleSubmit} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <form
+        onSubmit={handleSubmit}
+        aria-busy={pending}
+        aria-describedby={error ? "bulk-import-error" : undefined}
+        className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5"
+      >
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
@@ -370,29 +401,36 @@ export function BulkImportCertificatesForm() {
           </div>
         </div>
 
-        <label className="grid gap-2 text-sm font-medium text-slate-800">
-          Pasta de certificados
+        <div className="grid gap-2">
+          <label htmlFor="pasta-certificados" className="text-sm font-medium text-slate-800">
+            Pasta de certificados
+          </label>
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 transition duration-200 hover:border-blue-300 hover:bg-blue-50/50">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
               <div>
-                <p className="text-sm font-semibold text-slate-950">
+                <p id="pasta-certificados-summary" className="text-sm font-semibold text-slate-950">
                   {files.length > 0 ? `${files.length} arquivos selecionados` : "Selecione a pasta principal"}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  A importação processa os certificados um por vez e mostra um relatório por arquivo.
+                <p id="pasta-certificados-help" className="mt-1 text-xs text-slate-500">
+                  A importação divide a carga em lotes e mostra um relatório por arquivo.
                 </p>
               </div>
               <input
+                key={inputKey}
+                id="pasta-certificados"
                 type="file"
                 multiple
                 accept=".pfx,.txt"
+                disabled={pending}
+                aria-invalid={folderMissing}
+                aria-describedby="pasta-certificados-summary pasta-certificados-help"
                 onChange={handleFilesChange}
                 className="block max-w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none transition file:mr-4 file:h-10 file:border-0 file:bg-blue-600 file:px-4 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 {...directoryInputProps}
               />
             </div>
           </div>
-        </label>
+        </div>
 
         {files.length > 0 ? (
           <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm shadow-slate-950/5 sm:grid-cols-5">
@@ -419,20 +457,44 @@ export function BulkImportCertificatesForm() {
           </div>
         ) : null}
 
+        {fileSummary.ignored > 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+            {fileSummary.ignored} arquivo(s) fora da estrutura esperada serão ignorados.
+          </div>
+        ) : null}
+
         {progress ? (
-          <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800" role="status">
-            Processando lote {progress.current} de {progress.total}. Mantenha esta tela aberta até finalizar.
+          <div className="grid gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800" role="status" aria-live="polite">
+            <span>{getBulkImportProgressLabel(progress.current, progress.total)}</span>
+            <span
+              role="progressbar"
+              aria-label="Progresso da importação"
+              aria-valuemin={0}
+              aria-valuemax={progress.total}
+              aria-valuenow={progress.current}
+              className="block h-2 overflow-hidden rounded-full bg-blue-100"
+            >
+              <span
+                className="block h-full rounded-full bg-blue-600 transition-[width] duration-200 motion-reduce:transition-none"
+                style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
+              />
+            </span>
           </div>
         ) : null}
 
         {error ? (
-          <div className="flex gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          <div id="bulk-import-error" className="flex gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
             <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-wrap justify-end gap-3">
+          {files.length > 0 ? (
+            <button type="button" disabled={pending} onClick={handleClearSelection} className={buttonClass("secondary", "h-10")}>
+              Limpar seleção
+            </button>
+          ) : null}
           <button type="submit" disabled={pending || files.length === 0} className={buttonClass("primary", "h-10")}>
             {pending ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />

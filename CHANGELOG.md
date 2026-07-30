@@ -2,8 +2,26 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-07-30
+
+- Removido o bloco `Resumo operacional` da `/dashboard`, mantendo KPIs, graficos, `Precisa de atencao` e `Avisos e WhatsApp`.
+- Melhorado o UX de `/configuracoes` com resumo operacional de envio automatico, dias de aviso, janela, cadencia, limites WhatsApp e templates, alem de tratamento seguro para falha de rede em salvar, atualizar planejamento e destinatarios.
+- Melhorado o UX de `/clientes` com cards de resumo operacional, badges de completude de contato, status humano de avisos ao cliente, ação `Novo certificado` e estado vazio com ação contextual.
+- Melhorado o UX de `/certificados/[id]` com resumo operacional, grupos de cliente/certificado/renovação, dados técnicos separados, hash de arquivo reduzido na apresentação e feedback acessível em senha PFX, link de download, edição de cliente e exclusão.
+- Melhorado o UX do upload individual em `/certificados/novo` com resumo do arquivo selecionado, mostrar/ocultar senha do PFX, labels associados aos campos, erro acessivel, estados disabled durante envio e texto de processamento `Enviando certificado`.
+- Melhorado o UX da importacao em massa em `/certificados/importar` com progressbar por lote, mensagem de arquivos ignorados, botao `Limpar selecao`, erros padronizados e campos bloqueados durante processamento, sem alterar o contrato de importacao.
+
 ## 2026-07-29
 
+- Melhorado o UX do login interno com indicação de painel, orientação de acesso, mensagens de erro sem detalhe técnico, mostrar/ocultar senha e atributos de acessibilidade nos campos.
+- Melhorado o UX do download público com badge de disponibilidade, orientação de uso único, aviso de expiração em 60 segundos, erro acessível e texto claro sobre senha temporária.
+- Ajustado feedback do aviso manual de certificado para diferenciar envio direto via euAtendo de aviso enfileirado pela extensão Chrome, com textos sem nomes de variáveis ou segredos.
+- Adicionado resumo operacional na `/dashboard`, com leitura de prioridade, sinais de fila/cadência, pausa da automação, falhas, vencimentos e links de ação sem alterar envio, API ou banco.
+- Melhorada a apresentação de situação de renovação em certificados: cards de resumo em `/certificados`, coluna operacional de renovação, painel de impacto no detalhe e helper compartilhado para descrição, próxima ação e impacto no planejamento.
+- Melhorada a Central de avisos com bloco `Prioridade agora`, filtro rapido de nova tentativa, apresentacao compartilhada de status/acoes e mensagens de erro sanitizadas para falhas operacionais.
+- Adicionado diagnostico de qualidade dos telefones em `/whatsapp`, com resumo de clientes prontos para envio, telefones ausentes, formatos invalidos, numeros repetidos e avisos bloqueados, sem disparar verificacao externa automatica.
+- Adicionadas travas operacionais do WhatsApp: limite diario, limite por hora, pausa manual, pausa automatica apos falhas recentes, painel em `/whatsapp`, API `PATCH /api/whatsapp/automation` e helper compartilhado para euAtendo/extensao.
+- Criada migration `20260729170000_add_whatsapp_operational_safety.sql` com campos de seguranca em `notification_settings`; o dispatcher bloqueia novas reservas quando a automacao esta pausada ou quando os limites sao atingidos.
 - Adicionado provider alternativo `whatsapp_extension` para a extensao Chrome `Fasa Certificados WhatsApp`, com rotas `/sistema/api/whatsapp/{validate,messages,status,received}`, Basic Auth server-only, reserva transacional de 1 mensagem por chamada e processamento de acks.
 - Criada migration `20260729153000_add_whatsapp_extension_provider.sql`, permitindo `whatsapp_extension` em `notification_events`, `whatsapp_dispatcher_state` e `whatsapp_provider_logs`, com indice proprio de fila e RPC `reserve_whatsapp_extension_notification_event`.
 - Atualizados notification engine, Central de avisos, dashboard, pagina WhatsApp e readiness para reconhecer `WHATSAPP_PROVIDER=euatendo|whatsapp_extension`, mantendo euAtendo como padrao.

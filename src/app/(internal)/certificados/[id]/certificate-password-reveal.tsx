@@ -41,28 +41,38 @@ export function CertificatePasswordReveal({ certificadoId }: CertificatePassword
 
   async function revealPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (pending) {
+      return;
+    }
+
     setPending(true);
     setMessage(null);
     setError(null);
     setCertificatePassword(null);
 
-    const response = await fetch(`/api/certificados/${certificadoId}/senha`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ senha_admin: adminPassword }),
-    });
-    const payload = (await response.json().catch(() => null)) as ApiPayload | null;
+    try {
+      const response = await fetch(`/api/certificados/${certificadoId}/senha`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ senha_admin: adminPassword }),
+      });
+      const payload = (await response.json().catch(() => null)) as ApiPayload | null;
 
-    if (!response.ok || !payload?.senha) {
-      setError(payload?.error?.message ?? "Nao foi possivel revelar a senha do certificado.");
+      if (!response.ok || !payload?.senha) {
+        setError(payload?.error?.message ?? "Não foi possível revelar a senha do certificado. Verifique a senha administrativa.");
+        setPending(false);
+        return;
+      }
+
+      setCertificatePassword(payload.senha);
+      setAdminPassword("");
+      setMessage("Senha do certificado liberada.");
       setPending(false);
-      return;
+    } catch {
+      setError("Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.");
+      setPending(false);
     }
-
-    setCertificatePassword(payload.senha);
-    setAdminPassword("");
-    setMessage("Senha do certificado liberada.");
-    setPending(false);
   }
 
   async function copyPassword() {
@@ -101,19 +111,22 @@ export function CertificatePasswordReveal({ certificadoId }: CertificatePassword
 
       {expanded ? (
         <form onSubmit={revealPassword} className="mt-4 grid gap-3">
-          <label className="grid gap-2 text-sm font-medium text-slate-800">
+          <label htmlFor="senha_administrativa_certificado" className="grid gap-2 text-sm font-medium text-slate-800">
             Senha administrativa
             <input
+              id="senha_administrativa_certificado"
               type="password"
               value={adminPassword}
+              disabled={pending}
               onChange={(event) => setAdminPassword(event.target.value)}
               minLength={8}
               maxLength={128}
               autoComplete="current-password"
               required
+              aria-describedby="senha_administrativa_certificado-help"
               className={inputClass}
             />
-            <span className="text-xs font-normal text-slate-500">
+            <span id="senha_administrativa_certificado-help" className="text-xs font-normal text-slate-500">
               Essa senha é configurada no Supabase como hash administrativo.
             </span>
           </label>

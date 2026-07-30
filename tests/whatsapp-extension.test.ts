@@ -10,6 +10,7 @@ import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 type QueryResult = {
   data: unknown;
   error: null | { message: string };
+  count?: number | null;
 };
 
 function basicAuth(connectedNumber: string, token: string, version = "4.1.16") {
@@ -20,6 +21,7 @@ function createThenableQuery(result: QueryResult, hooks?: { onUpdate?: (payload:
   const chain = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
     in: vi.fn(() => chain),
     update: vi.fn((payload: unknown) => {
       hooks?.onUpdate?.(payload);

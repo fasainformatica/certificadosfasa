@@ -12,6 +12,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json, NotificationAudience } from "@/lib/supabase/database.types";
 import { getOptionalEnv } from "@/lib/supabase/env";
 import { maskPhone } from "@/lib/utils/phone";
+import { getWhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
+import { EUATENDO_PROVIDER } from "@/lib/whatsapp/providers";
 
 import { getEuAtendoConfigStatus } from "./config";
 import { EuAtendoWhatsAppProvider } from "./provider";
@@ -35,6 +37,15 @@ type ReservedEvent = {
 type DispatchDelaySettings = {
   delay_minimo_segundos?: number | null;
   delay_maximo_segundos?: number | null;
+  enabled?: boolean | null;
+  timezone?: string | null;
+  whatsapp_dispatch_paused?: boolean | null;
+  whatsapp_dispatch_pause_reason?: string | null;
+  whatsapp_daily_limit?: number | null;
+  whatsapp_hourly_limit?: number | null;
+  whatsapp_auto_pause_enabled?: boolean | null;
+  whatsapp_failure_pause_threshold?: number | null;
+  whatsapp_failure_pause_window_minutes?: number | null;
 } | null;
 
 export type EuAtendoSendCadenceSlot =
@@ -205,7 +216,7 @@ function readDispatchMaxEventsPerRun() {
 async function loadNotificationSettings(admin: AdminClient) {
   const { data } = await admin
     .from("notification_settings")
-    .select("enabled, delay_minimo_segundos, delay_maximo_segundos")
+    .select("*")
     .eq("id", SETTINGS_ID)
     .maybeSingle();
 
@@ -490,6 +501,43 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       errorMessage: "Avisos automáticos desativados nas configurações.",
     });
     return { status: "disabled", event_id: null, attempt_count: null, error_code: "notifications_disabled" };
+  }
+
+  const safety = await getWhatsAppOperationalSafetySnapshot({
+    admin,
+    provider: EUATENDO_PROVIDER,
+    settings,
+    autoPause: true,
+  });
+
+  if (!safety.allowed) {
+    await logProviderAttempt(admin, {
+      event: null,
+      operation: "operational_safety",
+      status: safety.blockedReason === "dispatch_paused" || safety.blockedReason === "notifications_disabled"
+        ? "skipped"
+        : "waiting",
+      errorCode: safety.blockedReason,
+      errorMessage: safety.blockedMessage,
+      metadata: {
+        sent_today: safety.sentToday,
+        daily_limit: safety.dailyLimit,
+        sent_last_hour: safety.sentLastHour,
+        hourly_limit: safety.hourlyLimit,
+        failures_in_window: safety.failuresInWindow,
+        failure_threshold: safety.failurePauseThreshold,
+      },
+    });
+
+    return {
+      status: safety.blockedReason === "dispatch_paused" || safety.blockedReason === "notifications_disabled"
+        ? "disabled"
+        : "waiting",
+      event_id: null,
+      attempt_count: null,
+      error_code: safety.blockedReason,
+      error_message: safety.blockedMessage,
+    };
   }
 
   const reservationTtlSeconds = calculateReservationTtlSeconds(settings);

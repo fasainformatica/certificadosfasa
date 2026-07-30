@@ -24,6 +24,17 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `send_window_start`
 - `send_window_end`
 - `timezone`
+- `whatsapp_dispatch_paused`
+- `whatsapp_dispatch_pause_reason`
+- `whatsapp_daily_limit`
+- `whatsapp_hourly_limit`
+- `whatsapp_auto_pause_enabled`
+- `whatsapp_failure_pause_threshold`
+- `whatsapp_failure_pause_window_minutes`
+
+Os campos `whatsapp_*` controlam seguranca operacional do dispatcher: pausa manual, limites de volume e pausa automatica apos falhas recentes. Eles bloqueiam novas reservas de envio sem remover eventos ja planejados.
+
+A tela `/configuracoes` apresenta essas regras com resumo operacional em `src/lib/configuracoes/presentation.ts`. Essa camada mostra envio automatico, dias de aviso, janela, cadencia, limites e templates em linguagem humana; nao altera a engine, a idempotencia, o provider nem as regras de envio.
 
 ## Templates
 
@@ -54,6 +65,8 @@ Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `clie
 
 `rebuildClientNotificationSchedule` usa a mesma regra de templates e idempotencia, mas remove e recria apenas eventos futuros reconstruiveis de um `cliente_id`. Ele e usado por `POST /api/clientes` para sincronizar mudancas de telefone/WhatsApp sem bloquear a tela com um rebuild global.
 
+O diagnostico de qualidade dos telefones em `/whatsapp` apenas analisa os dados de `clientes` para indicar telefones ausentes, invalidos, repetidos ou avisos bloqueados. Ele nao altera planejamento, nao verifica numero no provider e nao adiciona eventos na fila.
+
 ## Job do dia
 
 `runDueNotificationJob`:
@@ -75,6 +88,14 @@ Eventos usam chave unica por certificado, dia, destinatario e data de envio. Eve
 - Backoff: 60, 300, 900 e 1800 segundos.
 - Falha permanente ou limite de tentativas: `failed`.
 - Sucesso: `sent`.
+
+## Apresentacao operacional
+
+`src/lib/notifications/event-presentation.ts` centraliza rotulos humanos, texto do aviso, proxima acao sugerida e sanitizacao de erro para a Central de avisos.
+
+A tela `/notificacoes` mostra o bloco `Prioridade agora` para destacar falhas, novas tentativas, mensagens na fila e processamentos ativos. Esse bloco usa apenas leitura de `notification_events`; ele nao altera status, nao cria eventos e nao dispara mensagens.
+
+Erros tecnicos vindos de provider, SQL ou reserva sao convertidos para mensagens humanas antes de aparecerem na interface. O erro bruto deve permanecer restrito a logs protegidos.
 
 ## Audiencias
 

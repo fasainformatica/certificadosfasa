@@ -8,11 +8,21 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { Badge, type Tone } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/status-badge";
 import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
-import { daysUntilDate } from "@/lib/certificados/status";
 import { buildNotificationEventSearchFilter } from "@/lib/notifications/event-search";
+import {
+  NOTIFICATION_EVENT_STATUSES,
+  NOTIFICATION_EVENT_STATUS_META,
+  NOTIFICATION_EVENT_TYPE_LABELS,
+  NOTIFICATION_EVENT_TYPES,
+  getNotificationLastAttemptAt,
+  getNotificationNoticeText,
+  getNotificationRecommendedAction,
+  getSafeNotificationErrorMessage,
+  isRetryableNotificationStatus,
+} from "@/lib/notifications/event-presentation";
 import { getTodayDateString, SETTINGS_ID } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -29,7 +39,6 @@ import {
   formatDate,
   formatDateTimeShort,
   formatDisplayName,
-  formatRelativeExpiration,
 } from "@/lib/utils/format";
 import { maskPhone } from "@/lib/utils/phone";
 
@@ -49,26 +58,10 @@ type NotificacoesPageProps = {
   }>;
 };
 
-const statuses = ["pending", "reserved", "processing", "retry", "sent", "failed", "cancelled", "skipped"] as const;
-const types = ["certificate_expiring", "certificate_expired"] as const;
+const statuses = NOTIFICATION_EVENT_STATUSES;
+const types = NOTIFICATION_EVENT_TYPES;
 const providers = [EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER] as const;
 const audiences = ["internal", "client"] as const;
-
-const TYPE_LABELS: Record<(typeof types)[number], string> = {
-  certificate_expiring: "Aviso de vencimento",
-  certificate_expired: "Resumo de vencidos",
-};
-
-const STATUS_LABELS: Record<NotificationEventStatus, { label: string; tone: Tone }> = {
-  pending: { label: "Na fila", tone: "blue" },
-  reserved: { label: "Reservado", tone: "blue" },
-  processing: { label: "Em processamento", tone: "blue" },
-  retry: { label: "Nova tentativa agendada", tone: "amber" },
-  sent: { label: "Enviado", tone: "green" },
-  failed: { label: "Falha no envio", tone: "red" },
-  cancelled: { label: "Cancelado", tone: "slate" },
-  skipped: { label: "Ignorado", tone: "slate" },
-};
 
 const PROVIDER_LABELS: Record<string, string> = {
   [EUATENDO_PROVIDER]: "WhatsApp euAtendo",
@@ -89,6 +82,7 @@ function getQuickFilters(today: string) {
     { key: "all", label: "Todos", href: "/notificacoes" },
     { key: "today", label: "Hoje", href: `/notificacoes?send_date=${today}` },
     { key: "queue", label: "Na fila", href: "/notificacoes?status=pending" },
+    { key: "retry", label: "Nova tentativa", href: "/notificacoes?status=retry" },
     { key: "sent", label: "Enviados", href: "/notificacoes?status=sent" },
     { key: "failed", label: "Com falha", href: "/notificacoes?status=failed" },
     { key: "expired", label: "Vencidos", href: "/notificacoes?type=certificate_expired" },
@@ -107,6 +101,7 @@ function getActiveQuickFilter({
   today: string;
 }) {
   if (status === "pending") return "queue";
+  if (status === "retry") return "retry";
   if (status === "sent") return "sent";
   if (status === "failed") return "failed";
   if (sendDate === today) return "today";
@@ -114,44 +109,22 @@ function getActiveQuickFilter({
   return "all";
 }
 
-function getClienteTelefone(cliente: { whatsapp?: string | null; telefone?: string | null } | null | undefined) {
-  return cliente?.whatsapp ?? cliente?.telefone ?? "Telefone não cadastrado";
-}
-
-function getNoticeText(event: { type: string; dias_restantes: number | null; certificados?: { data_vencimento: string | null } | null }) {
-  if (event.type === "certificate_expired") {
-    return "Resumo diário de certificados vencidos";
-  }
-
-  if (typeof event.dias_restantes === "number") {
-    return formatRelativeExpiration(event.dias_restantes);
-  }
-
-  if (event.certificados?.data_vencimento) {
-    return formatRelativeExpiration(daysUntilDate(event.certificados.data_vencimento));
-  }
-
-  return "Aviso planejado";
-}
-
-function getRecommendedAction(event: { status: string; type: string; next_retry_at?: string | null }) {
-  if (event.status === "failed") {
-    return "Verificar conexão do WhatsApp e tentar novamente";
-  }
-
-  if (event.status === "retry" && event.next_retry_at) {
-    return `Nova tentativa às ${formatDateTimeShort(event.next_retry_at)}`;
-  }
-
-  return event.type === "certificate_expired" ? "Revisar certificados vencidos" : "Acompanhar renovação";
+function getMaskedClienteTelefone(cliente: { whatsapp?: string | null; telefone?: string | null } | null | undefined) {
+  const rawPhone = cliente?.whatsapp ?? cliente?.telefone;
+  return rawPhone ? maskPhone(rawPhone) : "Telefone não cadastrado";
 }
 
 async function loadNotificationSummary(admin: ReturnType<typeof createSupabaseAdminClient>, today: string) {
-  const [queueResult, processingResult, sentTodayResult, failedResult, expiredResult, expiringResult] = await Promise.all([
+  const [queueResult, retryResult, processingResult, sentTodayResult, failedResult, expiredResult, expiringResult] = await Promise.all([
     admin
       .from("notification_events")
       .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "retry"])
+      .eq("status", "pending")
+      .lte("send_date", today),
+    admin
+      .from("notification_events")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "retry")
       .lte("send_date", today),
     admin
       .from("notification_events")
@@ -169,12 +142,77 @@ async function loadNotificationSummary(admin: ReturnType<typeof createSupabaseAd
 
   return {
     queue: queueResult.count ?? 0,
+    retry: retryResult.count ?? 0,
     processing: processingResult.count ?? 0,
     sentToday: sentTodayResult.count ?? 0,
     failed: failedResult.count ?? 0,
     expired: expiredResult.count ?? 0,
     expiring: expiringResult.count ?? 0,
   };
+}
+
+type NotificationSummary = Awaited<ReturnType<typeof loadNotificationSummary>>;
+
+function buildOperationalFocus(summary: NotificationSummary) {
+  const items: Array<{
+    title: string;
+    description: string;
+    href: string;
+    action: string;
+    tone: "blue" | "green" | "amber" | "red" | "slate";
+  }> = [];
+
+  if (summary.failed > 0) {
+    items.push({
+      title: `${summary.failed} ${summary.failed === 1 ? "envio com falha" : "envios com falha"}`,
+      description: "Revise o motivo apresentado e reenfileire apenas o que ainda deve ser enviado.",
+      href: "/notificacoes?status=failed",
+      action: "Revisar falhas",
+      tone: "red",
+    });
+  }
+
+  if (summary.retry > 0) {
+    items.push({
+      title: `${summary.retry} ${summary.retry === 1 ? "nova tentativa agendada" : "novas tentativas agendadas"}`,
+      description: "Esses avisos aguardam a próxima janela de envio definida pelo dispatcher.",
+      href: "/notificacoes?status=retry",
+      action: "Ver tentativas",
+      tone: "amber",
+    });
+  }
+
+  if (summary.queue > 0) {
+    items.push({
+      title: `${summary.queue} ${summary.queue === 1 ? "mensagem na fila" : "mensagens na fila"}`,
+      description: "A fila será consumida respeitando pausa, limites e intervalo seguro entre mensagens.",
+      href: "/notificacoes?status=pending",
+      action: "Ver fila",
+      tone: "blue",
+    });
+  }
+
+  if (summary.processing > 0) {
+    items.push({
+      title: `${summary.processing} ${summary.processing === 1 ? "envio em processamento" : "envios em processamento"}`,
+      description: "Acompanhe se esses avisos concluem ou voltam para nova tentativa.",
+      href: "/notificacoes?status=processing",
+      action: "Acompanhar",
+      tone: "blue",
+    });
+  }
+
+  if (!items.length) {
+    items.push({
+      title: "Sem pendências críticas",
+      description: "Não há falhas, retries ou mensagens vencidas aguardando envio neste momento.",
+      href: "/notificacoes",
+      action: "Ver todos os avisos",
+      tone: "green",
+    });
+  }
+
+  return items;
 }
 
 export default async function NotificacoesPage({ searchParams }: NotificacoesPageProps) {
@@ -256,6 +294,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
   const events = rawEvents ?? [];
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
   const summary = await loadNotificationSummary(admin, today);
+  const operationalFocus = buildOperationalFocus(summary);
   const hasFilters = Boolean(search || status || type || sendDate || recipientId || provider || audience);
 
   return (
@@ -266,13 +305,47 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <StatCard title="Na fila" value={summary.queue} description="Mensagens aguardando envio" icon={Clock3} tone="blue" />
+        <StatCard
+          title="Na fila"
+          value={summary.queue + summary.retry}
+          description={`${summary.queue} aguardando envio, ${summary.retry} em nova tentativa`}
+          icon={Clock3}
+          tone="blue"
+        />
         <StatCard title="Processando" value={summary.processing} description="Reservadas ou enviando agora" icon={SendHorizonal} tone="blue" />
         <StatCard title="Enviadas hoje" value={summary.sentToday} description="Aceitas pelo provedor" icon={CheckCircle2} tone="green" />
         <StatCard title="Com falha" value={summary.failed} description="Precisam de revisão" icon={AlertTriangle} tone="red" />
         <StatCard title="Vencidos" value={summary.expired} description="Resumos de vencidos" icon={XCircle} tone="red" />
         <StatCard title="Próximos" value={summary.expiring} description="Avisos de vencimento" icon={CalendarClock} tone="amber" />
       </div>
+
+      <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">Prioridade agora</h2>
+            <p className="mt-1 text-sm text-slate-600">Itens que podem exigir revisão antes do próximo disparo automático.</p>
+          </div>
+          <p className="text-xs font-medium text-slate-500">Data operacional: {formatDate(today)}</p>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+          {operationalFocus.map((item) => (
+            <article key={item.title} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <Badge tone={item.tone}>{item.title}</Badge>
+                  <p className="mt-2 text-sm leading-5 text-slate-600">{item.description}</p>
+                </div>
+              </div>
+              <Link
+                href={item.href}
+                className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                {item.action}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <div className="mb-3 grid gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categorias</p>
@@ -365,8 +438,12 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
               const recipient = Array.isArray(event.notification_recipients)
                 ? event.notification_recipients[0]
                 : event.notification_recipients;
-              const statusMeta = STATUS_LABELS[event.status as NotificationEventStatus] ?? STATUS_LABELS.pending;
-              const lastAttempt = event.failed_at ?? event.sent_at ?? event.next_retry_at ?? event.created_at;
+              const statusMeta =
+                NOTIFICATION_EVENT_STATUS_META[event.status as NotificationEventStatus] ?? NOTIFICATION_EVENT_STATUS_META.pending;
+              const lastAttempt = getNotificationLastAttemptAt(event);
+              const safeError = getSafeNotificationErrorMessage(event.error_message);
+              const noticeText = getNotificationNoticeText({ ...event, certificados: certificado ?? null });
+              const recommendedAction = getNotificationRecommendedAction({ ...event, certificados: certificado ?? null }, { today });
               const certificadoNome = certificado?.nome_titular
                 ? formatCertificateTitle(certificado.nome_titular, certificado.cnpj ?? cliente?.cnpj)
                 : event.type === "certificate_expired"
@@ -386,17 +463,22 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                   </div>
                   <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
                     <p><span className="font-medium text-slate-950">Certificado:</span> {certificadoNome}</p>
-                    <p><span className="font-medium text-slate-950">Tipo:</span> {TYPE_LABELS[event.type as keyof typeof TYPE_LABELS] ?? "Aviso"}</p>
-                    <p><span className="font-medium text-slate-950">Prazo:</span> {getNoticeText({ ...event, certificados: certificado ?? null })}</p>
+                    <p><span className="font-medium text-slate-950">Tipo:</span> {NOTIFICATION_EVENT_TYPE_LABELS[event.type as keyof typeof NOTIFICATION_EVENT_TYPE_LABELS] ?? "Aviso"}</p>
+                    <p><span className="font-medium text-slate-950">Prazo:</span> {noticeText}</p>
                     <p>
                       <span className="font-medium text-slate-950">Destinatário:</span>{" "}
                       {event.audience === "client" ? "Cliente" : recipient?.nome ?? "Destinatário removido"} ({maskPhone(event.telefone_destino)})
                     </p>
                     <p><span className="font-medium text-slate-950">Programado para:</span> {formatDate(event.send_date)}</p>
                     <p><span className="font-medium text-slate-950">Última tentativa:</span> {formatDateTimeShort(lastAttempt)}</p>
-                    <p className="sm:col-span-2"><span className="font-medium text-slate-950">Próxima ação:</span> {getRecommendedAction(event)}</p>
+                    <p className="sm:col-span-2"><span className="font-medium text-slate-950">Próxima ação:</span> {recommendedAction}</p>
                   </div>
-                  {canManageNotifications && ["failed", "cancelled", "skipped"].includes(event.status) ? (
+                  {safeError ? (
+                    <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      {safeError}
+                    </p>
+                  ) : null}
+                  {canManageNotifications && isRetryableNotificationStatus(event.status) ? (
                     <div className="mt-3">
                       <RetryEventButton eventId={event.id} />
                     </div>
@@ -414,7 +496,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                   <TableHeaderCell>Certificado</TableHeaderCell>
                   <TableHeaderCell>Aviso</TableHeaderCell>
                   <TableHeaderCell>Destinatário</TableHeaderCell>
-                  <TableHeaderCell>Planejado</TableHeaderCell>
+                  <TableHeaderCell>Programado</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>Próxima ação</TableHeaderCell>
                   <TableHeaderCell>Ações</TableHeaderCell>
@@ -427,8 +509,12 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                   const recipient = Array.isArray(event.notification_recipients)
                     ? event.notification_recipients[0]
                     : event.notification_recipients;
-                  const statusMeta = STATUS_LABELS[event.status as NotificationEventStatus] ?? STATUS_LABELS.pending;
-                  const lastAttempt = event.failed_at ?? event.sent_at ?? event.next_retry_at ?? event.created_at;
+                  const statusMeta =
+                    NOTIFICATION_EVENT_STATUS_META[event.status as NotificationEventStatus] ?? NOTIFICATION_EVENT_STATUS_META.pending;
+                  const lastAttempt = getNotificationLastAttemptAt(event);
+                  const safeError = getSafeNotificationErrorMessage(event.error_message);
+                  const noticeText = getNotificationNoticeText({ ...event, certificados: certificado ?? null });
+                  const recommendedAction = getNotificationRecommendedAction({ ...event, certificados: certificado ?? null }, { today });
                   const certificadoNome = certificado?.nome_titular
                     ? formatCertificateTitle(certificado.nome_titular, certificado.cnpj ?? cliente?.cnpj)
                     : event.type === "certificate_expired"
@@ -450,8 +536,8 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                         ) : null}
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium text-slate-950">{TYPE_LABELS[event.type as keyof typeof TYPE_LABELS] ?? "Aviso"}</p>
-                        <p className="mt-1 text-xs text-slate-500">{getNoticeText({ ...event, certificados: certificado ?? null })}</p>
+                        <p className="font-medium text-slate-950">{NOTIFICATION_EVENT_TYPE_LABELS[event.type as keyof typeof NOTIFICATION_EVENT_TYPE_LABELS] ?? "Aviso"}</p>
+                        <p className="mt-1 text-xs text-slate-500">{noticeText}</p>
                       </TableCell>
                       <TableCell>
                         <p className="font-medium text-slate-950">
@@ -468,14 +554,15 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                         <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
                       </TableCell>
                       <TableCell className="max-w-[230px] text-slate-700">
-                        <p>{getRecommendedAction(event)}</p>
+                        <p>{recommendedAction}</p>
+                        {safeError ? <p className="mt-1 text-xs font-medium text-amber-700">{safeError}</p> : null}
                         <p className="mt-1 text-xs text-slate-500">Última tentativa: {formatDateTimeShort(lastAttempt)}</p>
                         <p className="mt-1 text-xs text-slate-500">
-                          Cliente: {event.type === "certificate_expired" ? "Lista consolidada" : getClienteTelefone(cliente)}
+                          Cliente: {event.type === "certificate_expired" ? "Lista consolidada" : getMaskedClienteTelefone(cliente)}
                         </p>
                       </TableCell>
                       <TableCell>
-                        {canManageNotifications && ["failed", "cancelled", "skipped"].includes(event.status) ? (
+                        {canManageNotifications && isRetryableNotificationStatus(event.status) ? (
                           <RetryEventButton eventId={event.id} />
                         ) : (
                           <span className="text-slate-400">-</span>

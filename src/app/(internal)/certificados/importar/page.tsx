@@ -14,7 +14,7 @@ export default async function ImportarCertificadosPage() {
     <section>
       <SectionHeader
         title="Importar certificados"
-        description="Importe uma estrutura de pastas com certificados PFX e arquivos TXT de senha, mantendo a validação e o armazenamento seguro do sistema."
+        description="Envie pastas com certificados PFX e arquivos TXT de senha, mantendo a validação e o armazenamento seguro."
         actions={
           <Link href="/certificados" className={buttonClass("secondary")}>
             <ArrowLeft aria-hidden="true" className="h-4 w-4" />

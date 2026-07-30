@@ -71,6 +71,8 @@ export function ManualNoticeButton({ certificadoId, className }: ManualNoticeBut
       </button>
       {feedback ? (
         <span
+          role={feedback.tone === "error" ? "alert" : "status"}
+          aria-live={feedback.tone === "error" ? "assertive" : "polite"}
           className={cn(
             "max-w-52 text-xs font-medium leading-4",
             feedback.tone === "success" ? "text-green-700" : "text-red-700",

@@ -39,6 +39,30 @@ export const CERTIFICATE_RENEWAL_STATUS_TONE: Record<CertificateRenewalStatus, "
   cliente_inativo: "red",
 };
 
+export const CERTIFICATE_RENEWAL_STATUS_DESCRIPTION: Record<CertificateRenewalStatus, string> = {
+  em_acompanhamento: "O certificado continua sendo acompanhado pela operação.",
+  renovou_fasa: "O certificado foi renovado pela Fasa e continua no acompanhamento do próximo ciclo.",
+  renovou_externo: "O cliente renovou em outro lugar. O certificado sai da fila automática sem apagar o histórico.",
+  nao_renovar: "O cliente não vai renovar agora. O certificado fica fora dos avisos automáticos.",
+  cliente_inativo: "O cliente está inativo. O certificado fica fora da rotina de avisos.",
+};
+
+export const CERTIFICATE_RENEWAL_NEXT_ACTION: Record<CertificateRenewalStatus, string> = {
+  em_acompanhamento: "Acompanhar vencimento e acionar renovação quando necessário.",
+  renovou_fasa: "Conferir o novo certificado e acompanhar o próximo vencimento.",
+  renovou_externo: "Manter registrado e revisar apenas se o cliente voltar para a Fasa.",
+  nao_renovar: "Registrar o motivo e revisar futuramente se o cliente solicitar.",
+  cliente_inativo: "Confirmar se o cadastro deve permanecer inativo.",
+};
+
+export const CERTIFICATE_RENEWAL_PLANNING_IMPACT: Record<CertificateRenewalStatus, string> = {
+  em_acompanhamento: "Entra na dashboard operacional e no planejamento de avisos.",
+  renovou_fasa: "Entra na dashboard operacional e no planejamento de avisos.",
+  renovou_externo: "Não entra na dashboard operacional nem no planejamento automático.",
+  nao_renovar: "Não entra na dashboard operacional nem no planejamento automático.",
+  cliente_inativo: "Não entra na dashboard operacional nem no planejamento automático.",
+};
+
 export function isCertificateRenewalStatus(value: unknown): value is CertificateRenewalStatus {
   return typeof value === "string" && CERTIFICATE_RENEWAL_STATUSES.includes(value as CertificateRenewalStatus);
 }
@@ -61,4 +85,18 @@ export function shouldShowRenewalBadge(
   value: string | null | undefined,
 ): value is Exclude<CertificateRenewalStatus, "em_acompanhamento"> {
   return isCertificateRenewalStatus(value) && value !== "em_acompanhamento";
+}
+
+export function getCertificateRenewalPresentation(value: string | null | undefined) {
+  const status = isCertificateRenewalStatus(value) ? value : "em_acompanhamento";
+
+  return {
+    status,
+    label: CERTIFICATE_RENEWAL_STATUS_LABEL[status],
+    tone: CERTIFICATE_RENEWAL_STATUS_TONE[status],
+    description: CERTIFICATE_RENEWAL_STATUS_DESCRIPTION[status],
+    nextAction: CERTIFICATE_RENEWAL_NEXT_ACTION[status],
+    planningImpact: CERTIFICATE_RENEWAL_PLANNING_IMPACT[status],
+    plannable: isCertificateRenewalPlannable(status),
+  };
 }

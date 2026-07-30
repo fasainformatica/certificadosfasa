@@ -45,7 +45,15 @@ Atualizacao de 2026-07-15:
 - Estados vazios usam `EmptyState` com titulo especifico, descricao e acao quando aplicavel.
 - Feedbacks de erro e processamento usam mensagens orientadas a acao, sem stack trace, token, service role, storage path ou payload bruto do provider.
 - Dias de aviso em Configuracoes sao editados como chips numericos, mantendo o contrato de API como array de numeros.
-- Certificados usam filtro de situacao de renovacao. Por padrao, `/certificados` mostra itens em acompanhamento; o detalhe permite marcar `renovou_externo`, `nao_renovar` ou `cliente_inativo` sem apagar historico.
+- Certificados usam filtro e resumo de situacao de renovacao. Por padrao, `/certificados` mostra itens em acompanhamento; a listagem e o detalhe devem explicar impacto no planejamento e proxima acao sem renomear o enum persistido.
+- Clientes usa cards de resumo operacional, badges de completude de contato, status humano de aviso ao cliente e estado vazio com acao contextual.
+- Dashboard prioriza KPIs, graficos, lista "Precisa de atencao" e resumo de avisos/WhatsApp, sem o bloco intermediario de resumo operacional.
+- Login interno usa texto claro de acesso, mensagens de erro sem detalhe tecnico, `aria-describedby`, `aria-invalid` e controle de mostrar/ocultar senha.
+- Download publico usa estado de link disponivel/indisponivel, orientacao sobre senha temporaria, feedback acessivel e texto sem expor token, storage path ou senha real do PFX.
+- Upload individual usa resumo do arquivo selecionado, mostrar/ocultar senha do PFX, labels associados, estado disabled durante envio, erro com `role="alert"` e texto de processamento `Enviando certificado`.
+- Importacao em massa usa resumo da selecao, alerta para arquivos ignorados, progressbar por lote com `role="progressbar"`, `role="status"` para andamento e acao `Limpar selecao` antes do envio.
+- Detalhe do certificado usa resumo operacional, grupos de dados de cliente/certificado/renovacao, area tecnica separada sem `storage_path`, hash reduzido na apresentacao e feedback acessivel em senha PFX, link de download, edicao de cliente e exclusao.
+- Configuracoes usa `buildConfiguracoesOperationalSummary` para resumir envio automatico, dias de aviso, janela, cadencia, limites de WhatsApp e templates antes de salvar; acoes de salvar, atualizar planejamento e destinatarios tratam falha de rede com mensagem humana e encerram o estado de carregamento.
 
 ## Tokens visuais
 

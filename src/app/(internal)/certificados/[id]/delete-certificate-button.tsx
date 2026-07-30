@@ -12,8 +12,12 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
+    if (pending) {
+      return;
+    }
+
     const confirmed = window.confirm(
-      "Excluir este certificado? Esta ação remove o registro, o arquivo PFX, links vinculados e também o cliente se ele não possuir outros certificados.",
+      "Excluir este certificado? Esta ação remove o registro, o arquivo PFX, links vinculados e também o cliente se ele não possuir outros certificados. Não será possível desfazer.",
     );
 
     if (!confirmed) {
@@ -22,19 +26,25 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
 
     setPending(true);
     setError(null);
-    const response = await fetch(`/api/certificados/${certificadoId}`, {
-      method: "DELETE",
-    });
 
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null;
-      setError(payload?.error?.message ?? "Não foi possível excluir o certificado.");
+    try {
+      const response = await fetch(`/api/certificados/${certificadoId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null;
+        setError(payload?.error?.message ?? "Não foi possível excluir o certificado. Tente novamente em alguns instantes.");
+        setPending(false);
+        return;
+      }
+
+      router.replace("/certificados");
+      router.refresh();
+    } catch {
+      setError("Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.");
       setPending(false);
-      return;
     }
-
-    router.replace("/certificados");
-    router.refresh();
   }
 
   return (
@@ -56,7 +66,7 @@ export function DeleteCertificateButton({ certificadoId }: { certificadoId: stri
           Excluir certificado
         </button>
       </div>
-      {error ? <p className="mt-3 text-sm font-medium text-red-700">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{error}</p> : null}
     </div>
   );
 }

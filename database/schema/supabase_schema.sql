@@ -845,13 +845,21 @@ create table if not exists public.notification_settings (
   enabled boolean not null default false,
   expired_notifications_enabled boolean not null default true,
   dias_aviso_vencimento integer[] not null default array[30,15,1],
-  delay_minimo_segundos integer not null default 30,
-  delay_maximo_segundos integer not null default 60,
+  delay_minimo_segundos integer not null default 180,
+  delay_maximo_segundos integer not null default 300,
   max_attempts integer not null default 3,
   polling_interval_seconds integer not null default 5,
   send_window_start text not null default '08:00',
   send_window_end text not null default '18:00',
   timezone text not null default 'America/Sao_Paulo',
+  whatsapp_dispatch_paused boolean not null default false,
+  whatsapp_dispatch_paused_at timestamptz,
+  whatsapp_dispatch_pause_reason text,
+  whatsapp_daily_limit integer not null default 25,
+  whatsapp_hourly_limit integer not null default 10,
+  whatsapp_auto_pause_enabled boolean not null default true,
+  whatsapp_failure_pause_threshold integer not null default 3,
+  whatsapp_failure_pause_window_minutes integer not null default 60,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint notification_settings_singleton check (id = '00000000-0000-0000-0000-000000000001'::uuid),
@@ -865,6 +873,14 @@ create table if not exists public.notification_settings (
   ),
   constraint notification_settings_attempts_check check (max_attempts between 1 and 10),
   constraint notification_settings_polling_check check (polling_interval_seconds between 5 and 25),
+  constraint notification_settings_whatsapp_limits_check check (
+    whatsapp_daily_limit between 1 and 500
+    and whatsapp_hourly_limit between 1 and 100
+    and whatsapp_hourly_limit <= whatsapp_daily_limit
+    and whatsapp_failure_pause_threshold between 1 and 50
+    and whatsapp_failure_pause_window_minutes between 5 and 1440
+    and (whatsapp_dispatch_pause_reason is null or length(whatsapp_dispatch_pause_reason) <= 200)
+  ),
   constraint notification_settings_window_start_check check (send_window_start ~ '^[0-9]{2}:[0-9]{2}$'),
   constraint notification_settings_window_end_check check (send_window_end ~ '^[0-9]{2}:[0-9]{2}$')
 );
@@ -872,7 +888,15 @@ create table if not exists public.notification_settings (
 alter table public.notification_settings
   add column if not exists expired_notifications_enabled boolean not null default true,
   add column if not exists delay_minimo_segundos integer,
-  add column if not exists delay_maximo_segundos integer;
+  add column if not exists delay_maximo_segundos integer,
+  add column if not exists whatsapp_dispatch_paused boolean not null default false,
+  add column if not exists whatsapp_dispatch_paused_at timestamptz,
+  add column if not exists whatsapp_dispatch_pause_reason text,
+  add column if not exists whatsapp_daily_limit integer not null default 25,
+  add column if not exists whatsapp_hourly_limit integer not null default 10,
+  add column if not exists whatsapp_auto_pause_enabled boolean not null default true,
+  add column if not exists whatsapp_failure_pause_threshold integer not null default 3,
+  add column if not exists whatsapp_failure_pause_window_minutes integer not null default 60;
 
 do $$
 begin
@@ -886,21 +910,21 @@ begin
     execute $sql$
       update public.notification_settings
       set
-        delay_minimo_segundos = greatest(30, coalesce(delay_minimo_segundos, delay_min_seconds, 30)),
-        delay_maximo_segundos = greatest(greatest(30, coalesce(delay_minimo_segundos, delay_min_seconds, 30)), coalesce(delay_maximo_segundos, delay_max_seconds, 60))
+        delay_minimo_segundos = greatest(180, coalesce(delay_minimo_segundos, delay_min_seconds, 180)),
+        delay_maximo_segundos = greatest(greatest(180, coalesce(delay_minimo_segundos, delay_min_seconds, 180)), coalesce(delay_maximo_segundos, delay_max_seconds, 300))
       where delay_minimo_segundos is null
          or delay_maximo_segundos is null
-         or delay_minimo_segundos < 30
+         or delay_minimo_segundos < 180
          or delay_maximo_segundos < delay_minimo_segundos
     $sql$;
   else
     update public.notification_settings
     set
-      delay_minimo_segundos = greatest(30, coalesce(delay_minimo_segundos, 30)),
-      delay_maximo_segundos = greatest(greatest(30, coalesce(delay_minimo_segundos, 30)), coalesce(delay_maximo_segundos, 60))
+      delay_minimo_segundos = greatest(180, coalesce(delay_minimo_segundos, 180)),
+      delay_maximo_segundos = greatest(greatest(180, coalesce(delay_minimo_segundos, 180)), coalesce(delay_maximo_segundos, 300))
     where delay_minimo_segundos is null
        or delay_maximo_segundos is null
-       or delay_minimo_segundos < 30
+       or delay_minimo_segundos < 180
        or delay_maximo_segundos < delay_minimo_segundos;
   end if;
 end $$;
@@ -908,30 +932,58 @@ end $$;
 alter table public.notification_settings
   alter column delay_minimo_segundos set not null,
   alter column delay_maximo_segundos set not null,
-  alter column delay_minimo_segundos set default 30,
-  alter column delay_maximo_segundos set default 60,
+  alter column delay_minimo_segundos set default 180,
+  alter column delay_maximo_segundos set default 300,
   alter column polling_interval_seconds set default 5;
 
 alter table public.notification_settings drop constraint if exists notification_settings_delay_check;
 alter table public.notification_settings drop constraint if exists notification_settings_polling_check;
+alter table public.notification_settings drop constraint if exists notification_settings_whatsapp_limits_check;
 
 update public.notification_settings
 set
-  delay_minimo_segundos = 30,
-  delay_maximo_segundos = 60,
-  polling_interval_seconds = 5
-where delay_minimo_segundos < 30
-   or delay_maximo_segundos < delay_minimo_segundos
-   or polling_interval_seconds < 5
-   or polling_interval_seconds > 25;
+  delay_minimo_segundos = 180,
+  delay_maximo_segundos = 300
+where delay_minimo_segundos < 180
+   or delay_maximo_segundos < delay_minimo_segundos;
+
+update public.notification_settings
+set
+  polling_interval_seconds = 5,
+  whatsapp_daily_limit = greatest(1, least(coalesce(whatsapp_daily_limit, 25), 500)),
+  whatsapp_hourly_limit = greatest(1, least(coalesce(whatsapp_hourly_limit, 10), 100)),
+  whatsapp_failure_pause_threshold = greatest(1, least(coalesce(whatsapp_failure_pause_threshold, 3), 50)),
+  whatsapp_failure_pause_window_minutes = greatest(5, least(coalesce(whatsapp_failure_pause_window_minutes, 60), 1440)),
+  whatsapp_dispatch_pause_reason = nullif(left(coalesce(whatsapp_dispatch_pause_reason, ''), 200), '')
+where polling_interval_seconds < 5
+   or polling_interval_seconds > 25
+   or whatsapp_daily_limit is null
+   or whatsapp_hourly_limit is null
+   or whatsapp_hourly_limit > whatsapp_daily_limit
+   or whatsapp_failure_pause_threshold is null
+   or whatsapp_failure_pause_window_minutes is null
+   or length(coalesce(whatsapp_dispatch_pause_reason, '')) > 200;
+
+update public.notification_settings
+set whatsapp_hourly_limit = whatsapp_daily_limit
+where whatsapp_hourly_limit > whatsapp_daily_limit;
 
 alter table public.notification_settings add constraint notification_settings_delay_check check (
-  delay_minimo_segundos >= 30
+  delay_minimo_segundos >= 180
   and delay_maximo_segundos >= delay_minimo_segundos
 );
 
 alter table public.notification_settings add constraint notification_settings_polling_check check (
   polling_interval_seconds between 5 and 25
+);
+
+alter table public.notification_settings add constraint notification_settings_whatsapp_limits_check check (
+  whatsapp_daily_limit between 1 and 500
+  and whatsapp_hourly_limit between 1 and 100
+  and whatsapp_hourly_limit <= whatsapp_daily_limit
+  and whatsapp_failure_pause_threshold between 1 and 50
+  and whatsapp_failure_pause_window_minutes between 5 and 1440
+  and (whatsapp_dispatch_pause_reason is null or length(whatsapp_dispatch_pause_reason) <= 200)
 );
 
 alter table public.notification_settings
@@ -1540,6 +1592,10 @@ grant select (
 
 comment on column public.clientes.whatsapp is 'Telefone WhatsApp normalizado do cliente. E exibido no corpo dos avisos internos, mas nao e usado como destinatario automatico.';
 comment on table public.notification_settings is 'Configuracoes globais do bot WhatsApp de avisos de vencimento, incluindo resumo diario de certificados vencidos.';
+comment on column public.notification_settings.whatsapp_dispatch_paused is 'Pausa operacional do dispatcher WhatsApp sem apagar planejamento de avisos.';
+comment on column public.notification_settings.whatsapp_daily_limit is 'Limite maximo de mensagens WhatsApp aceitas por dia pelo provedor ativo.';
+comment on column public.notification_settings.whatsapp_hourly_limit is 'Limite maximo de mensagens WhatsApp aceitas na ultima hora pelo provedor ativo.';
+comment on column public.notification_settings.whatsapp_auto_pause_enabled is 'Quando ativo, pausa o dispatcher apos falhas recentes acima do limite configurado.';
 comment on table public.notification_recipients is 'Destinatarios internos da Fasa que recebem avisos automaticos de vencimento. Maximo de 5.';
 comment on table public.notification_templates is 'Templates de mensagens com variaveis permitidas e sem segredos para certificate_expiring e certificate_expired.';
 comment on table public.notification_events is 'Outbox idempotente de avisos planejados por send_date. certificate_expired e consolidado por dia/destinatario.';

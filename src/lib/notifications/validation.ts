@@ -66,6 +66,11 @@ export const notificationSettingsSchema = z
     send_window_start: z.string().trim().regex(/^\d{2}:\d{2}$/),
     send_window_end: z.string().trim().regex(/^\d{2}:\d{2}$/),
     timezone: z.string().trim().min(3).max(80).default("America/Sao_Paulo"),
+    whatsapp_daily_limit: z.coerce.number().int().min(1).max(500).default(25),
+    whatsapp_hourly_limit: z.coerce.number().int().min(1).max(100).default(10),
+    whatsapp_auto_pause_enabled: z.coerce.boolean().default(true),
+    whatsapp_failure_pause_threshold: z.coerce.number().int().min(1).max(50).default(3),
+    whatsapp_failure_pause_window_minutes: z.coerce.number().int().min(5).max(1440).default(60),
   })
   .superRefine((value, context) => {
     if (value.enabled && value.dias_aviso_vencimento.length === 0) {
@@ -81,6 +86,14 @@ export const notificationSettingsSchema = z
         code: "custom",
         path: ["delay_maximo_segundos"],
         message: "O delay maximo deve ser maior ou igual ao minimo.",
+      });
+    }
+
+    if (value.whatsapp_hourly_limit > value.whatsapp_daily_limit) {
+      context.addIssue({
+        code: "custom",
+        path: ["whatsapp_hourly_limit"],
+        message: "O limite por hora nao pode ser maior que o limite diario.",
       });
     }
   });

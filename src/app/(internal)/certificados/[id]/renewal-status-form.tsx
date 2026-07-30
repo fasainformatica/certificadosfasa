@@ -9,9 +9,8 @@ import { SectionCard } from "@/components/ui/section-card";
 import { Badge } from "@/components/ui/status-badge";
 import {
   CERTIFICATE_RENEWAL_STATUS_LABEL,
-  CERTIFICATE_RENEWAL_STATUS_TONE,
   CERTIFICATE_RENEWAL_STATUSES,
-  isCertificateRenewalPlannable,
+  getCertificateRenewalPresentation,
 } from "@/lib/certificados/renewal-status";
 import type { CertificateRenewalStatus } from "@/lib/supabase/database.types";
 
@@ -32,7 +31,7 @@ export function RenewalStatusForm({ certificadoId, initialStatus, initialObserva
   const [observation, setObservation] = useState(initialObservation ?? "");
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const isPlannable = isCertificateRenewalPlannable(status);
+  const presentation = getCertificateRenewalPresentation(status);
 
   async function submitRenewalStatus() {
     if (pending) {
@@ -85,9 +84,7 @@ export function RenewalStatusForm({ certificadoId, initialStatus, initialObserva
             Use esta classificação para retirar certificados renovados fora do acompanhamento automático sem apagar o histórico.
           </p>
         </div>
-        <Badge tone={CERTIFICATE_RENEWAL_STATUS_TONE[status]}>
-          {CERTIFICATE_RENEWAL_STATUS_LABEL[status]}
-        </Badge>
+        <Badge tone={presentation.tone}>{presentation.label}</Badge>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(240px,320px)_1fr]">
@@ -121,9 +118,9 @@ export function RenewalStatusForm({ certificadoId, initialStatus, initialObserva
       </div>
 
       <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        {isPlannable
-          ? "Este certificado permanece nos filtros operacionais, dashboard e planejamento de avisos."
-          : "Este certificado não entra no planejamento automático, e mensagens pendentes dele serão canceladas."}
+        <p className="font-semibold text-slate-950">{presentation.plannable ? "Permanece na operação" : "Sai da operação automática"}</p>
+        <p className="mt-1">{presentation.planningImpact}</p>
+        <p className="mt-1">Próxima ação: {presentation.nextAction}</p>
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">

@@ -19,6 +19,10 @@ import { ActionBar } from "@/components/ui/action-bar";
 import { buttonClass, inputClass, textAreaClass } from "@/components/ui/button-styles";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/status-badge";
+import {
+  buildConfiguracoesOperationalSummary,
+  type ConfiguracoesSummaryItem,
+} from "@/lib/configuracoes/presentation";
 import { cn } from "@/lib/utils/cn";
 import { formatDaysLabel } from "@/lib/utils/format";
 
@@ -33,6 +37,11 @@ type SettingsFormState = {
   send_window_start: string;
   send_window_end: string;
   timezone: string;
+  whatsapp_daily_limit: number;
+  whatsapp_hourly_limit: number;
+  whatsapp_auto_pause_enabled: boolean;
+  whatsapp_failure_pause_threshold: number;
+  whatsapp_failure_pause_window_minutes: number;
 };
 
 type TemplateFormState = {
@@ -59,6 +68,10 @@ type ApiErrorPayload = {
   };
 };
 
+type RecipientPayload = ApiErrorPayload & {
+  recipient?: Recipient;
+};
+
 type SettingsTab = "geral" | "canal" | "mensagens" | "destinatarios" | "seguranca";
 
 const tabs = [
@@ -70,6 +83,16 @@ const tabs = [
 ] satisfies { key: SettingsTab; label: string; icon: typeof Bell }[];
 
 const panelClass = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5";
+const networkErrorMessage = "Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.";
+
+const summaryIcons = {
+  automation: Bell,
+  days: RefreshCw,
+  window: Bot,
+  cadence: MessageSquareText,
+  limits: ShieldCheck,
+  templates: MessageSquareText,
+} satisfies Record<ConfiguracoesSummaryItem["key"], typeof Bell>;
 
 function normalizeDays(days: number[]) {
   return Array.from(new Set(days.filter((day) => Number.isInteger(day) && day >= 1 && day <= 365))).sort((a, b) => b - a);
@@ -111,6 +134,35 @@ function InlineAlert({ tone, children }: { tone: "success" | "error"; children: 
     >
       {children}
     </div>
+  );
+}
+
+function SummaryCard({ item }: { item: ConfiguracoesSummaryItem }) {
+  const Icon = summaryIcons[item.key];
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{item.label}</p>
+          <p className="mt-2 text-lg font-semibold leading-7 text-slate-950">{item.value}</p>
+        </div>
+        <span
+          className={cn(
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+            item.tone === "green" && "bg-green-50 text-green-700 ring-green-200",
+            item.tone === "amber" && "bg-amber-50 text-amber-800 ring-amber-200",
+            item.tone === "red" && "bg-red-50 text-red-700 ring-red-200",
+            item.tone === "blue" && "bg-blue-50 text-blue-700 ring-blue-200",
+            item.tone === "slate" && "bg-slate-100 text-slate-700 ring-slate-200",
+          )}
+          aria-hidden="true"
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-5 text-slate-600">{item.description}</p>
+    </article>
   );
 }
 
@@ -195,51 +247,55 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const settingsResponse = await fetch("/api/notifications/configuration-bundle", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        settings,
-        expiring_template: initialExpiringTemplate.id
-          ? {
-              id: initialExpiringTemplate.id,
-              content: expiringTemplate,
-            }
-          : undefined,
-        expired_template: initialExpiredTemplate.id
-          ? {
-              id: initialExpiredTemplate.id,
-              content: expiredTemplate,
-            }
-          : undefined,
-        client_expiring_template: initialClientExpiringTemplate.id
-          ? {
-              id: initialClientExpiringTemplate.id,
-              content: clientExpiringTemplate,
-            }
-          : undefined,
-        client_expired_template: initialClientExpiredTemplate.id
-          ? {
-              id: initialClientExpiredTemplate.id,
-              content: clientExpiredTemplate,
-            }
-          : undefined,
-      }),
-    });
-    const settingsPayload = (await settingsResponse.json().catch(() => null)) as ApiErrorPayload | null;
+    try {
+      const settingsResponse = await fetch("/api/notifications/configuration-bundle", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          settings,
+          expiring_template: initialExpiringTemplate.id
+            ? {
+                id: initialExpiringTemplate.id,
+                content: expiringTemplate,
+              }
+            : undefined,
+          expired_template: initialExpiredTemplate.id
+            ? {
+                id: initialExpiredTemplate.id,
+                content: expiredTemplate,
+              }
+            : undefined,
+          client_expiring_template: initialClientExpiringTemplate.id
+            ? {
+                id: initialClientExpiringTemplate.id,
+                content: clientExpiringTemplate,
+              }
+            : undefined,
+          client_expired_template: initialClientExpiredTemplate.id
+            ? {
+                id: initialClientExpiredTemplate.id,
+                content: clientExpiredTemplate,
+              }
+            : undefined,
+        }),
+      });
+      const settingsPayload = (await settingsResponse.json().catch(() => null)) as ApiErrorPayload | null;
 
-    if (!settingsResponse.ok) {
-      setError(getErrorMessage(settingsPayload, "Não foi possível salvar as configurações. Revise os campos destacados."));
+      if (!settingsResponse.ok) {
+        setError(getErrorMessage(settingsPayload, "Não foi possível salvar as configurações. Revise os campos destacados."));
+        return;
+      }
+
+      if (settingsPayload?.notificacao_rebuild?.skipped_reason === "notifications_disabled") {
+        setMessage("Configurações salvas. O envio automático está pausado e nenhum planejamento foi recriado.");
+      } else {
+        setMessage("Configurações salvas. Os avisos futuros foram atualizados.");
+      }
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
       setPending(false);
-      return;
     }
-
-    if (settingsPayload?.notificacao_rebuild?.skipped_reason === "notifications_disabled") {
-      setMessage("Configurações salvas. O envio automático está pausado e nenhum planejamento foi recriado.");
-    } else {
-      setMessage("Configurações salvas. Os avisos futuros foram atualizados.");
-    }
-    setPending(false);
   }
 
   async function runManualRebuild() {
@@ -251,23 +307,27 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const response = await fetch("/api/notifications/check-expiring", { method: "POST" });
-    const payload = await response.json().catch(() => null);
+    try {
+      const response = await fetch("/api/notifications/check-expiring", { method: "POST" });
+      const payload = await response.json().catch(() => null);
 
-    if (!response.ok && response.status !== 207) {
-      setError(getErrorMessage(payload, "Não foi possível atualizar o planejamento. Tente novamente em alguns instantes."));
+      if (!response.ok && response.status !== 207) {
+        setError(getErrorMessage(payload, "Não foi possível atualizar o planejamento. Tente novamente em alguns instantes."));
+        return;
+      }
+
+      if (payload?.skipped_reason === "notifications_disabled") {
+        setMessage("Envio automático pausado. Nenhum planejamento foi recriado.");
+      } else {
+        setMessage(
+          `Planejamento atualizado: ${payload?.eventos_removidos ?? 0} avisos futuros removidos, ${payload?.eventos_criados ?? 0} planejados, ${payload?.destinatarios_ativos ?? 0} destinatários ativos.`,
+        );
+      }
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
       setScanPending(false);
-      return;
     }
-
-    if (payload?.skipped_reason === "notifications_disabled") {
-      setMessage("Envio automático pausado. Nenhum planejamento foi recriado.");
-    } else {
-      setMessage(
-        `Planejamento atualizado: ${payload?.eventos_removidos ?? 0} avisos futuros removidos, ${payload?.eventos_criados ?? 0} planejados, ${payload?.destinatarios_ativos ?? 0} destinatários ativos.`,
-      );
-    }
-    setScanPending(false);
   }
 
   async function createRecipient(event: FormEvent<HTMLFormElement>) {
@@ -281,23 +341,28 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const response = await fetch("/api/notifications/recipients", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(recipientDraft),
-    });
-    const payload = await response.json().catch(() => null);
+    try {
+      const response = await fetch("/api/notifications/recipients", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(recipientDraft),
+      });
+      const payload = (await response.json().catch(() => null)) as RecipientPayload | null;
 
-    if (!response.ok) {
-      setError(getErrorMessage(payload, "Não foi possível salvar o destinatário. Revise os dados e tente novamente."));
+      if (!response.ok || !payload?.recipient) {
+        setError(getErrorMessage(payload, "Não foi possível salvar o destinatário. Revise os dados e tente novamente."));
+        return;
+      }
+
+      const savedRecipient = payload.recipient;
+      setRecipients((current) => [...current, savedRecipient]);
+      setRecipientDraft({ nome: "", telefone: "", ativo: true });
+      setMessage("Destinatário salvo. Os avisos futuros foram reconstruídos.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
       setRecipientPendingId(null);
-      return;
     }
-
-    setRecipients((current) => [...current, payload.recipient]);
-    setRecipientDraft({ nome: "", telefone: "", ativo: true });
-    setMessage("Destinatário salvo. Os avisos futuros foram reconstruídos.");
-    setRecipientPendingId(null);
   }
 
   async function saveRecipient(recipient: Recipient) {
@@ -309,26 +374,31 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const response = await fetch(`/api/notifications/recipients/${recipient.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        nome: recipient.nome,
-        telefone: recipient.telefone,
-        ativo: recipient.ativo,
-      }),
-    });
-    const payload = await response.json().catch(() => null);
+    try {
+      const response = await fetch(`/api/notifications/recipients/${recipient.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          nome: recipient.nome,
+          telefone: recipient.telefone,
+          ativo: recipient.ativo,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as RecipientPayload | null;
 
-    if (!response.ok) {
-      setError(getErrorMessage(payload, "Não foi possível atualizar o destinatário. Revise os dados e tente novamente."));
+      if (!response.ok || !payload?.recipient) {
+        setError(getErrorMessage(payload, "Não foi possível atualizar o destinatário. Revise os dados e tente novamente."));
+        return;
+      }
+
+      const savedRecipient = payload.recipient;
+      patchRecipient(recipient.id, savedRecipient);
+      setMessage("Destinatário atualizado. Os avisos futuros foram reconstruídos.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
       setRecipientPendingId(null);
-      return;
     }
-
-    patchRecipient(recipient.id, payload.recipient);
-    setMessage("Destinatário atualizado. Os avisos futuros foram reconstruídos.");
-    setRecipientPendingId(null);
   }
 
   async function removeRecipient(recipient: Recipient) {
@@ -340,22 +410,36 @@ export function ConfiguracoesForm({
     setError(null);
     setMessage(null);
 
-    const response = await fetch(`/api/notifications/recipients/${recipient.id}`, { method: "DELETE" });
-    const payload = await response.json().catch(() => null);
+    try {
+      const response = await fetch(`/api/notifications/recipients/${recipient.id}`, { method: "DELETE" });
+      const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
 
-    if (!response.ok) {
-      setError(getErrorMessage(payload, "Não foi possível remover o destinatário. Tente novamente."));
+      if (!response.ok) {
+        setError(getErrorMessage(payload, "Não foi possível remover o destinatário. Tente novamente."));
+        return;
+      }
+
+      setRecipients((current) => current.filter((item) => item.id !== recipient.id));
+      setMessage("Destinatário removido. Os avisos futuros foram reconstruídos.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
       setRecipientPendingId(null);
-      return;
     }
-
-    setRecipients((current) => current.filter((item) => item.id !== recipient.id));
-    setMessage("Destinatário removido. Os avisos futuros foram reconstruídos.");
-    setRecipientPendingId(null);
   }
 
   const disabled = !canEdit || pending;
+  const formBusy = pending || scanPending;
   const recipientLimitReached = recipients.length >= 5;
+  const operationalSummary = buildConfiguracoesOperationalSummary({
+    settings,
+    templates: [
+      { key: "certificate_expiring", content: expiringTemplate },
+      { key: "certificate_expired", content: expiredTemplate },
+      { key: "client_certificate_expiring", content: clientExpiringTemplate },
+      { key: "client_certificate_expired", content: clientExpiredTemplate, required: false },
+    ],
+  });
 
   return (
     <div className="grid gap-4">
@@ -366,6 +450,22 @@ export function ConfiguracoesForm({
             <p className="mt-1 break-all text-sm text-slate-600">{userEmail ?? "Usuário interno"}</p>
           </div>
           <Badge tone="blue">{userRole === "admin" ? "Administrador" : "Financeiro"}</Badge>
+        </div>
+      </section>
+
+      <section className="grid gap-3" aria-labelledby="config-operational-summary-title">
+        <div>
+          <h2 id="config-operational-summary-title" className="text-base font-semibold text-slate-950">
+            Estado operacional
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Revise o impacto das configurações antes de salvar ou atualizar o planejamento.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          {operationalSummary.map((item) => (
+            <SummaryCard key={item.key} item={item} />
+          ))}
         </div>
       </section>
 
@@ -521,7 +621,7 @@ export function ConfiguracoesForm({
           <p className="mt-3 text-xs leading-5 text-slate-500">Limite: 5 destinatários. Telefones são salvos no formato 55 + DDD + número.</p>
         </FormSection>
       ) : (
-        <form onSubmit={handleSubmit} className="grid gap-4">
+        <form onSubmit={handleSubmit} className="grid gap-4" aria-busy={formBusy}>
           {activeTab === "geral" ? (
             <FormSection
               title="Planejamento de avisos"
@@ -762,10 +862,75 @@ export function ConfiguracoesForm({
 
           {activeTab === "seguranca" ? (
             <FormSection title="Segurança operacional">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-green-100 bg-green-50 p-3 text-sm text-green-900">O canal recebe apenas mensagens prontas para envio.</div>
-                <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">Credenciais e chaves internas não são exibidas nesta tela.</div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Senhas, links e caminhos privados não entram nos avisos.</div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <label className="grid gap-2 text-sm font-medium text-slate-800">
+                  Limite diário de mensagens
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={settings.whatsapp_daily_limit}
+                    disabled={disabled}
+                    onChange={(event) => patchSettings({ whatsapp_daily_limit: Number(event.target.value) })}
+                    className={inputClass}
+                  />
+                  <span className="text-xs font-normal leading-5 text-slate-500">Comece baixo e aumente aos poucos.</span>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-800">
+                  Limite por hora
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={settings.whatsapp_hourly_limit}
+                    disabled={disabled}
+                    onChange={(event) => patchSettings({ whatsapp_hourly_limit: Number(event.target.value) })}
+                    className={inputClass}
+                  />
+                  <span className="text-xs font-normal leading-5 text-slate-500">Não pode ser maior que o limite diário.</span>
+                </label>
+                <label className="inline-flex min-h-20 items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-800">
+                  <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={settings.whatsapp_auto_pause_enabled}
+                    onChange={(event) => patchSettings({ whatsapp_auto_pause_enabled: event.target.checked })}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <span>
+                    Pausar automaticamente após falhas
+                    <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+                      O dispatcher pausa antes de continuar tentando quando houver rejeições recentes.
+                    </span>
+                  </span>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-800">
+                  Quantidade de falhas para pausar
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={settings.whatsapp_failure_pause_threshold}
+                    disabled={disabled || !settings.whatsapp_auto_pause_enabled}
+                    onChange={(event) => patchSettings({ whatsapp_failure_pause_threshold: Number(event.target.value) })}
+                    className={inputClass}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-slate-800">
+                  Janela de falhas (minutos)
+                  <input
+                    type="number"
+                    min={5}
+                    max={1440}
+                    value={settings.whatsapp_failure_pause_window_minutes}
+                    disabled={disabled || !settings.whatsapp_auto_pause_enabled}
+                    onChange={(event) => patchSettings({ whatsapp_failure_pause_window_minutes: Number(event.target.value) })}
+                    className={inputClass}
+                  />
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  Senhas, links privados, tokens e caminhos de Storage não entram nos avisos.
+                </div>
               </div>
             </FormSection>
           ) : null}
@@ -774,7 +939,7 @@ export function ConfiguracoesForm({
             <ActionBar>
               <button
                 type="button"
-                disabled={scanPending}
+                disabled={formBusy}
                 onClick={runManualRebuild}
                 className={buttonClass("secondary", "h-10")}
               >
@@ -783,7 +948,7 @@ export function ConfiguracoesForm({
               </button>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={formBusy}
                 className={buttonClass("primary", "h-10")}
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

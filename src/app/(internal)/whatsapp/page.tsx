@@ -3,9 +3,13 @@ import { requireAdmin } from "@/lib/auth/rbac";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { getWhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
+import { analyzeWhatsAppPhoneQuality } from "@/lib/whatsapp/phone-quality";
 import { WHATSAPP_NOTIFICATION_PROVIDERS, getWhatsAppProviderLabel } from "@/lib/whatsapp/providers";
 
 import { CanalWhatsAppPanel } from "./canal-whatsapp-panel";
+
+const CLIENT_PHONE_QUALITY_LIMIT = 5000;
 
 export default async function WhatsappPage() {
   await requireAdmin();
@@ -27,6 +31,7 @@ export default async function WhatsappPage() {
     euAtendoLogsResult,
     euAtendoAvgDurationResult,
     notificationSettingsResult,
+    clientPhoneQualityResult,
   ] = await Promise.all([
     admin
       .from("notification_events")
@@ -91,10 +96,23 @@ export default async function WhatsappPage() {
       .limit(100),
     admin
       .from("notification_settings")
-      .select("enabled")
+      .select("*")
       .eq("id", "00000000-0000-0000-0000-000000000001")
       .maybeSingle(),
+    admin
+      .from("clientes")
+      .select("id, nome_razao_social, cnpj, telefone, whatsapp, whatsapp_notifications_enabled", { count: "exact" })
+      .order("nome_razao_social", { ascending: true })
+      .range(0, CLIENT_PHONE_QUALITY_LIMIT - 1),
   ]);
+  const safety = await getWhatsAppOperationalSafetySnapshot({
+    admin,
+    provider: activeProvider,
+    settings: notificationSettingsResult.data ?? null,
+  });
+  const phoneQuality = analyzeWhatsAppPhoneQuality(clientPhoneQualityResult.data ?? [], {
+    totalCount: clientPhoneQualityResult.count ?? clientPhoneQualityResult.data?.length ?? 0,
+  });
 
   return (
     <section>
@@ -109,6 +127,8 @@ export default async function WhatsappPage() {
           activeProvider,
           activeProviderLabel: getWhatsAppProviderLabel(activeProvider),
           notificationSettingsEnabled: notificationSettingsResult.data?.enabled === true,
+          safety,
+          phoneQuality,
           state: euAtendoStateResult.data ?? null,
           logs: euAtendoLogsResult.data ?? [],
           stats: {

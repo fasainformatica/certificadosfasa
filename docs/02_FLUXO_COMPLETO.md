@@ -49,10 +49,11 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 1. Admin abre detalhe do certificado.
 2. Botao de aviso manual chama `POST /api/certificados/[id]/aviso`.
-3. API valida cliente, telefone, flag do cliente e provider.
-4. Provider faz health check e verificacao de numero.
-5. Mensagem usa template `client_certificate_expiring`.
-6. Tentativa e auditada em `audit_logs` e `whatsapp_provider_logs`.
+3. API valida cliente, telefone, flag do cliente, situacao de renovacao e provider ativo.
+4. Com `WHATSAPP_PROVIDER=euatendo`, o euAtendo faz health check, verificacao de numero, respeita a cadencia e envia a mensagem diretamente.
+5. Com `WHATSAPP_PROVIDER=whatsapp_extension`, a API adiciona 1 evento `pending` na fila da extensao; o Chrome envia quando o WhatsApp Web conectado buscar a proxima mensagem.
+6. Mensagem usa template `client_certificate_expiring`.
+7. Tentativa e auditada em `audit_logs` e `whatsapp_provider_logs`.
 
 ## Cron
 

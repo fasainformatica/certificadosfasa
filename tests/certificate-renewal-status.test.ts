@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CERTIFICATE_RENEWAL_STATUS_LABEL,
+  getCertificateRenewalPresentation,
   isCertificateRenewalPlannable,
   parseCertificateRenewalFilter,
   PLANNABLE_CERTIFICATE_RENEWAL_STATUSES,
@@ -25,5 +26,24 @@ describe("situacao de renovacao do certificado", () => {
   it("mantem labels operacionais claros", () => {
     expect(CERTIFICATE_RENEWAL_STATUS_LABEL.renovou_externo).toBe("Renovou em outro lugar");
     expect(CERTIFICATE_RENEWAL_STATUS_LABEL.nao_renovar).toBe("Não vai renovar agora");
+  });
+
+  it("descreve impacto operacional sem alterar o status persistido", () => {
+    expect(getCertificateRenewalPresentation("renovou_externo")).toMatchObject({
+      status: "renovou_externo",
+      label: "Renovou em outro lugar",
+      tone: "slate",
+      plannable: false,
+      planningImpact: "Não entra na dashboard operacional nem no planejamento automático.",
+    });
+    expect(getCertificateRenewalPresentation("renovou_fasa")).toMatchObject({
+      status: "renovou_fasa",
+      plannable: true,
+      planningImpact: "Entra na dashboard operacional e no planejamento de avisos.",
+    });
+    expect(getCertificateRenewalPresentation("valor_invalido")).toMatchObject({
+      status: "em_acompanhamento",
+      plannable: true,
+    });
   });
 });

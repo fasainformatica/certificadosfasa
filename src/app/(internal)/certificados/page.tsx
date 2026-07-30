@@ -1,4 +1,4 @@
-import { FolderUp, Upload } from "lucide-react";
+import { Activity, CheckCircle2, CircleSlash, FolderUp, Upload, UserX } from "lucide-react";
 import Link from "next/link";
 
 import { ManualNoticeButton } from "@/app/(internal)/certificados/manual-notice-button";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { SectionHeader } from "@/components/ui/section-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
 import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
@@ -15,12 +16,10 @@ import { wasCertificateRenewed } from "@/lib/certificados/renewal";
 import {
   CERTIFICATE_RENEWAL_FILTER_LABEL,
   CERTIFICATE_RENEWAL_STATUS_LABEL,
-  CERTIFICATE_RENEWAL_STATUS_TONE,
   DEFAULT_CERTIFICATE_RENEWAL_FILTER,
-  isCertificateRenewalPlannable,
+  getCertificateRenewalPresentation,
   parseCertificateRenewalFilter,
   PLANNABLE_CERTIFICATE_RENEWAL_STATUSES,
-  shouldShowRenewalBadge,
   type CertificateRenewalFilter,
 } from "@/lib/certificados/renewal-status";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
@@ -103,6 +102,39 @@ function calculateRemainingDays(expirationDate: string, today: string) {
   );
 }
 
+async function loadRenewalSummary(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
+  const [operationalResult, renewedFasaResult, renewedExternalResult, pausedResult, inactiveResult] = await Promise.all([
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
+      .in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES]),
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
+      .eq("renovacao_status", "renovou_fasa"),
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
+      .eq("renovacao_status", "renovou_externo"),
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
+      .eq("renovacao_status", "nao_renovar"),
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
+      .eq("renovacao_status", "cliente_inativo"),
+  ]);
+
+  return {
+    operational: operationalResult.count ?? 0,
+    renewedFasa: renewedFasaResult.count ?? 0,
+    renewedExternal: renewedExternalResult.count ?? 0,
+    paused: pausedResult.count ?? 0,
+    inactive: inactiveResult.count ?? 0,
+  };
+}
+
 export default async function CertificadosPage({ searchParams }: CertificadosPageProps) {
   const user = await requireInternalUser();
   const params = await searchParams;
@@ -127,7 +159,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   let query = supabase
     .from("certificados")
     .select(
-      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, renovacao_status, nome_arquivo_original, ultimo_upload_em, created_at, clientes(nome_razao_social)",
+      "id, cnpj, nome_titular, data_emissao, data_vencimento, status, renovacao_status, renovacao_observacao, renovacao_atualizado_em, nome_arquivo_original, ultimo_upload_em, created_at, clientes(nome_razao_social)",
       { count: "exact" },
     )
     .order("data_vencimento", { ascending: true })
@@ -145,6 +177,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
   }
 
   const { data: certificados, count } = await query;
+  const renewalSummary = await loadRenewalSummary(supabase);
   const canManageCertificates = canManageOperationalData(user.role);
   const certificadosWithStatus = (certificados ?? []).map((certificado) => ({
     ...certificado,
@@ -154,6 +187,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
     renovacao_status: certificado.renovacao_status ?? "em_acompanhamento",
     renovado: wasCertificateRenewed(certificado.created_at, certificado.ultimo_upload_em),
     dias_restantes: calculateRemainingDays(certificado.data_vencimento, today),
+    renovacao: getCertificateRenewalPresentation(certificado.renovacao_status),
   }));
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
   const hasFilters = Boolean(search || selectedStatus || selectedRenewal !== DEFAULT_CERTIFICATE_RENEWAL_FILTER);
@@ -178,6 +212,38 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           ) : null
         }
       />
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Em operação"
+          value={renewalSummary.operational}
+          description="Entram na dashboard e nos avisos automáticos"
+          icon={Activity}
+          tone="blue"
+        />
+        <StatCard
+          title="Renovados com a Fasa"
+          value={renewalSummary.renewedFasa}
+          description="Continuam no próximo ciclo de acompanhamento"
+          icon={CheckCircle2}
+          tone="green"
+        />
+        <StatCard
+          title="Renovados fora"
+          value={renewalSummary.renewedExternal}
+          description="Fora do planejamento automático"
+          icon={CircleSlash}
+          tone="slate"
+        />
+        <StatCard
+          title="Sem ação agora"
+          value={renewalSummary.paused + renewalSummary.inactive}
+          description={`${renewalSummary.paused} sem renovação, ${renewalSummary.inactive} inativos`}
+          icon={UserX}
+          tone={renewalSummary.paused + renewalSummary.inactive > 0 ? "amber" : "slate"}
+        />
+      </div>
+
       <FilterBar columns="lg:grid-cols-[minmax(260px,1fr)_220px_230px_auto_auto]">
         <input
           type="search"
@@ -250,11 +316,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                   <div className="flex flex-wrap justify-end gap-1.5">
                     <StatusBadge status={certificado.status} />
                     {certificado.renovado ? <Badge tone="blue">Atualizado</Badge> : null}
-                    {shouldShowRenewalBadge(certificado.renovacao_status) ? (
-                      <Badge tone={CERTIFICATE_RENEWAL_STATUS_TONE[certificado.renovacao_status]}>
-                        {CERTIFICATE_RENEWAL_STATUS_LABEL[certificado.renovacao_status]}
-                      </Badge>
-                    ) : null}
+                    <Badge tone={certificado.renovacao.tone}>{certificado.renovacao.label}</Badge>
                   </div>
                 </div>
 
@@ -268,13 +330,21 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Atualizado em</dt>
                     <dd className="mt-1 text-slate-800">{formatDateTimeShort(certificado.ultimo_upload_em)}</dd>
                   </div>
+                  <div className="col-span-2 rounded-xl bg-slate-50 p-3">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Renovação</dt>
+                    <dd className="mt-1 font-semibold text-slate-950">{certificado.renovacao.nextAction}</dd>
+                    <dd className="mt-1 text-xs text-slate-500">{certificado.renovacao.planningImpact}</dd>
+                    {certificado.renovacao_observacao ? (
+                      <dd className="mt-1 text-xs text-slate-600">Observação: {certificado.renovacao_observacao}</dd>
+                    ) : null}
+                  </div>
                 </dl>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <Link className={buttonClass("secondary", "min-h-10 w-full px-3 text-sm")} href={`/certificados/${certificado.id}`}>
                     Ver detalhes
                   </Link>
-                  {canManageCertificates && isCertificateRenewalPlannable(certificado.renovacao_status) ? (
+                  {canManageCertificates && certificado.renovacao.plannable ? (
                     <ManualNoticeButton certificadoId={certificado.id} />
                   ) : null}
                 </div>
@@ -283,13 +353,14 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           </div>
 
           <div className="hidden md:block">
-            <TableShell>
+            <TableShell minWidth="1120px">
               <TableHead>
                 <tr>
                   <TableHeaderCell>Titular</TableHeaderCell>
                   <TableHeaderCell>Cliente</TableHeaderCell>
                   <TableHeaderCell>Vencimento</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
+                  <TableHeaderCell>Renovação</TableHeaderCell>
                   <TableHeaderCell>Atualização</TableHeaderCell>
                   <TableHeaderCell>Ações</TableHeaderCell>
                 </tr>
@@ -312,12 +383,12 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                       <div className="flex flex-wrap gap-1.5">
                         <StatusBadge status={certificado.status} />
                         {certificado.renovado ? <Badge tone="blue">Atualizado</Badge> : null}
-                        {shouldShowRenewalBadge(certificado.renovacao_status) ? (
-                          <Badge tone={CERTIFICATE_RENEWAL_STATUS_TONE[certificado.renovacao_status]}>
-                            {CERTIFICATE_RENEWAL_STATUS_LABEL[certificado.renovacao_status]}
-                          </Badge>
-                        ) : null}
                       </div>
+                    </TableCell>
+                    <TableCell className="max-w-[260px] text-slate-700">
+                      <Badge tone={certificado.renovacao.tone}>{certificado.renovacao.label}</Badge>
+                      <p className="mt-2 text-xs font-medium text-slate-700">{certificado.renovacao.nextAction}</p>
+                      <p className="mt-1 text-xs text-slate-500">{certificado.renovacao.planningImpact}</p>
                     </TableCell>
                     <TableCell className="text-slate-700">{formatDateTimeShort(certificado.ultimo_upload_em)}</TableCell>
                     <TableCell>
@@ -325,7 +396,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                         <Link className={buttonClass("secondary", "min-h-8 px-3 text-xs")} href={`/certificados/${certificado.id}`}>
                           Ver detalhes
                         </Link>
-                        {canManageCertificates && isCertificateRenewalPlannable(certificado.renovacao_status) ? (
+                        {canManageCertificates && certificado.renovacao.plannable ? (
                           <ManualNoticeButton certificadoId={certificado.id} />
                         ) : null}
                       </div>

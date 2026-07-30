@@ -51,6 +51,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"create" | "invalidate" | "update_password" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const publicUrl = useMemo(() => {
     return link?.public_url ?? "";
   }, [link]);
@@ -58,83 +59,113 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
   const canUseLink = Boolean(link?.ativo && !link.usado);
 
   async function createLink() {
-    setPendingAction("create");
-    setMessage(null);
-    setGeneratedPassword(null);
-
-    const response = await fetch(`/api/certificados/${certificadoId}/link`, {
-      method: "POST",
-    });
-    const payload = (await response.json()) as {
-      link?: LinkRecord;
-      senha_gerada?: string;
-      error?: { message: string };
-    };
-
-    if (!response.ok || !payload.link || !payload.senha_gerada) {
-      setMessage(payload.error?.message ?? "Não foi possível gerar o link.");
-      setPendingAction(null);
+    if (pendingAction !== null) {
       return;
     }
 
-    setLink(payload.link);
-    setGeneratedPassword(payload.senha_gerada);
-    setMessage("Link criado. Copie a senha agora; ela não será exibida novamente.");
-    setPendingAction(null);
+    setPendingAction("create");
+    setMessage(null);
+    setError(null);
+    setGeneratedPassword(null);
+
+    try {
+      const response = await fetch(`/api/certificados/${certificadoId}/link`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        link?: LinkRecord;
+        senha_gerada?: string;
+        error?: { message: string };
+      };
+
+      if (!response.ok || !payload.link || !payload.senha_gerada) {
+        setError(payload.error?.message ?? "Não foi possível criar o link de download. Tente novamente em alguns instantes.");
+        setPendingAction(null);
+        return;
+      }
+
+      setLink(payload.link);
+      setGeneratedPassword(payload.senha_gerada);
+      setMessage("Link criado. Copie a senha agora; ela não será exibida novamente.");
+      setPendingAction(null);
+    } catch {
+      setError("Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.");
+      setPendingAction(null);
+    }
   }
 
   async function updatePassword() {
-    setPendingAction("update_password");
-    setMessage(null);
-    setGeneratedPassword(null);
-
-    const response = await fetch(`/api/certificados/${certificadoId}/link`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "update_password" }),
-    });
-    const payload = (await response.json()) as {
-      link?: LinkRecord;
-      senha_gerada?: string;
-      error?: { message: string };
-    };
-
-    if (!response.ok || !payload.link || !payload.senha_gerada) {
-      setMessage(payload.error?.message ?? "Não foi possível atualizar a senha.");
-      setPendingAction(null);
+    if (pendingAction !== null) {
       return;
     }
 
-    setLink({ ...payload.link, public_url: link?.public_url ?? null });
-    setGeneratedPassword(payload.senha_gerada);
-    setMessage("Senha atualizada. Copie a nova senha agora; a anterior foi invalidada.");
-    setPendingAction(null);
+    setPendingAction("update_password");
+    setMessage(null);
+    setError(null);
+    setGeneratedPassword(null);
+
+    try {
+      const response = await fetch(`/api/certificados/${certificadoId}/link`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "update_password" }),
+      });
+      const payload = (await response.json()) as {
+        link?: LinkRecord;
+        senha_gerada?: string;
+        error?: { message: string };
+      };
+
+      if (!response.ok || !payload.link || !payload.senha_gerada) {
+        setError(payload.error?.message ?? "Não foi possível atualizar a senha do link. Tente novamente em alguns instantes.");
+        setPendingAction(null);
+        return;
+      }
+
+      setLink({ ...payload.link, public_url: link?.public_url ?? null });
+      setGeneratedPassword(payload.senha_gerada);
+      setMessage("Senha atualizada. Copie a nova senha agora; a anterior foi invalidada.");
+      setPendingAction(null);
+    } catch {
+      setError("Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.");
+      setPendingAction(null);
+    }
   }
 
   async function invalidateLink() {
-    setPendingAction("invalidate");
-    setMessage(null);
-    setGeneratedPassword(null);
-
-    const response = await fetch(`/api/certificados/${certificadoId}/link`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "invalidate" }),
-    });
-    const payload = (await response.json().catch(() => null)) as {
-      link?: LinkRecord;
-      error?: { message: string };
-    } | null;
-
-    if (!response.ok || !payload?.link) {
-      setMessage(payload?.error?.message ?? "Não foi possível invalidar o link.");
-      setPendingAction(null);
+    if (pendingAction !== null) {
       return;
     }
 
-    setLink(payload.link);
-    setMessage("Link invalidado.");
-    setPendingAction(null);
+    setPendingAction("invalidate");
+    setMessage(null);
+    setError(null);
+    setGeneratedPassword(null);
+
+    try {
+      const response = await fetch(`/api/certificados/${certificadoId}/link`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "invalidate" }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        link?: LinkRecord;
+        error?: { message: string };
+      } | null;
+
+      if (!response.ok || !payload?.link) {
+        setError(payload?.error?.message ?? "Não foi possível invalidar o link. Tente novamente em alguns instantes.");
+        setPendingAction(null);
+        return;
+      }
+
+      setLink(payload.link);
+      setMessage("Link invalidado.");
+      setPendingAction(null);
+    } catch {
+      setError("Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.");
+      setPendingAction(null);
+    }
   }
 
   async function copyLink() {
@@ -260,7 +291,16 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
         </div>
       ) : null}
 
-      {message ? <p className="mt-3 text-sm font-medium text-slate-700">{message}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p role="status" className="mt-3 text-sm font-medium text-slate-700">
+          {message}
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -13,12 +13,16 @@ import {
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useState } from "react";
 
 import { buttonClass, inputClass } from "@/components/ui/button-styles";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge, type Tone } from "@/components/ui/status-badge";
-import { formatDateTimeShort } from "@/lib/utils/format";
+import { formatCnpj, formatDateTimeShort, formatDisplayName } from "@/lib/utils/format";
+import type { WhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
+import type { WhatsAppPhoneQualityIssueType, WhatsAppPhoneQualitySummary } from "@/lib/whatsapp/phone-quality";
 import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type EuAtendoConfig = {
@@ -213,6 +217,145 @@ function getSafeLogMessage(log: EuAtendoLog) {
   return "Não foi possível concluir o envio. Verifique a integração e tente novamente.";
 }
 
+function getPhoneIssueTone(type: WhatsAppPhoneQualityIssueType): Tone {
+  if (type === "notifications_disabled") {
+    return "slate";
+  }
+
+  return type === "missing_phone" ? "amber" : "red";
+}
+
+function PhoneQualityPanel({ quality }: { quality: WhatsAppPhoneQualitySummary }) {
+  const actionableIssueCount = quality.missingPhoneCount + quality.invalidPhoneCount;
+  const hasIssueSamples = quality.issueSamples.length > 0;
+  const hasDuplicateGroups = quality.duplicateGroups.length > 0;
+
+  return (
+    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-950">Qualidade dos telefones</h3>
+            <Badge tone={actionableIssueCount ? "amber" : "green"}>
+              {actionableIssueCount ? "Revisar cadastros" : "Base pronta para envio"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-600">
+            Diagnóstico dos telefones usados pela fila automática. Nenhum número é verificado no WhatsApp aqui.
+          </p>
+          {quality.analysisLimited ? (
+            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              Foram analisados {quality.analyzedClients} de {quality.totalClients} clientes. Use a lista de clientes para revisar o restante.
+            </p>
+          ) : null}
+        </div>
+        <Link href="/clientes" className={buttonClass("secondary", "h-10 px-4")}>
+          Revisar clientes
+        </Link>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          title="Prontos para envio"
+          value={quality.readyToSendCount}
+          description="Com avisos permitidos e telefone válido"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          tone="green"
+        />
+        <MetricCard
+          title="Sem telefone"
+          value={quality.missingPhoneCount}
+          description="Podem falhar ao criar aviso"
+          icon={<Smartphone className="h-4 w-4" />}
+          tone={quality.missingPhoneCount ? "amber" : "slate"}
+        />
+        <MetricCard
+          title="Formato inválido"
+          value={quality.invalidPhoneCount}
+          description="Revise DDD e número"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          tone={quality.invalidPhoneCount ? "red" : "slate"}
+        />
+        <MetricCard
+          title="Números repetidos"
+          value={quality.duplicateClientCount}
+          description={`${quality.duplicateGroupCount} grupos encontrados`}
+          icon={<Activity className="h-4 w-4" />}
+          tone={quality.duplicateGroupCount ? "amber" : "slate"}
+        />
+        <MetricCard
+          title="Avisos bloqueados"
+          value={quality.notificationsDisabledCount}
+          description="Clientes fora da fila automática"
+          icon={<ShieldCheck className="h-4 w-4" />}
+          tone={quality.notificationsDisabledCount ? "slate" : "green"}
+        />
+      </div>
+
+      {!hasIssueSamples && !hasDuplicateGroups ? (
+        <p className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          Não há inconsistências críticas nos telefones analisados.
+        </p>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {hasIssueSamples ? (
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cadastros para revisar</p>
+              {quality.issueSamples.map((issue) => (
+                <article key={`${issue.type}-${issue.clientId}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={getPhoneIssueTone(issue.type)}>{issue.title}</Badge>
+                    <span className="text-xs font-semibold text-slate-500">{issue.phoneMasked ?? "Sem telefone"}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatDisplayName(issue.clientName)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{formatCnpj(issue.cnpj)}</p>
+                  <p className="mt-2 text-xs text-slate-600">{issue.description}</p>
+                  <Link
+                    href={`/clientes?q=${encodeURIComponent(issue.cnpj)}`}
+                    className="mt-3 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Abrir cadastro
+                  </Link>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {hasDuplicateGroups ? (
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Números repetidos</p>
+              {quality.duplicateGroups.map((group) => (
+                <article key={group.normalizedPhone} className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="amber">{group.count} clientes</Badge>
+                    <span className="text-xs font-semibold text-slate-500">{group.phoneMasked}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Pode estar correto quando o mesmo responsável recebe avisos de vários clientes. Revise se não for intencional.
+                  </p>
+                  <ul className="mt-2 grid gap-1">
+                    {group.clients.map((client) => (
+                      <li key={`${group.normalizedPhone}-${client.id}`} className="text-xs text-slate-600">
+                        <Link
+                          href={`/clientes?q=${encodeURIComponent(client.cnpj)}`}
+                          className="font-semibold text-slate-800 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          {formatDisplayName(client.name)}
+                        </Link>{" "}
+                        <span className="text-slate-500">{formatCnpj(client.cnpj)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CanalWhatsAppPanel({
   euAtendo,
 }: {
@@ -222,29 +365,61 @@ export function CanalWhatsAppPanel({
     activeProvider: string;
     activeProviderLabel: string;
     notificationSettingsEnabled: boolean;
+    safety: WhatsAppOperationalSafetySnapshot;
+    phoneQuality: WhatsAppPhoneQualitySummary;
     stats: EuAtendoStats;
     state: EuAtendoState;
     logs: EuAtendoLog[];
   };
 }) {
+  const router = useRouter();
   const [pending, setPending] = useState<"health" | "number" | "message" | null>(null);
+  const [automationPending, setAutomationPending] = useState<"pause" | "resume" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<EuAtendoHealthPayload["health"] | null>(null);
   const [numberCheck, setNumberCheck] = useState<CheckNumberPayload["result"] | null>(null);
   const [testResult, setTestResult] = useState<TestMessagePayload["result"] | null>(null);
+  const [dispatchPaused, setDispatchPaused] = useState(euAtendo.safety.dispatchPaused);
+  const [dispatchPauseReason, setDispatchPauseReason] = useState(euAtendo.safety.pauseReason);
   const activeProviderIsExtension = euAtendo.activeProvider === WHATSAPP_EXTENSION_PROVIDER;
   const configured = activeProviderIsExtension
     ? euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured
     : euAtendo.config.apiUrlConfigured && euAtendo.config.tokenConfigured && euAtendo.config.instanceConfigured;
   const automationEnabled = activeProviderIsExtension
-    ? euAtendo.notificationSettingsEnabled && euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured
-    : euAtendo.notificationSettingsEnabled && euAtendo.config.enabled;
+    ? euAtendo.notificationSettingsEnabled && euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured && !dispatchPaused
+    : euAtendo.notificationSettingsEnabled && euAtendo.config.enabled && !dispatchPaused;
   const healthStatus = health?.ok
     ? { label: "Conectado", tone: "green" as const }
     : health
       ? { label: "Desconectado", tone: "red" as const }
       : { label: "Não verificado", tone: "slate" as const };
   const queueTotal = euAtendo.stats.pending + euAtendo.stats.retry;
+
+  async function setAutomationPaused(paused: boolean) {
+    setAutomationPending(paused ? "pause" : "resume");
+    setError(null);
+
+    const response = await fetch("/api/whatsapp/automation", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        paused,
+        reason: paused ? "Pausa manual acionada na central do WhatsApp." : null,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      setError(getErrorMessage(payload, "Não foi possível alterar a pausa operacional do WhatsApp."));
+      setAutomationPending(null);
+      return;
+    }
+
+    setDispatchPaused(paused);
+    setDispatchPauseReason(paused ? "Pausa manual acionada na central do WhatsApp." : null);
+    setAutomationPending(null);
+    router.refresh();
+  }
 
   async function testHealth() {
     setPending("health");
@@ -389,6 +564,70 @@ export function CanalWhatsAppPanel({
             icon={<Clock3 className="h-4 w-4" />}
             tone="slate"
           />
+        </div>
+
+        <PhoneQualityPanel quality={euAtendo.phoneQuality} />
+
+        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-950">Segurança operacional</h3>
+              <Badge tone={automationEnabled ? "green" : "amber"}>
+                {automationEnabled ? "Envio liberado" : "Envio pausado"}
+              </Badge>
+              <Badge tone={euAtendo.safety.autoPauseEnabled ? "blue" : "slate"}>
+                {euAtendo.safety.autoPauseEnabled ? "Pausa automática ativa" : "Pausa automática desligada"}
+              </Badge>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold text-slate-500">Limite diário</p>
+                <p className="mt-1 text-sm font-semibold text-slate-950">
+                  {euAtendo.safety.sentToday} de {euAtendo.safety.dailyLimit}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold text-slate-500">Limite por hora</p>
+                <p className="mt-1 text-sm font-semibold text-slate-950">
+                  {euAtendo.safety.sentLastHour} de {euAtendo.safety.hourlyLimit}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold text-slate-500">Falhas recentes</p>
+                <p className="mt-1 text-sm font-semibold text-slate-950">
+                  {euAtendo.safety.failuresInWindow} de {euAtendo.safety.failurePauseThreshold}
+                </p>
+              </div>
+            </div>
+            {dispatchPaused || euAtendo.safety.blockedMessage ? (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                {dispatchPauseReason || euAtendo.safety.blockedMessage}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+            {dispatchPaused ? (
+              <button
+                type="button"
+                onClick={() => setAutomationPaused(false)}
+                disabled={automationPending !== null}
+                className={buttonClass("primary", "h-10 px-4")}
+              >
+                {automationPending === "resume" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Retomar envio
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAutomationPaused(true)}
+                disabled={automationPending !== null}
+                className={buttonClass("danger", "h-10 px-4")}
+              >
+                {automationPending === "pause" ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+                Pausar envio agora
+              </button>
+            )}
+          </div>
         </div>
 
         {health ? (

@@ -17,6 +17,7 @@ import type {
 import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
 import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 import { maskPhone } from "@/lib/utils/phone";
+import { getWhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
 
 import type { WhatsAppExtensionAuthContext } from "./config";
 
@@ -27,6 +28,14 @@ type ExtensionNotificationSettings = {
   enabled: boolean;
   delay_minimo_segundos: number | null;
   delay_maximo_segundos: number | null;
+  timezone: string | null;
+  whatsapp_dispatch_paused: boolean | null;
+  whatsapp_dispatch_pause_reason: string | null;
+  whatsapp_daily_limit: number | null;
+  whatsapp_hourly_limit: number | null;
+  whatsapp_auto_pause_enabled: boolean | null;
+  whatsapp_failure_pause_threshold: number | null;
+  whatsapp_failure_pause_window_minutes: number | null;
 };
 
 type ReservedExtensionEvent = {
@@ -195,7 +204,7 @@ function toExtensionMessage(event: ReservedExtensionEvent, sendIntervalSeconds: 
 async function loadNotificationSettings(admin: AdminClient) {
   const { data, error } = await admin
     .from("notification_settings")
-    .select("enabled, delay_minimo_segundos, delay_maximo_segundos")
+    .select("*")
     .eq("id", SETTINGS_ID)
     .maybeSingle();
 
@@ -438,6 +447,44 @@ export async function reserveNextWhatsAppExtensionMessage({
       reservation: {
         status: "skipped",
         reason: settings?.enabled ? "provider_inactive" : "notifications_disabled",
+      },
+    };
+  }
+
+  const safety = await getWhatsAppOperationalSafetySnapshot({
+    admin,
+    provider: WHATSAPP_EXTENSION_PROVIDER,
+    settings,
+    autoPause: true,
+  });
+
+  if (!safety.allowed) {
+    await logExtensionAttempt(admin, {
+      auth,
+      event: null,
+      operation: "extension_safety",
+      status: safety.blockedReason === "dispatch_paused" || safety.blockedReason === "notifications_disabled"
+        ? "skipped"
+        : "waiting",
+      errorCode: safety.blockedReason,
+      errorMessage: safety.blockedMessage,
+      metadata: {
+        sent_today: safety.sentToday,
+        daily_limit: safety.dailyLimit,
+        sent_last_hour: safety.sentLastHour,
+        hourly_limit: safety.hourlyLimit,
+        failures_in_window: safety.failuresInWindow,
+        failure_threshold: safety.failurePauseThreshold,
+      } satisfies Json,
+    });
+
+    return {
+      messages: [],
+      reservation: {
+        status: safety.blockedReason === "hourly_limit_reached" || safety.blockedReason === "daily_limit_reached"
+          ? "waiting"
+          : "skipped",
+        reason: safety.blockedReason ?? "operational_safety",
       },
     };
   }

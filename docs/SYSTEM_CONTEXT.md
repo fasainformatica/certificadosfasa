@@ -126,13 +126,13 @@ docs/reference
 
 ### Telas refatoradas
 
-- `/dashboard`: resumo operacional com KPIs, atencoes, distribuicao de certificados, vencimentos e estado de avisos/WhatsApp.
-- `/certificados`: busca por titular/cliente/CNPJ, cards responsivos no mobile e tabela agrupando titular, cliente, vencimento, status e acoes.
-- `/clientes`: visualizacao orientada a cliente, contato, permissao de avisos, responsavel e atualizacao.
-- `/notificacoes`: Central de avisos com metricas, categorias operacionais, status humanos e tabela responsiva.
-- `/whatsapp`: Automacao do WhatsApp com status de integracao, instancia, fila, enviados, falhas, tempo medio e ferramentas de homologacao.
+- `/dashboard`: KPIs, graficos de certificados, bloco "Precisa de atencao" e estado de avisos/WhatsApp.
+- `/certificados`: busca por titular/cliente/CNPJ, resumo por situacao de renovacao, cards responsivos no mobile e tabela agrupando titular, cliente, vencimento, status, renovacao e acoes.
+- `/clientes`: visualizacao orientada a cliente, contato, permissao de avisos, responsavel e atualizacao, com resumo operacional da pagina, badges de completude de contato e estado vazio acionavel.
+- `/notificacoes`: Central de avisos com metricas, bloco de prioridade operacional, categorias, status humanos, mensagens de erro sanitizadas, reenvio controlado e tabela responsiva.
+- `/whatsapp`: Automacao do WhatsApp com status de integracao, instancia, fila, enviados, falhas, tempo medio, seguranca operacional, qualidade dos telefones e ferramentas de homologacao.
 - `/configuracoes`: Configuracoes do sistema em secoes Geral, WhatsApp, Mensagens, Destinatarios e Seguranca, incluindo chips para dias de antecedencia.
-- `/certificados/novo`, `/certificados/importar`, `/certificados/[id]`, `/login` e `/download/[token]`: textos revisados, superficies alinhadas e estados de erro/carregamento mais claros.
+- `/certificados/novo`, `/certificados/importar`, `/certificados/[id]`, `/login` e `/download/[token]`: textos revisados, superficies alinhadas e estados de erro/carregamento mais claros. O upload individual mostra resumo do arquivo, controle de mostrar/ocultar senha do PFX, labels associados e envio com campos bloqueados. A importacao em massa mostra resumo da selecao, arquivos ignorados, progressbar por lote e acao de limpar selecao. O detalhe do certificado mostra resumo operacional, grupos de dados de cliente/certificado/renovacao, area tecnica separada sem `storage_path`, hash reduzido na apresentacao e feedback acessivel em senha PFX, link de download, edicao de cliente e exclusao. O login interno usa erro sem detalhe tecnico, associacao de ajuda/erro aos campos e controle de mostrar/ocultar senha. O download publico mostra senha temporaria, uso unico, expira em 60 segundos e link indisponivel sem expor token, storage path ou senha real do PFX.
 
 ### Responsividade e acessibilidade
 
@@ -193,6 +193,8 @@ docs/reference
 
 As colunas `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atualizado_por` registram contexto e auditoria da decisao sem apagar historico.
 
+`src/lib/certificados/renewal-status.ts` tambem centraliza a apresentacao desses status: rotulo humano, tom visual, descricao, proxima acao e impacto no planejamento. Essa camada nao cria status novos nem altera o enum persistido.
+
 ### Status de eventos
 
 Eventos de notificacao passam por `pending`, `reserved`, `processing`, `sent`, `retry`, `failed`, `cancelled` ou `skipped`. O dispatcher euAtendo consome eventos `pending` ou `retry` com `provider = 'euatendo'`. A extensao consome eventos equivalentes com `provider = 'whatsapp_extension'`. Em ambos os casos, `send_date <= hoje`, `next_retry_at` nulo ou vencido, cliente/destinatario ativo e certificado elegivel sao obrigatorios.
@@ -232,18 +234,21 @@ Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `clie
 
 ### Dispatcher
 
-O dispatcher esta em `src/lib/whatsapp/euatendo/dispatcher.ts`. Ele:
+Os dispatchers ficam em `src/lib/whatsapp/euatendo/dispatcher.ts` e `src/lib/whatsapp/extension/dispatcher.ts`. Eles:
 
-1. Confere `EUATENDO_PROVIDER_ENABLED`.
+1. Confere o provider ativo e a feature flag correspondente.
 2. Confere `notification_settings.enabled`.
-3. Chama RPC `reserve_euatendo_notification_event`.
-4. Marca o evento como `processing`.
-5. Envia texto pela euAtendo.
-6. Marca `sent`, `retry` ou `failed`.
-7. Atualiza `whatsapp_dispatcher_state.next_allowed_send_at`.
-8. Registra tentativa em `whatsapp_provider_logs`.
+3. Confere travas de seguranca operacional em `src/lib/whatsapp/operational-safety.ts`.
+4. Chama RPC `reserve_euatendo_notification_event` ou `reserve_whatsapp_extension_notification_event`.
+5. Marca o evento como `processing` quando aplicavel.
+6. Envia texto pela euAtendo ou entrega uma mensagem para a extensao.
+7. Marca `sent`, `retry` ou `failed`.
+8. Atualiza `whatsapp_dispatcher_state.next_allowed_send_at`.
+9. Registra tentativa em `whatsapp_provider_logs`.
 
 O cron usa `dispatchEuAtendoNotificationBatch` em modo conservador e processa 1 evento por execucao. Toda reserva respeita `next_allowed_send_at`; o dispatcher nao ignora a janela de cadencia para reduzir risco de restricao no WhatsApp.
+
+As travas operacionais bloqueiam nova reserva quando `whatsapp_dispatch_paused` esta ativo, quando o limite diario/hora foi atingido ou quando a pausa automatica detecta falhas recentes acima do limite configurado. Essa pausa nao apaga eventos planejados.
 
 ### API euAtendo
 
@@ -267,6 +272,8 @@ WhatsApp automatico depende de:
 - `CRON_SECRET`
 - cron Vercel `euatendo-dispatch` ativo
 - banco com migrations euAtendo aplicadas
+
+Quando `WHATSAPP_PROVIDER=whatsapp_extension`, a extensao Chrome usa `/sistema/api/whatsapp/messages` para buscar no maximo 1 mensagem por chamada. A Vercel hospeda o endpoint, mas o envio real depende do Chrome com WhatsApp Web conectado.
 
 ## Fluxo das notificacoes
 
@@ -312,6 +319,18 @@ Para enviar varias mensagens no mesmo dia sem Vercel Pro, o repositorio inclui `
 ### Avisos Ativos
 
 `notification_settings.enabled` controla se o sistema cria/consome avisos automaticos. Se estiver desligado, o rebuild registra skip e o dispatcher retorna disabled.
+
+`notification_settings` tambem controla:
+
+- `whatsapp_dispatch_paused`
+- `whatsapp_dispatch_pause_reason`
+- `whatsapp_daily_limit`
+- `whatsapp_hourly_limit`
+- `whatsapp_auto_pause_enabled`
+- `whatsapp_failure_pause_threshold`
+- `whatsapp_failure_pause_window_minutes`
+
+Esses campos pausam o dispatcher ou limitam volume sem remover avisos futuros da fila.
 
 ### Certificados vencidos
 
@@ -407,11 +426,13 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ### Certificados
 
-`/certificados` lista certificados com filtros de status e situacao de renovacao. Por padrao, mostra certificados em acompanhamento; o filtro permite ver todos, renovados com a Fasa, renovados em outro lugar, nao renovados e clientes inativos. Usuarios com role `admin` ou `financeiro` podem enviar, renovar, importar, editar cliente, marcar situacao de renovacao, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente quando ele ainda esta em acompanhamento e revelar a senha PFX mediante senha administrativa configurada no Supabase.
+`/certificados` lista certificados com filtros de status e situacao de renovacao. Por padrao, mostra certificados em acompanhamento; o filtro permite ver todos, renovados com a Fasa, renovados em outro lugar, nao renovados e clientes inativos. A listagem mostra resumo por situacao, impacto no planejamento e proxima acao sugerida. Usuarios com role `admin` ou `financeiro` podem enviar, renovar, importar, editar cliente, marcar situacao de renovacao, gerar link publico, invalidar link, baixar metadados, excluir certificado, enviar aviso manual ao cliente quando ele ainda esta em acompanhamento e revelar a senha PFX mediante senha administrativa configurada no Supabase.
+
+O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diretamente apos health check, verificacao de numero e cadencia; a extensao Chrome adiciona o aviso a `notification_events` como `pending` para ser consumido pelo WhatsApp Web conectado. A UI deve informar se o aviso foi enviado agora ou apenas adicionado a fila.
 
 ### Avisos
 
-`/notificacoes` exibe eventos, status, filtros, destinatarios e acoes operacionais de reenvio para `admin` e `financeiro`.
+`/notificacoes` exibe eventos, status, filtros, destinatarios e acoes operacionais de reenvio para `admin` e `financeiro`. A apresentacao usa `src/lib/notifications/event-presentation.ts` para manter rotulos, proxima acao e erros sanitizados consistentes; o bloco `Prioridade agora` apenas le `notification_events` e nao altera fila ou dispatcher.
 
 ### Configuracoes
 
@@ -419,7 +440,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ### Canal WhatsApp
 
-`/whatsapp` mostra estado do provider euAtendo, logs sanitizados, filas e ferramentas de homologacao. A tela e as APIs de homologacao do WhatsApp sao exclusivas para `admin`.
+`/whatsapp` mostra estado do provider ativo, logs sanitizados, filas, seguranca operacional, qualidade dos telefones dos clientes e ferramentas de homologacao. A tela e as APIs de homologacao do WhatsApp sao exclusivas para `admin`. O diagnostico de telefones e somente leitura: ele nao valida numeros automaticamente no provider, nao cria eventos e nao envia mensagens.
 
 ## Backend
 
@@ -491,6 +512,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 - Links publicos de download com uso unico.
 - Dashboard interno.
 - Configuracoes de avisos, templates e destinatarios.
+- Configuracoes com resumo operacional de envio automatico, janela, cadencia, limites, templates e tratamento de falha de rede nas acoes.
 - Outbox `notification_events`.
 - Envio manual ao cliente pelo detalhe do certificado.
 - Canal WhatsApp euAtendo.

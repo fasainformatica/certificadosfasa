@@ -56,6 +56,11 @@ export default async function ConfiguracoesPage() {
           send_window_start: notificationSettings?.send_window_start ?? "08:00",
           send_window_end: notificationSettings?.send_window_end ?? "18:00",
           timezone: notificationSettings?.timezone ?? "America/Sao_Paulo",
+          whatsapp_daily_limit: notificationSettings?.whatsapp_daily_limit ?? 25,
+          whatsapp_hourly_limit: notificationSettings?.whatsapp_hourly_limit ?? 10,
+          whatsapp_auto_pause_enabled: notificationSettings?.whatsapp_auto_pause_enabled ?? true,
+          whatsapp_failure_pause_threshold: notificationSettings?.whatsapp_failure_pause_threshold ?? 3,
+          whatsapp_failure_pause_window_minutes: notificationSettings?.whatsapp_failure_pause_window_minutes ?? 60,
         }}
         initialExpiringTemplate={{
           id: expiringTemplate?.id ?? "",

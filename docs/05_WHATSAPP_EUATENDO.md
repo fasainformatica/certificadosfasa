@@ -14,9 +14,12 @@ euAtendo e o provider oficial. A extensao Chrome `Fasa Certificados WhatsApp` po
 - `src/lib/whatsapp/euatendo/config.ts`
 - `src/lib/whatsapp/euatendo/schemas.ts`
 - `src/lib/whatsapp/providers.ts`
+- `src/lib/whatsapp/operational-safety.ts`
+- `src/lib/whatsapp/phone-quality.ts`
 - `src/lib/whatsapp/extension/config.ts`
 - `src/lib/whatsapp/extension/dispatcher.ts`
 - `src/app/api/whatsapp/euatendo/**`
+- `src/app/api/whatsapp/automation/route.ts`
 - `src/app/sistema/api/whatsapp/**`
 - `src/app/api/cron/euatendo-dispatch/route.ts`
 - `vercel.json`
@@ -93,6 +96,33 @@ O intervalo minimo absoluto entre mensagens e 180 segundos. O padrao usa janela 
 
 Na extensao, o servidor tambem entrega no maximo 1 mensagem por chamada de `/messages`. A extensao so busca uma nova mensagem quando a fila local esta vazia e respeita `send_interval_seconds`, com minimo de 180 segundos e maximo de 3600 segundos. Esse duplo controle evita rajadas pelo navegador.
 
+## Seguranca operacional
+
+`notification_settings` tambem controla travas do WhatsApp:
+
+- `whatsapp_dispatch_paused`: pausa operacional do dispatcher sem apagar planejamento.
+- `whatsapp_daily_limit`: limite de mensagens aceitas por dia pelo provider ativo.
+- `whatsapp_hourly_limit`: limite de mensagens aceitas na ultima hora pelo provider ativo.
+- `whatsapp_auto_pause_enabled`: ativa pausa automatica por falhas recentes.
+- `whatsapp_failure_pause_threshold`: quantidade de falhas que aciona a pausa automatica.
+- `whatsapp_failure_pause_window_minutes`: janela de analise das falhas.
+
+A tela `/whatsapp` mostra limites, falhas recentes, proximo envio permitido e possui o botao `Pausar envio agora`. A API `PATCH /api/whatsapp/automation` e admin-only e altera apenas a pausa operacional. O planejamento de avisos permanece preservado.
+
+O helper `src/lib/whatsapp/operational-safety.ts` e usado pelos dispatchers euAtendo e extensao antes de reservar nova mensagem. Quando o limite diario/hora e atingido, a reserva e bloqueada. Quando a pausa automatica e acionada, `whatsapp_dispatch_paused` e marcado como `true` com motivo humano.
+
+## Qualidade dos telefones
+
+A tela `/whatsapp` tambem mostra um diagnostico de qualidade dos telefones dos clientes:
+
+- clientes prontos para envio;
+- clientes sem telefone de envio;
+- telefones com formato invalido;
+- numeros repetidos entre clientes;
+- clientes com avisos bloqueados.
+
+Esse diagnostico usa apenas dados ja cadastrados em `clientes`. Ele nao valida automaticamente numeros no WhatsApp, nao chama euAtendo, nao chama a extensao e nao cria eventos na fila. A verificacao externa continua sendo uma acao manual e controlada em `/whatsapp`.
+
 ## Logs
 
 `whatsapp_provider_logs` guarda:
@@ -114,4 +144,4 @@ Tokens, headers sensiveis e telefones completos nao devem aparecer em logs.
 
 ## Envio manual
 
-`POST /api/certificados/[id]/aviso` envia aviso direto ao cliente com validacao de health, numero e template. Essa rota exige admin e respeita rate limit.
+`POST /api/certificados/[id]/aviso` respeita o provider ativo. Com `euatendo`, envia direto ao cliente com validacao de health, numero e template. Com `whatsapp_extension`, adiciona o aviso a `notification_events` para a extensao enviar pela fila e pela cadencia configurada. A rota exige usuario operacional e respeita rate limit.

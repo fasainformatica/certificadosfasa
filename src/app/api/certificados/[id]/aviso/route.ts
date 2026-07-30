@@ -26,6 +26,11 @@ import {
 import { EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo/provider";
 import type { WhatsAppSendResult } from "@/lib/whatsapp/euatendo/types";
 import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import {
+  getManualNoticeFailureMessage,
+  getManualNoticeProviderLabel,
+  getManualNoticeSuccessMessage,
+} from "@/lib/whatsapp/manual-notice-presentation";
 import { EUATENDO_PROVIDER, WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 export const runtime = "nodejs";
@@ -265,7 +270,11 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
     const extensionConfig = getWhatsAppExtensionConfigStatus();
 
     if (!extensionConfig.enabled || !extensionConfig.tokenConfigured) {
-      return jsonError("A extensão do WhatsApp não está configurada no ambiente.", 400, "whatsapp_extension_config");
+      return jsonError(
+        getManualNoticeFailureMessage({ provider: WHATSAPP_EXTENSION_PROVIDER, stage: "config" }),
+        400,
+        "whatsapp_extension_config",
+      );
     }
   }
 
@@ -280,11 +289,15 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
         };
 
   if (!providerConfig.enabled) {
-    return jsonError("A integração euAtendo não está ativa no ambiente.", 400, "euatendo_desativado");
+    return jsonError(
+      getManualNoticeFailureMessage({ provider: activeProvider, stage: "config" }),
+      400,
+      "euatendo_desativado",
+    );
   }
 
   if (!providerConfig.tokenConfigured || !providerConfig.instanceConfigured) {
-    return jsonError("A integração euAtendo está incompleta. Configure token e instância no ambiente.", 400, "euatendo_config");
+    return jsonError(getManualNoticeFailureMessage({ provider: activeProvider, stage: "config" }), 400, "euatendo_config");
   }
 
   const ip = getClientIp(request);
@@ -386,18 +399,24 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
 
       return NextResponse.json({
         ok: true,
-        mensagem: "Aviso adicionado à fila de envio.",
+        mensagem: getManualNoticeSuccessMessage({ provider: WHATSAPP_EXTENSION_PROVIDER, mode: "queued" }),
         result: {
           accepted: true,
           queued: true,
+          delivery_mode: "queued",
           provider: WHATSAPP_EXTENSION_PROVIDER,
+          provider_label: getManualNoticeProviderLabel(WHATSAPP_EXTENSION_PROVIDER),
           event_id: eventId,
           dias,
           telefone: maskPhone(telefoneDestino),
         },
       });
     } catch {
-      return jsonError("Não foi possível adicionar o aviso à fila da extensão. Tente novamente em alguns instantes.", 502, "aviso_manual_fila");
+      return jsonError(
+        getManualNoticeFailureMessage({ provider: WHATSAPP_EXTENSION_PROVIDER, stage: "queue" }),
+        502,
+        "aviso_manual_fila",
+      );
     }
   }
 
@@ -471,7 +490,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
     }
 
     if (!result) {
-      return jsonError("Nao foi possivel enviar o aviso manual pela euAtendo.", 502, "aviso_manual");
+      return jsonError(getManualNoticeFailureMessage({ provider: EUATENDO_PROVIDER, stage: "send" }), 502, "aviso_manual");
     }
 
     const durationMs = Date.now() - startedAt;
@@ -505,10 +524,13 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
 
     return NextResponse.json({
       ok: true,
-      mensagem: "Aviso enviado com sucesso.",
+      mensagem: getManualNoticeSuccessMessage({ provider: EUATENDO_PROVIDER, mode: "sent" }),
       result: {
         accepted: true,
+        queued: false,
+        delivery_mode: "sent",
         provider: result.provider,
+        provider_label: getManualNoticeProviderLabel(EUATENDO_PROVIDER),
         provider_status: result.providerStatus,
         provider_message_id: result.providerMessageId ? "[provider_message_id]" : null,
         dias,
@@ -528,6 +550,6 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
       metadata: { stage: "manual_notice" },
     });
 
-    return jsonError("Não foi possível enviar o aviso manual pela euAtendo.", 502, "aviso_manual");
+    return jsonError(getManualNoticeFailureMessage({ provider: EUATENDO_PROVIDER, stage: "send" }), 502, "aviso_manual");
   }
 }
