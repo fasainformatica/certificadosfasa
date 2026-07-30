@@ -20,12 +20,14 @@ describe("situacao de renovacao do certificado", () => {
     expect(isCertificateRenewalPlannable("em_acompanhamento")).toBe(true);
     expect(isCertificateRenewalPlannable("renovou_fasa")).toBe(true);
     expect(isCertificateRenewalPlannable("renovou_externo")).toBe(false);
+    expect(isCertificateRenewalPlannable("sem_retorno")).toBe(false);
     expect(isCertificateRenewalPlannable("cliente_inativo")).toBe(false);
   });
 
   it("mantem labels operacionais claros", () => {
     expect(CERTIFICATE_RENEWAL_STATUS_LABEL.renovou_externo).toBe("Renovou em outro lugar");
     expect(CERTIFICATE_RENEWAL_STATUS_LABEL.nao_renovar).toBe("Não vai renovar agora");
+    expect(CERTIFICATE_RENEWAL_STATUS_LABEL.sem_retorno).toBe("Sem retorno");
   });
 
   it("descreve impacto operacional sem alterar o status persistido", () => {
@@ -40,6 +42,13 @@ describe("situacao de renovacao do certificado", () => {
       status: "renovou_fasa",
       plannable: true,
       planningImpact: "Entra na dashboard operacional e no planejamento de avisos.",
+    });
+    expect(getCertificateRenewalPresentation("sem_retorno")).toMatchObject({
+      status: "sem_retorno",
+      label: "Sem retorno",
+      tone: "amber",
+      plannable: false,
+      planningImpact: "Não entra na dashboard operacional nem no planejamento automático.",
     });
     expect(getCertificateRenewalPresentation("valor_invalido")).toMatchObject({
       status: "em_acompanhamento",

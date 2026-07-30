@@ -66,7 +66,7 @@ create table if not exists public.certificados (
   constraint certificados_cnpj_digits_check check (cnpj ~ '^[0-9]{14}$'),
   constraint certificados_hash_sha256_check check (hash_arquivo ~ '^[a-f0-9]{64}$'),
   constraint certificados_renovacao_status_check check (
-    renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo')
+    renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','sem_retorno','cliente_inativo')
   ),
   constraint certificados_renovacao_observacao_check check (
     renovacao_observacao is null or length(renovacao_observacao) <= 500
@@ -83,10 +83,10 @@ alter table public.certificados add column if not exists renovacao_atualizado_po
 update public.certificados
 set renovacao_status = 'em_acompanhamento'
 where renovacao_status is null
-   or renovacao_status not in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo');
+   or renovacao_status not in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','sem_retorno','cliente_inativo');
 alter table public.certificados drop constraint if exists certificados_renovacao_status_check;
 alter table public.certificados add constraint certificados_renovacao_status_check
-  check (renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','cliente_inativo'));
+  check (renovacao_status in ('em_acompanhamento','renovou_fasa','renovou_externo','nao_renovar','sem_retorno','cliente_inativo'));
 alter table public.certificados drop constraint if exists certificados_renovacao_observacao_check;
 alter table public.certificados add constraint certificados_renovacao_observacao_check
   check (renovacao_observacao is null or length(renovacao_observacao) <= 500);

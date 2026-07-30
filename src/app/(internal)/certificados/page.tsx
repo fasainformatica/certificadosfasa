@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, CircleSlash, FolderUp, Upload, UserX } from "lucide-react";
+import { Activity, CheckCircle2, CircleHelp, CircleSlash, FolderUp, Upload, UserX } from "lucide-react";
 import Link from "next/link";
 
 import { ManualNoticeButton } from "@/app/(internal)/certificados/manual-notice-button";
@@ -103,7 +103,7 @@ function calculateRemainingDays(expirationDate: string, today: string) {
 }
 
 async function loadRenewalSummary(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
-  const [operationalResult, renewedFasaResult, renewedExternalResult, pausedResult, inactiveResult] = await Promise.all([
+  const [operationalResult, renewedFasaResult, renewedExternalResult, noResponseResult, pausedResult, inactiveResult] = await Promise.all([
     supabase
       .from("certificados")
       .select("id", { count: "exact", head: true })
@@ -119,6 +119,10 @@ async function loadRenewalSummary(supabase: Awaited<ReturnType<typeof createServ
     supabase
       .from("certificados")
       .select("id", { count: "exact", head: true })
+      .eq("renovacao_status", "sem_retorno"),
+    supabase
+      .from("certificados")
+      .select("id", { count: "exact", head: true })
       .eq("renovacao_status", "nao_renovar"),
     supabase
       .from("certificados")
@@ -130,6 +134,7 @@ async function loadRenewalSummary(supabase: Awaited<ReturnType<typeof createServ
     operational: operationalResult.count ?? 0,
     renewedFasa: renewedFasaResult.count ?? 0,
     renewedExternal: renewedExternalResult.count ?? 0,
+    noResponse: noResponseResult.count ?? 0,
     paused: pausedResult.count ?? 0,
     inactive: inactiveResult.count ?? 0,
   };
@@ -213,7 +218,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Em operação"
           value={renewalSummary.operational}
@@ -234,6 +239,13 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           description="Fora do planejamento automático"
           icon={CircleSlash}
           tone="slate"
+        />
+        <StatCard
+          title="Sem retorno"
+          value={renewalSummary.noResponse}
+          description="Aguardando resposta do cliente"
+          icon={CircleHelp}
+          tone={renewalSummary.noResponse > 0 ? "amber" : "slate"}
         />
         <StatCard
           title="Sem ação agora"
@@ -267,6 +279,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           <option value="renovou_fasa">{CERTIFICATE_RENEWAL_STATUS_LABEL.renovou_fasa}</option>
           <option value="renovou_externo">{CERTIFICATE_RENEWAL_STATUS_LABEL.renovou_externo}</option>
           <option value="nao_renovar">{CERTIFICATE_RENEWAL_STATUS_LABEL.nao_renovar}</option>
+          <option value="sem_retorno">{CERTIFICATE_RENEWAL_STATUS_LABEL.sem_retorno}</option>
           <option value="cliente_inativo">{CERTIFICATE_RENEWAL_STATUS_LABEL.cliente_inativo}</option>
         </select>
         <button type="submit" className={buttonClass("secondary", "h-10")}>

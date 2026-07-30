@@ -11,6 +11,7 @@
 | Certificados | Aviso | Enviar aviso | Ação explícita. |
 | Certificados | Buscar certificados | Buscar por titular, cliente ou CNPJ | Placeholder útil e específico. |
 | Certificados | Situação | Situação de renovação | Explica impacto operacional. |
+| Certificados | - | Sem retorno | Registra cliente sem resposta e retira o certificado do planejamento automático. |
 | Clientes | Buscar clientes | Buscar por razão social ou CNPJ | Orienta busca por dados reais da tabela. |
 | Clientes | Permitidos | Avisos permitidos | Explica que se refere a avisos ao cliente. |
 | Clientes | Desativados | Avisos pausados | Evita ambiguidade e deixa claro o impacto. |

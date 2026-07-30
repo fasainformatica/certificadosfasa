@@ -4,6 +4,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-07-30
 
+- Adicionada situacao de renovacao `Sem retorno` para certificados, com filtro na listagem, card de resumo e migration `20260730100000_add_certificate_no_response_status.sql`; o status fica fora do planejamento automatico.
 - Removido o bloco `Resumo operacional` da `/dashboard`, mantendo KPIs, graficos, `Precisa de atencao` e `Avisos e WhatsApp`.
 - Melhorado o UX de `/configuracoes` com resumo operacional de envio automatico, dias de aviso, janela, cadencia, limites WhatsApp e templates, alem de tratamento seguro para falha de rede em salvar, atualizar planejamento e destinatarios.
 - Melhorado o UX de `/clientes` com cards de resumo operacional, badges de completude de contato, status humano de avisos ao cliente, ação `Novo certificado` e estado vazio com ação contextual.

@@ -13,6 +13,7 @@ export type CertificateRenewalStatus =
   | "renovou_fasa"
   | "renovou_externo"
   | "nao_renovar"
+  | "sem_retorno"
   | "cliente_inativo";
 export type NotificationEventStatus =
   | "pending"

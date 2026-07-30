@@ -61,7 +61,7 @@ Variaveis permitidas ficam em `src/lib/notifications/validation.ts`. Templates c
 7. Cria eventos internos.
 8. Cria eventos para cliente quando o provider ativo suporta envio ao cliente (`euatendo` ou `whatsapp_extension`), telefone existe e cliente permite.
 
-Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `cliente_inativo` nao entram no planejamento automatico nem no resumo diario de vencidos. Ao marcar um certificado fora do acompanhamento, a API cancela eventos `certificate_expiring` ainda nao enviados daquele certificado.
+Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar`, `sem_retorno` ou `cliente_inativo` nao entram no planejamento automatico nem no resumo diario de vencidos. Ao marcar um certificado fora do acompanhamento, a API cancela eventos `certificate_expiring` ainda nao enviados daquele certificado.
 
 `rebuildClientNotificationSchedule` usa a mesma regra de templates e idempotencia, mas remove e recria apenas eventos futuros reconstruiveis de um `cliente_id`. Ele e usado por `POST /api/clientes` para sincronizar mudancas de telefone/WhatsApp sem bloquear a tela com um rebuild global.
 

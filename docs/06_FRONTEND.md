@@ -45,7 +45,7 @@ Atualizacao de 2026-07-15:
 - Estados vazios usam `EmptyState` com titulo especifico, descricao e acao quando aplicavel.
 - Feedbacks de erro e processamento usam mensagens orientadas a acao, sem stack trace, token, service role, storage path ou payload bruto do provider.
 - Dias de aviso em Configuracoes sao editados como chips numericos, mantendo o contrato de API como array de numeros.
-- Certificados usam filtro e resumo de situacao de renovacao. Por padrao, `/certificados` mostra itens em acompanhamento; a listagem e o detalhe devem explicar impacto no planejamento e proxima acao sem renomear o enum persistido.
+- Certificados usam filtro e resumo de situacao de renovacao, incluindo `Sem retorno`. Por padrao, `/certificados` mostra itens em acompanhamento; a listagem e o detalhe devem explicar impacto no planejamento e proxima acao sem renomear o enum persistido.
 - Clientes usa cards de resumo operacional, badges de completude de contato, status humano de aviso ao cliente e estado vazio com acao contextual.
 - Dashboard prioriza KPIs, graficos, lista "Precisa de atencao" e resumo de avisos/WhatsApp, sem o bloco intermediario de resumo operacional.
 - Login interno usa texto claro de acesso, mensagens de erro sem detalhe tecnico, `aria-describedby`, `aria-invalid` e controle de mostrar/ocultar senha.

@@ -189,6 +189,7 @@ docs/reference
 - `renovou_fasa`: certificado renovado pela Fasa; continua monitorado para o proximo ciclo.
 - `renovou_externo`: cliente informou renovacao em outro lugar; sai da dashboard operacional e do planejamento automatico.
 - `nao_renovar`: cliente nao vai renovar agora; sai do planejamento automatico.
+- `sem_retorno`: cliente ainda nao respondeu as tentativas de contato; sai da dashboard operacional e do planejamento automatico.
 - `cliente_inativo`: cliente inativo; sai do planejamento automatico.
 
 As colunas `renovacao_observacao`, `renovacao_atualizado_em` e `renovacao_atualizado_por` registram contexto e auditoria da decisao sem apagar historico.
@@ -226,7 +227,7 @@ Quando um cliente e salvo manualmente, a API atualiza apenas os eventos futuros 
 
 O planejamento dos avisos acontece em `rebuildNotificationSchedule`. Ele carrega configuracoes, atualiza status dos certificados, remove eventos futuros ainda nao enviados e recria eventos planejados para cada dia configurado.
 
-Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar` ou `cliente_inativo` nao entram no planejamento automatico, no resumo operacional da dashboard nem no resumo diario de vencidos. Ao marcar uma dessas situacoes no detalhe do certificado, eventos `certificate_expiring` ainda nao enviados sao cancelados.
+Certificados com `renovacao_status` em `renovou_externo`, `nao_renovar`, `sem_retorno` ou `cliente_inativo` nao entram no planejamento automatico, na dashboard nem no resumo diario de vencidos. Ao marcar uma dessas situacoes no detalhe do certificado, eventos `certificate_expiring` ainda nao enviados sao cancelados.
 
 ### Fila
 

@@ -7,6 +7,7 @@ export const CERTIFICATE_RENEWAL_STATUSES = [
   "renovou_fasa",
   "renovou_externo",
   "nao_renovar",
+  "sem_retorno",
   "cliente_inativo",
 ] as const satisfies readonly CertificateRenewalStatus[];
 
@@ -22,6 +23,7 @@ export const CERTIFICATE_RENEWAL_STATUS_LABEL: Record<CertificateRenewalStatus, 
   renovou_fasa: "Renovou com a Fasa",
   renovou_externo: "Renovou em outro lugar",
   nao_renovar: "Não vai renovar agora",
+  sem_retorno: "Sem retorno",
   cliente_inativo: "Cliente inativo",
 };
 
@@ -36,6 +38,7 @@ export const CERTIFICATE_RENEWAL_STATUS_TONE: Record<CertificateRenewalStatus, "
   renovou_fasa: "green",
   renovou_externo: "slate",
   nao_renovar: "amber",
+  sem_retorno: "amber",
   cliente_inativo: "red",
 };
 
@@ -44,6 +47,7 @@ export const CERTIFICATE_RENEWAL_STATUS_DESCRIPTION: Record<CertificateRenewalSt
   renovou_fasa: "O certificado foi renovado pela Fasa e continua no acompanhamento do próximo ciclo.",
   renovou_externo: "O cliente renovou em outro lugar. O certificado sai da fila automática sem apagar o histórico.",
   nao_renovar: "O cliente não vai renovar agora. O certificado fica fora dos avisos automáticos.",
+  sem_retorno: "O cliente ainda não respondeu às tentativas de contato. O certificado fica fora dos avisos automáticos.",
   cliente_inativo: "O cliente está inativo. O certificado fica fora da rotina de avisos.",
 };
 
@@ -52,6 +56,7 @@ export const CERTIFICATE_RENEWAL_NEXT_ACTION: Record<CertificateRenewalStatus, s
   renovou_fasa: "Conferir o novo certificado e acompanhar o próximo vencimento.",
   renovou_externo: "Manter registrado e revisar apenas se o cliente voltar para a Fasa.",
   nao_renovar: "Registrar o motivo e revisar futuramente se o cliente solicitar.",
+  sem_retorno: "Registrar as tentativas de contato e revisar quando houver resposta do cliente.",
   cliente_inativo: "Confirmar se o cadastro deve permanecer inativo.",
 };
 
@@ -60,6 +65,7 @@ export const CERTIFICATE_RENEWAL_PLANNING_IMPACT: Record<CertificateRenewalStatu
   renovou_fasa: "Entra na dashboard operacional e no planejamento de avisos.",
   renovou_externo: "Não entra na dashboard operacional nem no planejamento automático.",
   nao_renovar: "Não entra na dashboard operacional nem no planejamento automático.",
+  sem_retorno: "Não entra na dashboard operacional nem no planejamento automático.",
   cliente_inativo: "Não entra na dashboard operacional nem no planejamento automático.",
 };
 
