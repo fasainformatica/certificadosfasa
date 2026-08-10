@@ -196,13 +196,23 @@ export function InternalNotificationsMenu() {
       }
     }
 
+    function onManualRefresh() {
+      void loadSummary();
+
+      if (open) {
+        void loadNotifications();
+      }
+    }
+
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("fasa:internal-notifications:refresh", onManualRefresh);
     return () => {
       window.clearTimeout(initialLoadId);
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("fasa:internal-notifications:refresh", onManualRefresh);
     };
-  }, [browserNotificationsEnabled, loadSummary]);
+  }, [browserNotificationsEnabled, loadNotifications, loadSummary, open]);
 
   useEffect(() => {
     if (!open) {

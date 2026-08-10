@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildBroadcastInternalNotificationPayload,
   buildCertificateUploadInternalNotificationPayload,
   createInternalNotification,
 } from "@/lib/internal-notifications/service";
@@ -60,6 +61,36 @@ describe("internal notification service", () => {
       operation: "created",
       cnpj: "11222333000144",
     });
+  });
+
+  it("gera aviso interno geral para painel e notificadores Windows", () => {
+    const payload = buildBroadcastInternalNotificationPayload({
+      title: "Aviso geral",
+      body: "Mensagem para todos os usuarios.",
+      severity: "warning",
+      actorUserId: "33333333-3333-4333-8333-333333333333",
+      expiresAt: "2026-08-17T10:00:00.000Z",
+    });
+
+    expect(payload).toMatchObject({
+      type: "system_notice",
+      severity: "warning",
+      title: "Aviso geral",
+      body: "Mensagem para todos os usuarios.",
+      href: "/notificacoes-internas",
+      entity_type: "sistema",
+      target_role: null,
+      target_user_id: null,
+      actor_user_id: "33333333-3333-4333-8333-333333333333",
+      expires_at: "2026-08-17T10:00:00.000Z",
+    });
+    expect(payload.metadata).toMatchObject({
+      source: "manual_internal_broadcast",
+      audience: "all_internal_users_and_windows_notifiers",
+    });
+    expect(JSON.stringify(payload)).not.toContain("senha");
+    expect(JSON.stringify(payload)).not.toContain("storage_path");
+    expect(JSON.stringify(payload)).not.toContain("service_role");
   });
 
   it("nao propaga falha de insert para o fluxo principal", async () => {

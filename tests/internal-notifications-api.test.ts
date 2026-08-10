@@ -17,6 +17,7 @@ import { buildInternalNotificationVisibilityFilters, formatPostgrestInFilter } f
 
 const routeFiles = [
   "src/app/api/internal-notifications/route.ts",
+  "src/app/api/internal-notifications/broadcast/route.ts",
   "src/app/api/internal-notifications/summary/route.ts",
   "src/app/api/internal-notifications/[id]/read/route.ts",
   "src/app/api/internal-notifications/[id]/dismiss/route.ts",
@@ -135,5 +136,18 @@ describe("internal notifications routes", () => {
     expect(source).not.toContain("service_role");
     expect(source).not.toContain("provider_response");
     expect(source).not.toContain("storage_path");
+  });
+
+  it("envia aviso interno geral sem WhatsApp e sem alvo individual", () => {
+    const source = readRoute("src/app/api/internal-notifications/broadcast/route.ts");
+
+    expect(source).toContain("buildBroadcastInternalNotificationPayload");
+    expect(source).toContain("createInternalNotification");
+    expect(source).toContain("windows_notifier_targeted: true");
+    expect(source).toContain("active_user_count");
+    expect(source).toContain("expiresInHours");
+    expect(source).not.toContain("notification_events");
+    expect(source).not.toContain("euatendo");
+    expect(source).not.toContain("whatsapp_extension");
   });
 });

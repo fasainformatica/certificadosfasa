@@ -22,6 +22,7 @@ describe("internal notifications menu", () => {
     expect(menuSource).toContain('method: "POST"');
     expect(menuSource).toContain('credentials: "same-origin"');
     expect(menuSource).toContain("latest_notification");
+    expect(menuSource).toContain("fasa:internal-notifications:refresh");
   });
 
   it("mantem atributos acessiveis e estados de feedback", () => {

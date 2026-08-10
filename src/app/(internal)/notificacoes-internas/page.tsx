@@ -1,6 +1,7 @@
 import { AlertTriangle, ArchiveX, Bell, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 
+import { BroadcastNotificationForm } from "@/app/(internal)/notificacoes-internas/broadcast-notification-form";
 import { NotificationStateButton } from "@/app/(internal)/notificacoes-internas/notification-state-button";
 import { buttonClass, inputClass, selectClass } from "@/components/ui/button-styles";
 import { TableBody, TableCell, TableHead, TableHeaderCell, TableShell } from "@/components/ui/data-table";
@@ -332,6 +333,8 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
         title="Notificações internas"
         description="Acompanhe atualizações de certificados e eventos internos do sistema."
       />
+
+      <BroadcastNotificationForm />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

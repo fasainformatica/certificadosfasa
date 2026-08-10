@@ -31,6 +31,14 @@ export type CertificateUploadInternalNotificationInput = {
   source?: "upload_individual" | "importacao_em_massa" | "certificate_upload_service";
 };
 
+export type BroadcastInternalNotificationInput = {
+  title: string;
+  body: string;
+  severity: Database["public"]["Tables"]["internal_notifications"]["Insert"]["severity"];
+  actorUserId: string;
+  expiresAt: string;
+};
+
 function formatDatePtBr(date: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
 
@@ -72,6 +80,27 @@ export function buildCertificateUploadInternalNotificationPayload(
       operation: input.operation,
       cnpj: input.cnpj,
     },
+  };
+}
+
+export function buildBroadcastInternalNotificationPayload(
+  input: BroadcastInternalNotificationInput,
+): InternalNotificationInsert {
+  return {
+    type: "system_notice",
+    severity: input.severity,
+    title: input.title,
+    body: input.body,
+    href: "/notificacoes-internas",
+    entity_type: "sistema",
+    target_role: null,
+    target_user_id: null,
+    actor_user_id: input.actorUserId,
+    metadata: {
+      source: "manual_internal_broadcast",
+      audience: "all_internal_users_and_windows_notifiers",
+    },
+    expires_at: input.expiresAt,
   };
 }
 

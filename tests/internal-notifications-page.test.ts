@@ -7,6 +7,10 @@ const pageSource = readFileSync(
   join(process.cwd(), "src/app/(internal)/notificacoes-internas/page.tsx"),
   "utf8",
 );
+const broadcastFormSource = readFileSync(
+  join(process.cwd(), "src/app/(internal)/notificacoes-internas/broadcast-notification-form.tsx"),
+  "utf8",
+);
 const actionButtonSource = readFileSync(
   join(process.cwd(), "src/app/(internal)/notificacoes-internas/notification-state-button.tsx"),
   "utf8",
@@ -31,6 +35,7 @@ describe("internal notifications page", () => {
     expect(pageSource).toContain("Acompanhe atualizações de certificados");
     expect(pageSource).toContain("FilterBar");
     expect(pageSource).toContain("PaginationBar");
+    expect(pageSource).toContain("<BroadcastNotificationForm");
     expect(pageSource).toContain('basePath="/notificacoes-internas"');
     expect(pageSource).toContain("Ativas");
     expect(pageSource).toContain("Não lidas");
@@ -59,11 +64,23 @@ describe("internal notifications page", () => {
     expect(actionButtonSource).toContain('role="alert"');
   });
 
+  it("permite enviar aviso geral para painel e notificadores Windows", () => {
+    expect(broadcastFormSource).toContain("/api/internal-notifications/broadcast");
+    expect(broadcastFormSource).toContain("Enviar aviso interno");
+    expect(broadcastFormSource).toContain("notificadores Windows");
+    expect(broadcastFormSource).toContain("Nao envia WhatsApp");
+    expect(broadcastFormSource).toContain("Confirmo o envio para todos os usuarios internos");
+    expect(broadcastFormSource).toContain("fasa:internal-notifications:refresh");
+    expect(broadcastFormSource).toContain("credentials: \"same-origin\"");
+  });
+
   it("nao expoe campos tecnicos ou sensiveis na apresentacao", () => {
     expect(pageSource).not.toContain("dedupe_key");
     expect(pageSource).not.toContain("storage_path");
     expect(pageSource).not.toContain("service_role");
     expect(pageSource).not.toContain("provider_response");
     expect(actionButtonSource).not.toContain("service_role");
+    expect(broadcastFormSource).not.toContain("service_role");
+    expect(broadcastFormSource).not.toContain("storage_path");
   });
 });
