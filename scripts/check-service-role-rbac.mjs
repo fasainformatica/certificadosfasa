@@ -74,9 +74,10 @@ for (const filePath of apiRoots.flatMap((apiRoot) => listRouteFiles(apiRoot))) {
 
   const usesInternalRbac = source.includes("requireApiUser(");
   const usesExtensionAuth = source.includes("authenticateWhatsAppExtension(");
+  const usesWindowsNotifierAuth = source.includes("authenticateWindowsNotifier(");
 
-  if (!usesInternalRbac && !usesExtensionAuth) {
-    failures.push(`${relative}: usa service role sem requireApiUser ou authenticateWhatsAppExtension.`);
+  if (!usesInternalRbac && !usesExtensionAuth && !usesWindowsNotifierAuth) {
+    failures.push(`${relative}: usa service role sem requireApiUser, authenticateWhatsAppExtension ou authenticateWindowsNotifier.`);
     continue;
   }
 
@@ -90,6 +91,7 @@ for (const filePath of apiRoots.flatMap((apiRoot) => listRouteFiles(apiRoot))) {
     const authIndexes = [
       body.indexOf("requireApiUser("),
       body.indexOf("authenticateWhatsAppExtension("),
+      body.indexOf("authenticateWindowsNotifier("),
     ].filter((index) => index >= 0);
     const authIndex = authIndexes.length ? Math.min(...authIndexes) : -1;
     const adminIndex = body.indexOf("createSupabaseAdminClient(");

@@ -49,9 +49,14 @@ EUATENDO_API_TOKEN=
 EUATENDO_INSTANCE_ID=
 EUATENDO_PROVIDER_ENABLED=false
 EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=3
+WINDOWS_NOTIFIER_ENABLED=false
+WINDOWS_NOTIFIER_TOKEN=
+WINDOWS_NOTIFIER_ROLE=financeiro
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `CERT_ENCRYPTION_KEY`, `CRON_SECRET` e `EUATENDO_API_TOKEN` sao server-only.
+`SUPABASE_SERVICE_ROLE_KEY`, `CERT_ENCRYPTION_KEY`, `CRON_SECRET`, `EUATENDO_API_TOKEN` e `WINDOWS_NOTIFIER_TOKEN` sao server-only.
+
+Para pop-ups em computadores Windows, veja [`tools/windows-notifier/README.md`](tools/windows-notifier/README.md).
 
 ## Banco de Dados
 
@@ -85,6 +90,7 @@ database/scripts     Scripts operacionais manuais
 docs                 Documentacao oficial
 docs/archive         Historico documental
 docs/reference       Referencias externas preservadas
+tools/windows-notifier Cliente leve de pop-ups Windows
 ```
 
 ## Links Principais

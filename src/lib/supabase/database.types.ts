@@ -26,6 +26,16 @@ export type NotificationEventStatus =
   | "skipped";
 export type NotificationProvider = "euatendo" | "whatsapp_extension";
 export type NotificationAudience = "internal" | "client";
+export type InternalNotificationType =
+  | "certificate_created"
+  | "certificate_updated"
+  | "certificate_status_changed"
+  | "certificate_renewal_status_changed"
+  | "client_updated"
+  | "notification_failed"
+  | "whatsapp_status_changed"
+  | "system_notice";
+export type InternalNotificationSeverity = "info" | "success" | "warning" | "error";
 
 export type Database = {
   public: {
@@ -221,6 +231,84 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["audit_logs"]["Insert"]>;
         Relationships: [];
+      };
+      internal_notifications: {
+        Row: {
+          id: string;
+          type: InternalNotificationType;
+          severity: InternalNotificationSeverity;
+          title: string;
+          body: string | null;
+          href: string | null;
+          entity_type: string | null;
+          entity_id: string | null;
+          certificado_id: string | null;
+          cliente_id: string | null;
+          target_role: UserRole | null;
+          target_user_id: string | null;
+          actor_user_id: string | null;
+          dedupe_key: string | null;
+          metadata: Json;
+          created_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          type: InternalNotificationType;
+          severity?: InternalNotificationSeverity;
+          title: string;
+          body?: string | null;
+          href?: string | null;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          certificado_id?: string | null;
+          cliente_id?: string | null;
+          target_role?: UserRole | null;
+          target_user_id?: string | null;
+          actor_user_id?: string | null;
+          dedupe_key?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["internal_notifications"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "internal_notifications_certificado_id_fkey";
+            columns: ["certificado_id"];
+            referencedRelation: "certificados";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "internal_notifications_cliente_id_fkey";
+            columns: ["cliente_id"];
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      internal_notification_reads: {
+        Row: {
+          notification_id: string;
+          user_id: string;
+          read_at: string;
+          dismissed_at: string | null;
+        };
+        Insert: {
+          notification_id: string;
+          user_id: string;
+          read_at?: string;
+          dismissed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["internal_notification_reads"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "internal_notification_reads_notification_id_fkey";
+            columns: ["notification_id"];
+            referencedRelation: "internal_notifications";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       storage_reconciliation_jobs: {
         Row: {

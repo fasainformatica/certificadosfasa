@@ -40,6 +40,8 @@ type ImportResult = {
   certificado_id?: string;
   data_vencimento?: string;
   status?: string;
+  operacao?: "created" | "updated";
+  notificacao_interna?: boolean;
   mensagem?: string;
 };
 
@@ -284,6 +286,8 @@ export async function POST(request: NextRequest) {
           cnpj: certificado.cnpj,
           data_vencimento: certificado.data_vencimento,
           status: certificado.status,
+          operacao: certificado.operation,
+          notificacao_interna: certificado.internal_notification.created,
         });
       } catch (error) {
         if (error instanceof CertificateUploadError && error.code === "certificado_duplicado") {

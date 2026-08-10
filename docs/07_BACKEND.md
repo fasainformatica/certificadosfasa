@@ -29,6 +29,11 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `POST /api/notifications/events/[id]/retry`
 - `PUT /api/notifications/configuration-bundle`
 - `POST /api/notifications/check-expiring`
+- `GET /api/internal-notifications`
+- `GET /api/internal-notifications/summary`
+- `GET /api/internal-notifications/windows/summary`
+- `POST /api/internal-notifications/[id]/read`
+- `POST /api/internal-notifications/[id]/dismiss`
 
 ## APIs euAtendo
 
@@ -48,9 +53,9 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 ## Autorizacao
 
-Rotas administrativas usam `requireApiUser(["admin"])` quando a acao exige admin. Rotas cron exigem `CRON_SECRET`. Download publico nao exige login, mas exige token e senha validos.
+Rotas administrativas usam `requireApiUser(["admin"])` quando a acao exige admin. Rotas cron exigem `CRON_SECRET`. Download publico nao exige login, mas exige token e senha validos. O endpoint read-only do cliente Windows exige `WINDOWS_NOTIFIER_TOKEN` e nao altera dados.
 
-`npm test` executa `scripts/check-service-role-rbac.mjs`, que falha quando uma nova API route usa `createSupabaseAdminClient` sem validacao RBAC antes da operacao.
+`npm test` executa `scripts/check-service-role-rbac.mjs`, que falha quando uma nova API route usa `createSupabaseAdminClient` sem validacao de autenticacao/autorizacao antes da operacao.
 
 ## Jobs
 

@@ -18,6 +18,7 @@
 - [`10_REFERENCIA_TECNICA.md`](10_REFERENCIA_TECNICA.md): mapas rapidos de arquivos, endpoints e operacao.
 - [`CRON_EXTERNO_EUATENDO_5_MIN.md`](CRON_EXTERNO_EUATENDO_5_MIN.md): agendamento externo para enviar 1 mensagem WhatsApp a cada 5 minutos.
 - [`PASSO_A_PASSO_MOSTRAR_SENHA_CERTIFICADO.md`](PASSO_A_PASSO_MOSTRAR_SENHA_CERTIFICADO.md): configuracao no Supabase para liberar o botao Mostrar senha.
+- [`../tools/windows-notifier/README.md`](../tools/windows-notifier/README.md): cliente leve do Windows para pop-ups de notificacoes internas.
 
 ## Banco de dados
 

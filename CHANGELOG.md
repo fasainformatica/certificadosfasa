@@ -2,6 +2,16 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-08-10
+
+- Criada a Etapa 1 da futura central/app Windows de notificacoes internas, com migration `20260810100000_create_internal_notifications.sql`, schema consolidado, tipos Supabase e teste de contrato; a base nao dispara WhatsApp, nao altera `notification_events` e nao muda planejamento de avisos.
+- Criada a Etapa 2 das notificacoes internas, com APIs autenticadas `GET /api/internal-notifications`, `GET /api/internal-notifications/summary`, `POST /api/internal-notifications/[id]/read` e `POST /api/internal-notifications/[id]/dismiss`; as rotas validam RBAC antes da service role e reaplicam visibilidade por usuario/cargo.
+- Criada a Etapa 3 das notificacoes internas, ligando upload individual e importacao em massa ao registro server-side de `certificate_created` e `certificate_updated`, sem bloquear o upload caso a notificacao interna falhe e sem alterar WhatsApp.
+- Criada a Etapa 4 das notificacoes internas, substituindo o sino estatico do header por `InternalNotificationsMenu`, com contador de nao lidas, popover responsivo, loading, erro, estado vazio e acoes `Ver certificado`, `Marcar lida` e `Dispensar`.
+- Criada a Etapa 5 das notificacoes internas, adicionando `/notificacoes-internas` com KPIs, filtros de estado/tipo/prioridade, busca, tabela desktop, cards mobile, paginacao e link `Ver central completa` no sininho.
+- Criada a Etapa 6 das notificacoes internas, adicionando pop-ups nativos do navegador ativados manualmente pelo sininho, com linha de base para nao avisar historico antigo, clique para abrir certificado/central e persistencia local por navegador.
+- Criada a Etapa 7 das notificacoes internas, adicionando endpoint read-only `/api/internal-notifications/windows/summary`, variaveis `WINDOWS_NOTIFIER_*`, gerador de token e cliente PowerShell leve em `tools/windows-notifier` para pop-ups do Windows sem expor Supabase/service role.
+
 ## 2026-07-30
 
 - Adicionada situacao de renovacao `Sem retorno` para certificados, com filtro na listagem, card de resumo e migration `20260730100000_add_certificate_no_response_status.sql`; o status fica fora do planejamento automatico.

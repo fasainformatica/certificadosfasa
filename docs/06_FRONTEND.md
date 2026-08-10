@@ -12,6 +12,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `/certificados/importar`: importacao em massa.
 - `/certificados/[id]`: detalhe, situacao de renovacao, link publico, edicao de cliente, senha PFX sob autorizacao extra e aviso manual.
 - `/notificacoes`: eventos, destinatarios e status.
+- `/notificacoes-internas`: historico interno do painel, acessado pelo sininho.
 - `/configuracoes`: configuracoes de avisos e templates.
 - `/whatsapp`: homologacao e monitoramento euAtendo.
 - `/download/[token]`: download publico.
@@ -54,6 +55,11 @@ Atualizacao de 2026-07-15:
 - Importacao em massa usa resumo da selecao, alerta para arquivos ignorados, progressbar por lote com `role="progressbar"`, `role="status"` para andamento e acao `Limpar selecao` antes do envio.
 - Detalhe do certificado usa resumo operacional, grupos de dados de cliente/certificado/renovacao, area tecnica separada sem `storage_path`, hash reduzido na apresentacao e feedback acessivel em senha PFX, link de download, edicao de cliente e exclusao.
 - Configuracoes usa `buildConfiguracoesOperationalSummary` para resumir envio automatico, dias de aviso, janela, cadencia, limites de WhatsApp e templates antes de salvar; acoes de salvar, atualizar planejamento e destinatarios tratam falha de rede com mensagem humana e encerram o estado de carregamento.
+- A base de notificacoes internas usa `internal_notifications` e `internal_notification_reads` para alimentar o sininho, a central `/notificacoes-internas`, pop-ups do navegador e o cliente leve do Windows em `tools/windows-notifier`. As APIs `GET /api/internal-notifications`, `GET /api/internal-notifications/summary`, `GET /api/internal-notifications/windows/summary`, `POST /api/internal-notifications/[id]/read` e `POST /api/internal-notifications/[id]/dismiss` estao prontas. Upload individual e importacao em massa ja registram `certificate_created` e `certificate_updated`.
+- O componente `InternalNotificationsMenu` substitui o sino estatico do header por contador de nao lidas, popover responsivo, loading local, erro humano, estado vazio, atalhos para o certificado, acao `Marcar lida`, acao `Dispensar`, `aria-expanded`, `role="dialog"`, `aria-live`, link `Ver central completa` e controle `Ativar pop-ups`.
+- A rota `/notificacoes-internas` usa Server Component, autentica com `requireInternalUser`, reaplica filtros de visibilidade antes de consultar via service role, mostra KPIs de ativas/nao lidas/atencao/dispensadas, filtros rapidos de estado, busca textual, filtros por tipo e prioridade, tabela no desktop, cards no mobile, estado vazio e paginacao acessivel.
+- Pop-ups do navegador usam `src/lib/internal-notifications/browser-notifications.ts` para evitar aviso de historico antigo, exibir apenas novas notificacoes, respeitar permissao explicita do navegador, abrir `/notificacoes-internas` ou o certificado ao clicar e manter a decisao em `localStorage`. Isso funciona enquanto o painel estiver aberto no navegador.
+- O cliente Windows usa PowerShell/NotifyIcon e o endpoint read-only protegido por `WINDOWS_NOTIFIER_TOKEN`; ele nao usa sessao do navegador, nao acessa Supabase diretamente e nao altera estado de leitura.
 
 ## Tokens visuais
 

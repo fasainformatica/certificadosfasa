@@ -4,6 +4,11 @@ import { createHash } from "crypto";
 
 import { calculateCertificateStatus } from "@/lib/certificados/status";
 import { encryptSecret } from "@/lib/crypto/secrets";
+import {
+  createCertificateUploadInternalNotification,
+  type CertificateUploadNotificationOperation,
+  type InternalNotificationCreateResult,
+} from "@/lib/internal-notifications/service";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
 import { parsePfx, PfxParseError } from "@/lib/pfx/parse";
 import { CERTIFICATES_BUCKET, getCertificateStoragePath } from "@/lib/storage/certificates";
@@ -61,6 +66,19 @@ export type RegisterCertificateUploadInput = {
   clientData: CertificateUploadClientData;
   metadata?: Record<string, unknown>;
   preserveExistingClientData?: boolean;
+};
+
+export type RegisterCertificateUploadResult = {
+  id: string;
+  cliente_id: string | null;
+  cnpj: string;
+  nome_titular: string;
+  data_emissao: string | null;
+  data_vencimento: string;
+  status: string;
+  hash_arquivo: string;
+  operation: CertificateUploadNotificationOperation;
+  internal_notification: InternalNotificationCreateResult;
 };
 
 type ExistingCertificate = {
@@ -382,10 +400,12 @@ export async function registerCertificateUpload({
 
   const { data: registeredCertificate } = await admin
     .from("certificados")
-    .select("status")
+    .select("cliente_id, status")
     .eq("id", certificadoId)
     .maybeSingle();
   const savedStatus = registeredCertificate?.status ?? status;
+  const operation: CertificateUploadNotificationOperation = existingCertificate ? "updated" : "created";
+  const clienteId = registeredCertificate?.cliente_id ?? existingCertificate?.cliente_id ?? null;
 
   if (existingCertificate) {
     const { error: renewalStatusError } = await admin
@@ -424,13 +444,29 @@ export async function registerCertificateUpload({
     },
   });
 
+  const internalNotification = await createCertificateUploadInternalNotification({
+    admin,
+    operation,
+    certificadoId,
+    clienteId,
+    actorUserId: userId,
+    cnpj,
+    nomeTitular: parsedPfx.nomeTitular,
+    dataVencimento: parsedPfx.dataVencimento,
+    hashArquivo,
+    source: metadata.origem === "importacao_em_massa" ? "importacao_em_massa" : "upload_individual",
+  });
+
   return {
     id: certificadoId,
+    cliente_id: clienteId,
     cnpj,
     nome_titular: parsedPfx.nomeTitular,
     data_emissao: parsedPfx.dataEmissao,
     data_vencimento: parsedPfx.dataVencimento,
     status: savedStatus,
     hash_arquivo: hashArquivo,
-  };
+    operation,
+    internal_notification: internalNotification,
+  } satisfies RegisterCertificateUploadResult;
 }

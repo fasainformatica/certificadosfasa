@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "vitest run && node scripts/check-service-role-rbac.mjs",
     "security:hash-cert-admin-password": "node scripts/hash-certificate-admin-password.mjs",
+    "security:generate-windows-notifier-token": "node scripts/generate-windows-notifier-token.mjs",
     "storage:clear-certificados": "node scripts/clear-certificate-storage.mjs"
   },
   "dependencies": {

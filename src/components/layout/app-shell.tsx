@@ -1,9 +1,10 @@
-import { Bell, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FasaLogo } from "@/components/brand/fasa-logo";
 import { AppNavigation } from "@/components/layout/app-navigation";
+import { InternalNotificationsMenu } from "@/components/layout/internal-notifications-menu";
 import type { NavigationItem } from "@/components/layout/app-navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { PageTransition } from "@/components/layout/page-transition";
@@ -47,9 +48,7 @@ export function AppShell({ user, children }: AppShellProps) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <div className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex">
-              <Bell aria-hidden="true" className="h-4 w-4" />
-            </div>
+            <InternalNotificationsMenu />
             {isAdmin ? (
               <Link
                 href="/configuracoes"

@@ -36,9 +36,20 @@ EUATENDO_API_TOKEN=
 EUATENDO_INSTANCE_ID=
 EUATENDO_PROVIDER_ENABLED=
 EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=1
+WINDOWS_NOTIFIER_ENABLED=false
+WINDOWS_NOTIFIER_TOKEN=
+WINDOWS_NOTIFIER_ROLE=financeiro
 ```
 
 `CRON_SECRET` deve existir no ambiente da Vercel. A Vercel envia automaticamente `Authorization: Bearer {CRON_SECRET}` nas chamadas dos Cron Jobs quando essa variavel esta configurada.
+
+`WINDOWS_NOTIFIER_*` e opcional. Use apenas se for rodar `tools/windows-notifier` em computadores internos. Gere o token com:
+
+```powershell
+npm.cmd run security:generate-windows-notifier-token
+```
+
+O mesmo valor de `WINDOWS_NOTIFIER_TOKEN` deve estar no servidor e no `config.local.json` do cliente Windows. Nao publique esse token em frontend, print, chat ou commit.
 
 ## Banco
 
@@ -81,3 +92,4 @@ Validacao operacional:
 5. Enviar aviso manual.
 6. Acessar `/api/admin/health/production` como admin.
 7. Confirmar crons em `Settings > Cron Jobs` e nos runtime logs da Vercel.
+8. Se usar cliente Windows, executar `tools/windows-notifier/TESTAR_NOTIFICADOR_FASA.bat` em um computador interno.

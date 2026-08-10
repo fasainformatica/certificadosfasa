@@ -19,6 +19,7 @@ npm.cmd run build
 - `src/lib/certificados/status.ts`
 - `src/lib/notifications/engine.ts`
 - `src/lib/notifications/validation.ts`
+- `src/lib/internal-notifications/windows-notifier.ts`
 - `src/lib/whatsapp/euatendo/client.ts`
 - `src/lib/whatsapp/euatendo/provider.ts`
 - `src/lib/whatsapp/euatendo/dispatcher.ts`
@@ -27,6 +28,7 @@ npm.cmd run build
 - `src/lib/supabase/database.types.ts`
 - `database/schema/supabase_schema.sql`
 - `scripts/check-service-role-rbac.mjs`
+- `tools/windows-notifier/FasaInternalNotifier.ps1`
 
 ## Validacoes manuais rapidas
 
@@ -38,6 +40,7 @@ npm.cmd run build
 - Confirmar `/api/admin/health/production` como admin.
 - Confirmar `notification_events` apos upload.
 - Confirmar `whatsapp_provider_logs` apos teste/envio.
+- Confirmar `tools/windows-notifier/TESTAR_NOTIFICADOR_FASA.bat` quando usar pop-ups Windows.
 
 ## Regras de manutencao
 

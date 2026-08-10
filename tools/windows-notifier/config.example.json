@@ -1,0 +1,5 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "token": "cole_o_mesmo_valor_do_WINDOWS_NOTIFIER_TOKEN",
+  "intervalSeconds": 60
+}

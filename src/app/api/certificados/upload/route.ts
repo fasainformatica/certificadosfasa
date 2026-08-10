@@ -83,6 +83,10 @@ export async function POST(request: NextRequest) {
           data_emissao: certificado.data_emissao,
           data_vencimento: certificado.data_vencimento,
           status: certificado.status,
+          operacao: certificado.operation,
+        },
+        notificacao_interna: {
+          criada: certificado.internal_notification.created,
         },
         notificacao_rebuild: notificacaoRebuild,
         notificacao_dia: notificacaoDia,

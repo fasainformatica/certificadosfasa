@@ -31,6 +31,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Refatoracao visual de 2026-07-15: o painel interno usa shell com sidebar responsiva, superficies neutras, hierarquia operacional por tarefas, cards de metricas, tabelas escaneaveis, estados vazios e mensagens em portugues do Brasil.
 - Vocabulario principal: Visao geral, Certificados, Clientes, Central de avisos, Automacao do WhatsApp e Configuracoes do sistema.
 - Status persistidos continuam tecnicos, mas a apresentacao converte para rotulos humanos como Valido, Vence em breve, Vencido, Na fila, Enviado, Falha no envio, Conectado e Envio automatico pausado.
+- O header interno possui `InternalNotificationsMenu`, um sininho que consulta `GET /api/internal-notifications/summary`, abre uma lista compacta de notificacoes ativas, permite marcar como lida ou dispensar, aponta para a central completa em `/notificacoes-internas` e oferece ativacao manual de pop-ups do navegador. Tambem existe cliente Windows leve em `tools/windows-notifier` para pop-ups fora do navegador.
 
 ### Backend
 
@@ -42,6 +43,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Notification engine em `src/lib/notifications/engine.ts`.
 - Provider euAtendo em `src/lib/whatsapp/euatendo/`.
 - Provider alternativo da extensao Chrome em `src/lib/whatsapp/extension/` e rotas `src/app/sistema/api/whatsapp/**`.
+- Notificacoes internas em `src/app/api/internal-notifications/**`, com leitura operacional para `admin` e `financeiro`, resumo de nao lidas, estado individual de leitura/dispensa e endpoint read-only para o cliente Windows.
 
 ### Banco
 
@@ -52,12 +54,15 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Tabelas de dominio: `clientes`, `certificados`, `links_download`, `audit_logs`, `configuracoes_sistema`.
 - Tabelas de notificacao: `notification_settings`, `notification_templates`, `notification_recipients`, `notification_events`, `notification_runs`.
 - Tabelas de dispatcher WhatsApp: `whatsapp_dispatcher_state`, `whatsapp_provider_logs`, segmentadas por `provider`.
+- Tabelas de notificacao interna: `internal_notifications` e `internal_notification_reads`, usadas pela central interna do painel, sininho, pop-ups do navegador e cliente leve do Windows. Elas nao substituem `notification_events`, nao disparam WhatsApp e nao alteram planejamento de avisos.
 
 ### Fluxos
 
 - Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
+- Ao cadastrar ou substituir um PFX por upload individual ou importacao em massa, o backend grava uma notificacao interna segura em `internal_notifications`. Essa gravacao nao bloqueia o upload se falhar e nao contem senha, token, service role, `storage_path` ou payload bruto.
 - Download publico: `admin` ou `financeiro` gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
 - Avisos: engine planeja eventos em `notification_events`; o provider ativo e definido por `WHATSAPP_PROVIDER`. O dispatcher euAtendo envia via API server-side. O provider `whatsapp_extension` expoe `/sistema/api/whatsapp/messages` para a extensao reservar uma mensagem por vez, registrar acks e aplicar delay/retry pela mesma tabela de cadencia.
+- Notificacoes internas: a base usa `internal_notifications` e `internal_notification_reads`. `GET /api/internal-notifications` lista notificacoes visiveis ao usuario atual, `GET /api/internal-notifications/summary` retorna contadores para o sininho e `POST /api/internal-notifications/[id]/read|dismiss` altera somente o estado individual do usuario. Upload individual e importacao em massa criam eventos `certificate_created` ou `certificate_updated` por `src/lib/internal-notifications/service.ts`, sempre server-side e sem alterar WhatsApp. A rota `/notificacoes-internas` mostra historico paginado, busca, filtros por estado/tipo/prioridade e acoes por item. Quando o operador ativa `Ativar pop-ups` no sininho, o navegador pode mostrar um aviso nativo para novas notificacoes enquanto o painel estiver aberto. O cliente Windows consulta `GET /api/internal-notifications/windows/summary` com `WINDOWS_NOTIFIER_TOKEN`, mostra popup de novas notificacoes e abre a central ou o certificado ao clicar.
 - Crons: Vercel chama endpoints protegidos por `CRON_SECRET`; GitHub Actions pode chamar o dispatcher euAtendo a cada 5 minutos para escoar fila no mesmo dia sem Vercel Pro.
 
 ## Estrutura de pastas
@@ -67,13 +72,16 @@ src/app
   Rotas, telas e APIs Next.js.
 
 src/app/(internal)
-  Dashboard e telas autenticadas: clientes, certificados, avisos, configuracoes e Canal WhatsApp.
+  Dashboard e telas autenticadas: clientes, certificados, avisos, notificacoes internas, configuracoes e Canal WhatsApp.
 
 src/app/api
   APIs internas, crons, download publico e endpoints euAtendo.
 
 src/components
   Layout, navegacao, UI reutilizavel, padroes de dados e marca Fasa.
+
+tools/windows-notifier
+  Cliente PowerShell leve para pop-ups do Windows baseados em notificacoes internas.
 
 src/lib
   Regras de negocio, Supabase, PFX, Storage, notificacoes, validacoes, seguranca e WhatsApp.
@@ -130,6 +138,7 @@ docs/reference
 - `/certificados`: busca por titular/cliente/CNPJ, resumo por situacao de renovacao, cards responsivos no mobile e tabela agrupando titular, cliente, vencimento, status, renovacao e acoes.
 - `/clientes`: visualizacao orientada a cliente, contato, permissao de avisos, responsavel e atualizacao, com resumo operacional da pagina, badges de completude de contato e estado vazio acionavel.
 - `/notificacoes`: Central de avisos com metricas, bloco de prioridade operacional, categorias, status humanos, mensagens de erro sanitizadas, reenvio controlado e tabela responsiva.
+- `/notificacoes-internas`: central interna acessada pelo sininho, com KPIs de notificacoes, filtros rapidos, busca, filtros por tipo/prioridade, tabela desktop, cards mobile e acoes `Ver certificado`, `Marcar lida` e `Dispensar`.
 - `/whatsapp`: Automacao do WhatsApp com status de integracao, instancia, fila, enviados, falhas, tempo medio, seguranca operacional, qualidade dos telefones e ferramentas de homologacao.
 - `/configuracoes`: Configuracoes do sistema em secoes Geral, WhatsApp, Mensagens, Destinatarios e Seguranca, incluindo chips para dias de antecedencia.
 - `/certificados/novo`, `/certificados/importar`, `/certificados/[id]`, `/login` e `/download/[token]`: textos revisados, superficies alinhadas e estados de erro/carregamento mais claros. O upload individual mostra resumo do arquivo, controle de mostrar/ocultar senha do PFX, labels associados e envio com campos bloqueados. A importacao em massa mostra resumo da selecao, arquivos ignorados, progressbar por lote e acao de limpar selecao. O detalhe do certificado mostra resumo operacional, grupos de dados de cliente/certificado/renovacao, area tecnica separada sem `storage_path`, hash reduzido na apresentacao e feedback acessivel em senha PFX, link de download, edicao de cliente e exclusao. O login interno usa erro sem detalhe tecnico, associacao de ajuda/erro aos campos e controle de mostrar/ocultar senha. O download publico mostra senha temporaria, uso unico, expira em 60 segundos e link indisponivel sem expor token, storage path ou senha real do PFX.
@@ -435,6 +444,10 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 
 `/notificacoes` exibe eventos, status, filtros, destinatarios e acoes operacionais de reenvio para `admin` e `financeiro`. A apresentacao usa `src/lib/notifications/event-presentation.ts` para manter rotulos, proxima acao e erros sanitizados consistentes; o bloco `Prioridade agora` apenas le `notification_events` e nao altera fila ou dispatcher.
 
+### Notificacoes internas
+
+`/notificacoes-internas` exibe o historico interno do painel. `InternalNotificationsMenu` mostra o sininho, permite ativar pop-ups do navegador e aponta para a central completa. `tools/windows-notifier` fornece um cliente PowerShell leve para Windows, com tray icon, intervalo configuravel, token dedicado e abertura da central/certificado ao clicar no popup.
+
 ### Configuracoes
 
 `/configuracoes` centraliza avisos ativos, dias, delays, templates e destinatarios internos. A tela e as APIs de configuracao sao exclusivas para `admin`.
@@ -464,6 +477,11 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - `POST /api/notifications/events/[id]/retry`
 - `PUT /api/notifications/configuration-bundle`
 - `POST /api/notifications/check-expiring`
+- `GET /api/internal-notifications`
+- `GET /api/internal-notifications/summary`
+- `GET /api/internal-notifications/windows/summary`
+- `POST /api/internal-notifications/[id]/read`
+- `POST /api/internal-notifications/[id]/dismiss`
 - `GET /api/whatsapp/euatendo/health`
 - `POST /api/whatsapp/euatendo/check-number`
 - `POST /api/whatsapp/euatendo/test-message`
@@ -522,6 +540,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - Suite `npm test` com testes automatizados e checagem service-role/RBAC.
 - Healthcheck admin de prontidao de producao.
 - Filtro e acao de situacao de renovacao em certificados.
+- Central e cliente Windows de notificacoes internas.
 - Documentacao consolidada.
 
 ### Funcionamento depende de ambiente
@@ -533,6 +552,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - Instancia euAtendo conectada.
 - Vercel Cron ativo.
 - `EUATENDO_PROVIDER_ENABLED=true` para envio automatico.
+- `WINDOWS_NOTIFIER_ENABLED=true` e `WINDOWS_NOTIFIER_TOKEN` para cliente Windows de notificacoes internas.
 - As migrations `20260715150000_add_euatendo_dispatch_batching.sql`, `20260715151000_fix_euatendo_reserve_outer_join.sql` e `20260729120000_add_certificate_renewal_status.sql` aplicadas para lote do dispatcher e situacao de renovacao.
 
 ### Em homologacao ou a confirmar
