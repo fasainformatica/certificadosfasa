@@ -11,6 +11,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 - Criada a Etapa 5 das notificacoes internas, adicionando `/notificacoes-internas` com KPIs, filtros de estado/tipo/prioridade, busca, tabela desktop, cards mobile, paginacao e link `Ver central completa` no sininho.
 - Criada a Etapa 6 das notificacoes internas, adicionando pop-ups nativos do navegador ativados manualmente pelo sininho, com linha de base para nao avisar historico antigo, clique para abrir certificado/central e persistencia local por navegador.
 - Criada a Etapa 7 das notificacoes internas, adicionando endpoint read-only `/api/internal-notifications/windows/summary`, variaveis `WINDOWS_NOTIFIER_*`, gerador de token e cliente PowerShell leve em `tools/windows-notifier` para pop-ups do Windows sem expor Supabase/service role.
+- Adicionada gestao administrativa de usuarios em `/configuracoes`, com criacao de usuarios Supabase Auth, remocao, ativacao/desativacao e definicao de permissao `admin` ou `financeiro`; as APIs `/api/admin/users` validam RBAC antes da service role e bloqueiam autoexclusao e remocao do ultimo admin ativo.
 
 ## 2026-07-30
 

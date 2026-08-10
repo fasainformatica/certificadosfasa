@@ -17,6 +17,9 @@ $script:Config = $null
 $script:LastNotificationUrl = $null
 $script:StartedAtUtc = (Get-Date).ToUniversalTime()
 $script:ActivePopupForms = @()
+$script:SingleInstanceMutex = $null
+$script:SingleInstanceMutexCreated = $false
+$script:TrayIcon = $null
 $script:ScriptDir = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $script:ResolvedConfigPath = if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath } else { Join-Path $script:ScriptDir "config.local.json" }
 $script:AppDataDir = Join-Path $env:LOCALAPPDATA "FasaCertificados"
@@ -176,6 +179,59 @@ function Get-UiColor {
   return [System.Drawing.ColorTranslator]::FromHtml($Hex)
 }
 
+function Resolve-NotifierAssetPath {
+  param([string[]]$Candidates)
+
+  foreach ($candidate in $Candidates) {
+    $path = Join-Path $script:ScriptDir $candidate
+
+    if (Test-Path -LiteralPath $path) {
+      return (Resolve-Path -LiteralPath $path).Path
+    }
+  }
+
+  return $null
+}
+
+function Get-NotifierIconPath {
+  return Resolve-NotifierAssetPath -Candidates @(
+    "fasa.ico",
+    "..\..\src\app\favicon.ico"
+  )
+}
+
+function New-NotifierIcon {
+  $iconPath = Get-NotifierIconPath
+
+  if (-not [string]::IsNullOrWhiteSpace($iconPath)) {
+    try {
+      return New-Object System.Drawing.Icon -ArgumentList $iconPath
+    } catch {
+      Write-NotifierLog "Falha ao carregar icone do notificador: $($_.Exception.Message)"
+    }
+  }
+
+  return [System.Drawing.SystemIcons]::Information.Clone()
+}
+
+function New-NotifierLogoBitmap {
+  $iconPath = Get-NotifierIconPath
+
+  if ([string]::IsNullOrWhiteSpace($iconPath)) {
+    return $null
+  }
+
+  try {
+    $icon = New-Object System.Drawing.Icon -ArgumentList $iconPath
+    $bitmap = $icon.ToBitmap()
+    $icon.Dispose()
+    return $bitmap
+  } catch {
+    Write-NotifierLog "Falha ao carregar logo do popup: $($_.Exception.Message)"
+    return $null
+  }
+}
+
 function New-RoundedRectanglePath {
   param(
     [int]$Width,
@@ -318,6 +374,84 @@ function New-ActionButton {
   return $button
 }
 
+function New-PillLabel {
+  param(
+    [string]$Text,
+    [int]$X,
+    [int]$Y,
+    [int]$Width,
+    [int]$Height,
+    [string]$BackColor,
+    [string]$ForeColor,
+    [int]$Radius = 12
+  )
+
+  $pill = New-Object System.Windows.Forms.Panel
+  $pill.SetBounds($X, $Y, $Width, $Height)
+  $pill.BackColor = Get-UiColor -Hex $BackColor
+  Set-RoundedRegion -Control $pill -Radius $Radius
+
+  $label = New-Object System.Windows.Forms.Label
+  $label.Text = $Text
+  $label.Dock = [System.Windows.Forms.DockStyle]::Fill
+  $label.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+  $label.BackColor = [System.Drawing.Color]::Transparent
+  $label.ForeColor = Get-UiColor -Hex $ForeColor
+  $label.Font = New-Object System.Drawing.Font("Segoe UI", 8.25, [System.Drawing.FontStyle]::Bold)
+  $label.UseMnemonic = $false
+
+  $pill.Add_SizeChanged({
+    param($Sender, $_EventArgs)
+    Set-RoundedRegion -Control $Sender -Radius 12
+  })
+  $pill.Controls.Add($label)
+  return $pill
+}
+
+function Show-NotificationEntranceAnimation {
+  param(
+    [System.Windows.Forms.Form]$Shadow,
+    [System.Windows.Forms.Form]$Form,
+    [System.Drawing.Point]$ShadowTargetLocation,
+    [System.Drawing.Point]$FormTargetLocation
+  )
+
+  $startOffsetX = 24
+  $startOffsetY = 18
+  $shadowTargetOpacity = 0.18
+  $formTargetOpacity = 0.98
+  $frames = 14
+
+  $Shadow.Opacity = 0.01
+  $Form.Opacity = 0.01
+  $Shadow.Location = New-Object System.Drawing.Point(($ShadowTargetLocation.X + $startOffsetX), ($ShadowTargetLocation.Y + $startOffsetY))
+  $Form.Location = New-Object System.Drawing.Point(($FormTargetLocation.X + $startOffsetX), ($FormTargetLocation.Y + $startOffsetY))
+  $Shadow.Show()
+  $Form.Show()
+
+  for ($frame = 1; $frame -le $frames; $frame++) {
+    $progress = $frame / $frames
+    $ease = 1 - [Math]::Pow((1 - $progress), 3)
+    $nextFormX = [int]($FormTargetLocation.X + ($startOffsetX * (1 - $ease)))
+    $nextFormY = [int]($FormTargetLocation.Y + ($startOffsetY * (1 - $ease)))
+    $nextShadowX = [int]($ShadowTargetLocation.X + ($startOffsetX * (1 - $ease)))
+    $nextShadowY = [int]($ShadowTargetLocation.Y + ($startOffsetY * (1 - $ease)))
+
+    $Form.Location = New-Object System.Drawing.Point($nextFormX, $nextFormY)
+    $Shadow.Location = New-Object System.Drawing.Point($nextShadowX, $nextShadowY)
+    $Form.Opacity = [Math]::Min($formTargetOpacity, 0.08 + ($formTargetOpacity * $ease))
+    $Shadow.Opacity = [Math]::Min($shadowTargetOpacity, $shadowTargetOpacity * $ease)
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 12
+  }
+
+  $Form.Location = $FormTargetLocation
+  $Shadow.Location = $ShadowTargetLocation
+  $Form.Opacity = $formTargetOpacity
+  $Shadow.Opacity = $shadowTargetOpacity
+  $Form.Activate()
+}
+
 function Show-InternalNotificationWindow {
   param(
     [string]$Url,
@@ -335,9 +469,10 @@ function Show-InternalNotificationWindow {
   }
   $script:ActivePopupForms = @()
 
-  $cardWidth = 420
-  $cardHeight = 196
-  $radius = 22
+  $cardWidth = 492
+  $cardHeight = 244
+  $radius = 24
+  $logoBitmap = New-NotifierLogoBitmap
 
   $shadow = New-Object System.Windows.Forms.Form
   $shadow.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
@@ -345,8 +480,8 @@ function Show-InternalNotificationWindow {
   $shadow.ShowInTaskbar = $false
   $shadow.TopMost = $true
   $shadow.BackColor = Get-UiColor -Hex "#0f172a"
-  $shadow.Opacity = 0.18
-  $shadow.ClientSize = New-Object System.Drawing.Size($cardWidth, $cardHeight)
+  $shadow.Opacity = 0.01
+  $shadow.ClientSize = New-Object System.Drawing.Size(($cardWidth + 8), ($cardHeight + 8))
   Set-RoundedRegion -Control $shadow -Radius $radius
 
   $form = New-Object System.Windows.Forms.Form
@@ -358,74 +493,128 @@ function Show-InternalNotificationWindow {
   $form.ShowInTaskbar = $false
   $form.TopMost = $true
   $form.BackColor = [System.Drawing.Color]::White
+  $form.Opacity = 0.01
   $form.ClientSize = New-Object System.Drawing.Size($cardWidth, $cardHeight)
   $form.Tag = [pscustomobject]@{
     Url = $Url
     Shadow = $shadow
+    LogoBitmap = $logoBitmap
   }
   $form.KeyPreview = $true
   Set-RoundedRegion -Control $form -Radius $radius
 
   $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-  $form.Location = New-Object System.Drawing.Point(
+  $formTargetLocation = New-Object System.Drawing.Point(
     ($workingArea.Right - $form.Width - 24),
     ($workingArea.Bottom - $form.Height - 24)
   )
-  $shadow.Location = New-Object System.Drawing.Point(($form.Location.X + 8), ($form.Location.Y + 10))
+  $shadowTargetLocation = New-Object System.Drawing.Point(($formTargetLocation.X + 8), ($formTargetLocation.Y + 10))
+  $form.Location = $formTargetLocation
+  $shadow.Location = $shadowTargetLocation
 
   $form.Add_SizeChanged({
     param($Sender, $_EventArgs)
-    Set-RoundedRegion -Control $Sender -Radius 22
+    Set-RoundedRegion -Control $Sender -Radius 24
   })
   $form.Add_Paint({
     param($Sender, $EventArgs)
 
     $EventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $borderPath = New-RoundedRectanglePath -Width $Sender.ClientSize.Width -Height $Sender.ClientSize.Height -Radius 22
+    $headerBrush = New-Object System.Drawing.SolidBrush -ArgumentList (Get-UiColor -Hex "#f8fbff")
+    $footerBrush = New-Object System.Drawing.SolidBrush -ArgumentList (Get-UiColor -Hex "#f8fafc")
+    $accentBrush = New-Object System.Drawing.SolidBrush -ArgumentList (Get-UiColor -Hex "#2563eb")
+    $EventArgs.Graphics.FillRectangle($headerBrush, 0, 0, $Sender.ClientSize.Width, 92)
+    $EventArgs.Graphics.FillRectangle($footerBrush, 0, 170, $Sender.ClientSize.Width, 74)
+    $EventArgs.Graphics.FillRectangle($accentBrush, 0, 0, $Sender.ClientSize.Width, 4)
+    $EventArgs.Graphics.FillRectangle($accentBrush, 0, 4, 5, 166)
+
+    $borderPath = New-RoundedRectanglePath -Width $Sender.ClientSize.Width -Height $Sender.ClientSize.Height -Radius 24
     $borderPen = New-Object System.Drawing.Pen -ArgumentList (Get-UiColor -Hex "#dbeafe"), 1
+    $dividerPen = New-Object System.Drawing.Pen -ArgumentList (Get-UiColor -Hex "#e2e8f0"), 1
+    $EventArgs.Graphics.DrawLine($dividerPen, 24, 170, ($Sender.ClientSize.Width - 24), 170)
     $EventArgs.Graphics.DrawPath($borderPen, $borderPath)
+    $headerBrush.Dispose()
+    $footerBrush.Dispose()
+    $accentBrush.Dispose()
     $borderPen.Dispose()
+    $dividerPen.Dispose()
     $borderPath.Dispose()
   })
 
   $iconWrap = New-Object System.Windows.Forms.Panel
-  $iconWrap.BackColor = Get-UiColor -Hex "#eff6ff"
-  $iconWrap.SetBounds(24, 24, 46, 46)
-  Set-RoundedRegion -Control $iconWrap -Radius 16
+  $iconWrap.BackColor = [System.Drawing.Color]::White
+  $iconWrap.SetBounds(28, 28, 56, 56)
+  Set-RoundedRegion -Control $iconWrap -Radius 18
   $iconWrap.Add_SizeChanged({
     param($Sender, $_EventArgs)
-    Set-RoundedRegion -Control $Sender -Radius 16
+    Set-RoundedRegion -Control $Sender -Radius 18
+  })
+  $iconWrap.Add_Paint({
+    param($Sender, $EventArgs)
+
+    $EventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $path = New-RoundedRectanglePath -Width $Sender.Width -Height $Sender.Height -Radius 18
+    $pen = New-Object System.Drawing.Pen -ArgumentList (Get-UiColor -Hex "#bfdbfe"), 1
+    $EventArgs.Graphics.DrawPath($pen, $path)
+    $pen.Dispose()
+    $path.Dispose()
   })
 
-  $iconText = New-Object System.Windows.Forms.Label
-  $iconText.Text = "F"
-  $iconText.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-  $iconText.ForeColor = Get-UiColor -Hex "#2563eb"
-  $iconText.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-  $iconText.SetBounds(0, 0, 46, 46)
-  $iconWrap.Controls.Add($iconText)
+  if ($null -ne $logoBitmap) {
+    $logo = New-Object System.Windows.Forms.PictureBox
+    $logo.Image = $logoBitmap
+    $logo.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
+    $logo.BackColor = [System.Drawing.Color]::Transparent
+    $logo.SetBounds(10, 10, 34, 34)
+    $iconWrap.Controls.Add($logo)
+  } else {
+    $iconText = New-Object System.Windows.Forms.Label
+    $iconText.Text = "F"
+    $iconText.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $iconText.ForeColor = Get-UiColor -Hex "#2563eb"
+    $iconText.Font = New-Object System.Drawing.Font("Segoe UI", 15, [System.Drawing.FontStyle]::Bold)
+    $iconText.SetBounds(0, 0, 56, 56)
+    $iconWrap.Controls.Add($iconText)
+  }
+
+  $pill = New-PillLabel `
+    -Text "Aviso interno" `
+    -X 102 `
+    -Y 27 `
+    -Width 112 `
+    -Height 24 `
+    -BackColor "#eff6ff" `
+    -ForeColor "#1d4ed8" `
+    -Radius 12
 
   $brand = New-Object System.Windows.Forms.Label
   $brand.Text = "Fasa Certificados"
-  $brand.ForeColor = Get-UiColor -Hex "#2563eb"
-  $brand.Font = New-Object System.Drawing.Font("Segoe UI", 8.75, [System.Drawing.FontStyle]::Bold)
-  $brand.SetBounds(84, 24, 240, 20)
+  $brand.ForeColor = Get-UiColor -Hex "#64748b"
+  $brand.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Regular)
+  $brand.SetBounds(224, 30, 154, 18)
+
+  $timeLabel = New-Object System.Windows.Forms.Label
+  $timeLabel.Text = "Agora"
+  $timeLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+  $timeLabel.ForeColor = Get-UiColor -Hex "#64748b"
+  $timeLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Regular)
+  $timeLabel.SetBounds(390, 30, 64, 18)
 
   $title = New-Object System.Windows.Forms.Label
   $title.Text = [string]$Notification.title
   $title.ForeColor = Get-UiColor -Hex "#0f172a"
-  $title.Font = New-Object System.Drawing.Font("Segoe UI", 10.75, [System.Drawing.FontStyle]::Bold)
+  $title.Font = New-Object System.Drawing.Font("Segoe UI", 11.5, [System.Drawing.FontStyle]::Bold)
   $title.AutoEllipsis = $true
   $title.UseMnemonic = $false
-  $title.SetBounds(84, 47, 306, 25)
+  $title.SetBounds(102, 58, 352, 28)
 
   $body = New-Object System.Windows.Forms.Label
   $body.Text = Get-NotificationBody -Notification $Notification
   $body.ForeColor = Get-UiColor -Hex "#475569"
-  $body.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+  $body.Font = New-Object System.Drawing.Font("Segoe UI", 9.25, [System.Drawing.FontStyle]::Regular)
   $body.AutoEllipsis = $true
   $body.UseMnemonic = $false
-  $body.SetBounds(84, 78, 308, 46)
+  $body.SetBounds(28, 110, 426, 46)
 
   $openNotification = {
     param($Sender, $_EventArgs)
@@ -450,12 +639,12 @@ function Show-InternalNotificationWindow {
 
   $closeButton = New-ActionButton `
     -Text "Fechar" `
-    -X 176 `
-    -Y 142 `
-    -Width 94 `
+    -X 250 `
+    -Y 190 `
+    -Width 86 `
     -Height 38 `
-    -BackColor "#ffffff" `
-    -HoverBackColor "#f8fafc" `
+    -BackColor "#f8fafc" `
+    -HoverBackColor "#eef2f7" `
     -ForeColor "#334155" `
     -HoverForeColor "#0f172a" `
     -BorderColor "#cbd5e1" `
@@ -465,10 +654,10 @@ function Show-InternalNotificationWindow {
     -OnClick $closePopup
 
   $openButton = New-ActionButton `
-    -Text "Abrir central" `
-    -X 280 `
-    -Y 142 `
-    -Width 116 `
+    -Text "Abrir aviso" `
+    -X 348 `
+    -Y 190 `
+    -Width 106 `
     -Height 38 `
     -BackColor "#2563eb" `
     -HoverBackColor "#1d4ed8" `
@@ -490,6 +679,10 @@ function Show-InternalNotificationWindow {
       $shadowForm.Dispose()
     }
 
+    if ($null -ne $Sender.Tag.LogoBitmap) {
+      $Sender.Tag.LogoBitmap.Dispose()
+    }
+
     $script:ActivePopupForms = @($script:ActivePopupForms | Where-Object { $_ -ne $Sender -and $_ -ne $shadowForm })
   })
   $form.Add_KeyDown({
@@ -506,16 +699,20 @@ function Show-InternalNotificationWindow {
   })
 
   $form.Controls.Add($iconWrap)
+  $form.Controls.Add($pill)
   $form.Controls.Add($brand)
+  $form.Controls.Add($timeLabel)
   $form.Controls.Add($title)
   $form.Controls.Add($body)
   $form.Controls.Add($closeButton)
   $form.Controls.Add($openButton)
   $script:ActivePopupForms += $shadow
   $script:ActivePopupForms += $form
-  $shadow.Show()
-  $form.Show()
-  $form.Activate()
+  Show-NotificationEntranceAnimation `
+    -Shadow $shadow `
+    -Form $form `
+    -ShadowTargetLocation $shadowTargetLocation `
+    -FormTargetLocation $formTargetLocation
 }
 
 function Show-InternalNotification {
@@ -590,9 +787,22 @@ try {
     exit 0
   }
 
+  $createdNew = $false
+  $script:SingleInstanceMutex = New-Object System.Threading.Mutex($true, "FasaCertificadosInternalNotifier", [ref]$createdNew)
+  $script:SingleInstanceMutexCreated = $createdNew
+
+  if (-not $script:SingleInstanceMutexCreated) {
+    Write-NotifierLog "Notificador ja estava em execucao. Nova instancia encerrada."
+    if ($null -ne $script:SingleInstanceMutex) {
+      $script:SingleInstanceMutex.Dispose()
+    }
+    exit 0
+  }
+
   $state = Read-NotifierState
   $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
-  $notifyIcon.Icon = [System.Drawing.SystemIcons]::Information
+  $script:TrayIcon = New-NotifierIcon
+  $notifyIcon.Icon = $script:TrayIcon
   $notifyIcon.Text = "Fasa Certificados"
   $notifyIcon.Visible = $true
 
@@ -649,9 +859,23 @@ try {
 
   $notifyIcon.Visible = $false
   $notifyIcon.Dispose()
+  if ($null -ne $script:TrayIcon) {
+    $script:TrayIcon.Dispose()
+  }
+  if ($script:SingleInstanceMutexCreated -and $null -ne $script:SingleInstanceMutex) {
+    $script:SingleInstanceMutex.ReleaseMutex()
+    $script:SingleInstanceMutex.Dispose()
+  }
   Write-NotifierLog "Notificador encerrado."
 } catch {
   Write-NotifierLog "Falha critica: $($_.Exception.Message)"
+  if ($null -ne $script:TrayIcon) {
+    $script:TrayIcon.Dispose()
+  }
+  if ($script:SingleInstanceMutexCreated -and $null -ne $script:SingleInstanceMutex) {
+    $script:SingleInstanceMutex.ReleaseMutex()
+    $script:SingleInstanceMutex.Dispose()
+  }
   Show-SetupMessage -Message $_.Exception.Message
   exit 1
 }

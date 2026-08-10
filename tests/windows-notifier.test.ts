@@ -16,6 +16,18 @@ const routeSource = readFileSync(
 const notifierScript = readFileSync(join(process.cwd(), "tools/windows-notifier/FasaInternalNotifier.ps1"), "utf8");
 const notifierBat = readFileSync(join(process.cwd(), "tools/windows-notifier/INICIAR_NOTIFICADOR_FASA.bat"), "utf8");
 const notifierConfigExample = readFileSync(join(process.cwd(), "tools/windows-notifier/config.example.json"), "utf8");
+const notifierInstallerSource = readFileSync(join(process.cwd(), "tools/windows-notifier/installer/Installer.cs"), "utf8");
+const notifierInstallerBuild = readFileSync(join(process.cwd(), "tools/windows-notifier/installer/build-installer.ps1"), "utf8");
+const wpfNotifierSource = readFileSync(join(process.cwd(), "tools/windows-notifier-app/FasaNotifierApp.cs"), "utf8");
+const wpfNotifierReadme = readFileSync(join(process.cwd(), "tools/windows-notifier-app/README.md"), "utf8");
+const wpfNotifierInstallerSource = readFileSync(
+  join(process.cwd(), "tools/windows-notifier-app/installer/Installer.cs"),
+  "utf8",
+);
+const wpfNotifierInstallerBuild = readFileSync(
+  join(process.cwd(), "tools/windows-notifier-app/installer/build-installer.ps1"),
+  "utf8",
+);
 const packageJson = readFileSync(join(process.cwd(), "package.json"), "utf8");
 const envExample = readFileSync(join(process.cwd(), ".env.example"), "utf8");
 const gitignore = readFileSync(join(process.cwd(), ".gitignore"), "utf8");
@@ -118,6 +130,10 @@ describe("windows notifier route and client package", () => {
     expect(notifierScript).toContain('Authorization = "Bearer $($Config.Token)"');
     expect(notifierScript).toContain("Show-InternalNotificationWindow");
     expect(notifierScript).toContain("New-ActionButton");
+    expect(notifierScript).toContain("Show-NotificationEntranceAnimation");
+    expect(notifierScript).toContain("New-NotifierLogoBitmap");
+    expect(notifierScript).toContain("fasa.ico");
+    expect(notifierScript).toContain("FasaCertificadosInternalNotifier");
     expect(notifierScript).not.toContain("ShowBalloonTip");
     expect(notifierScript).toContain("createdAt");
     expect(notifierScript).toContain("config.local.json");
@@ -135,6 +151,40 @@ describe("windows notifier route and client package", () => {
     expect(envExample).toContain("WINDOWS_NOTIFIER_ROLE=financeiro");
     expect(notifierConfigExample).toContain("cole_o_mesmo_valor_do_WINDOWS_NOTIFIER_TOKEN");
     expect(gitignore).toContain("tools/windows-notifier/config.local.json");
+    expect(gitignore).toContain("tools/windows-notifier/dist/");
     expect(notifierConfigExample).not.toContain("secret-token");
+  });
+
+  it("inclui instalador Windows por usuario com inicializacao automatica", () => {
+    expect(notifierInstallerSource).toContain("FasaCertificadosNotifier");
+    expect(notifierInstallerSource).toContain("CurrentUser.OpenSubKey");
+    expect(notifierInstallerSource).toContain("Windows\\CurrentVersion\\Run");
+    expect(notifierInstallerSource).toContain("config.local.json");
+    expect(notifierInstallerSource).toContain("fasa.ico");
+    expect(notifierInstallerSource).toContain("StartNotifier");
+    expect(notifierInstallerSource).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(notifierInstallerBuild).toContain("InstalarNotificadorFasa.exe");
+    expect(notifierInstallerBuild).toContain("FasaNotifierSetup");
+  });
+
+  it("inclui cliente WPF moderno sem depender de PowerShell para renderizar o popup", () => {
+    expect(wpfNotifierSource).toContain("using System.Windows;");
+    expect(wpfNotifierSource).toContain("/api/internal-notifications/windows/summary");
+    expect(wpfNotifierSource).toContain("Bearer ");
+    expect(wpfNotifierSource).toContain("NotificationWindow");
+    expect(wpfNotifierSource).toContain("DropShadowEffect");
+    expect(wpfNotifierSource).toContain("BeginEntranceAnimation");
+    expect(wpfNotifierSource).toContain("FasaCertificadosInternalNotifier");
+    expect(wpfNotifierSource).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(wpfNotifierSource).not.toContain("createSupabase");
+    expect(wpfNotifierInstallerSource).toContain("FasaNotifierApp.exe");
+    expect(wpfNotifierInstallerSource).toContain("FasaCertificadosNotifier");
+    expect(wpfNotifierInstallerSource).toContain("Windows\\CurrentVersion\\Run");
+    expect(wpfNotifierInstallerBuild).toContain("PresentationFramework.dll");
+    expect(wpfNotifierInstallerBuild).toContain("FasaNotifierWpfSetup");
+    expect(wpfNotifierInstallerBuild).toContain("InstalarNotificadorFasa.exe");
+    expect(wpfNotifierReadme).toContain("WPF");
+    expect(gitignore).toContain("tools/windows-notifier-app/config.local.json");
+    expect(gitignore).toContain("tools/windows-notifier-app/dist/");
   });
 });

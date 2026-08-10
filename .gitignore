@@ -37,6 +37,9 @@ yarn-error.log*
 
 desktop-bot/
 tools/windows-notifier/config.local.json
+tools/windows-notifier/dist/
+tools/windows-notifier-app/config.local.json
+tools/windows-notifier-app/dist/
 
 # vercel
 .vercel

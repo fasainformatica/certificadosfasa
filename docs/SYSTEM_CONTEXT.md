@@ -140,7 +140,7 @@ docs/reference
 - `/notificacoes`: Central de avisos com metricas, bloco de prioridade operacional, categorias, status humanos, mensagens de erro sanitizadas, reenvio controlado e tabela responsiva.
 - `/notificacoes-internas`: central interna acessada pelo sininho, com KPIs de notificacoes, filtros rapidos, busca, filtros por tipo/prioridade, tabela desktop, cards mobile e acoes `Ver certificado`, `Marcar lida` e `Dispensar`.
 - `/whatsapp`: Automacao do WhatsApp com status de integracao, instancia, fila, enviados, falhas, tempo medio, seguranca operacional, qualidade dos telefones e ferramentas de homologacao.
-- `/configuracoes`: Configuracoes do sistema em secoes Geral, WhatsApp, Mensagens, Destinatarios e Seguranca, incluindo chips para dias de antecedencia.
+- `/configuracoes`: Configuracoes do sistema em secoes Geral, WhatsApp, Mensagens, Destinatarios, Usuarios e Seguranca, incluindo chips para dias de antecedencia e gestao de usuarios para `admin`.
 - `/certificados/novo`, `/certificados/importar`, `/certificados/[id]`, `/login` e `/download/[token]`: textos revisados, superficies alinhadas e estados de erro/carregamento mais claros. O upload individual mostra resumo do arquivo, controle de mostrar/ocultar senha do PFX, labels associados e envio com campos bloqueados. A importacao em massa mostra resumo da selecao, arquivos ignorados, progressbar por lote e acao de limpar selecao. O detalhe do certificado mostra resumo operacional, grupos de dados de cliente/certificado/renovacao, area tecnica separada sem `storage_path`, hash reduzido na apresentacao e feedback acessivel em senha PFX, link de download, edicao de cliente e exclusao. O login interno usa erro sem detalhe tecnico, associacao de ajuda/erro aos campos e controle de mostrar/ocultar senha. O download publico mostra senha temporaria, uso unico, expira em 60 segundos e link indisponivel sem expor token, storage path ou senha real do PFX.
 
 ### Responsividade e acessibilidade
@@ -155,7 +155,7 @@ docs/reference
 
 ### Principais tabelas
 
-- `user_profiles`: perfil interno e role do usuario autenticado.
+- `user_profiles`: perfil interno, status ativo e role do usuario autenticado (`admin` ou `financeiro`).
 - `clientes`: dados do cliente, CNPJ, contato, WhatsApp e flag `whatsapp_notifications_enabled`.
 - `certificados`: metadados do PFX atual, validade, status, situacao de renovacao, senha criptografada e `storage_path` versionado por hash.
 - `links_download`: links publicos com `token_hash`, `senha_hash`, uso unico, bloqueio por tentativas e auditoria de uso.
@@ -450,7 +450,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 
 ### Configuracoes
 
-`/configuracoes` centraliza avisos ativos, dias, delays, templates e destinatarios internos. A tela e as APIs de configuracao sao exclusivas para `admin`.
+`/configuracoes` centraliza avisos ativos, dias, delays, templates, destinatarios internos, seguranca operacional e gestao de usuarios. A tela e as APIs de configuracao sao exclusivas para `admin`. A aba Usuarios consome `/api/admin/users`, cria usuarios no Supabase Auth, atualiza `user_profiles`, remove acessos e bloqueia autoexclusao ou remocao/rebaixamento do ultimo administrador ativo.
 
 ### Canal WhatsApp
 

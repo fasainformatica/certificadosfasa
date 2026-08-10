@@ -6,6 +6,7 @@ import {
   clampNotificationPollingInterval,
   ensureDefaultNotificationTemplates,
 } from "@/lib/notifications/engine";
+import { listManagedInternalUsers } from "@/lib/admin/users";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { ConfiguracoesForm } from "./configuracoes-form";
@@ -28,6 +29,7 @@ export default async function ConfiguracoesPage() {
     .from("notification_recipients")
     .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
     .order("created_at", { ascending: true });
+  const internalUsers = await listManagedInternalUsers(admin);
   const delaySettings = clampNotificationDelaySettings(notificationSettings);
   const pollingInterval = clampNotificationPollingInterval(notificationSettings?.polling_interval_seconds);
   const expiringTemplate = templates?.find((item) => item.type === "certificate_expiring");
@@ -43,6 +45,7 @@ export default async function ConfiguracoesPage() {
       />
       <ConfiguracoesForm
         canEdit={user.role === "admin"}
+        currentUserId={user.id}
         userEmail={user.email}
         userRole={user.role}
         initialSettings={{
@@ -79,6 +82,7 @@ export default async function ConfiguracoesPage() {
           content: clientExpiredTemplate?.content ?? "",
         }}
         initialRecipients={recipients ?? []}
+        initialUsers={internalUsers}
       />
     </section>
   );

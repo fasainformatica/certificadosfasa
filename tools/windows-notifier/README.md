@@ -43,7 +43,32 @@ Execute `INICIAR_NOTIFICADOR_FASA.bat`.
 
 O script fica na bandeja do Windows. A primeira notificacao encontrada vira linha de base para nao avisar historico antigo. Depois disso, novas notificacoes mostram uma janela discreta no canto da tela.
 
-O popup usa as cores do painel, fica aberto ate voce clicar em `Abrir central` ou `Fechar`, e nao depende das notificacoes nativas do Windows.
+O popup usa as cores do painel, fica aberto ate voce clicar em `Abrir aviso` ou `Fechar`, e nao depende das notificacoes nativas do Windows.
+
+## Instalador
+
+Gere o pacote instalavel com:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\windows-notifier\installer\build-installer.ps1
+```
+
+O comando cria:
+
+```text
+tools\windows-notifier\dist\FasaNotifierSetup\InstalarNotificadorFasa.exe
+```
+
+Para instalar em outro computador, envie a pasta inteira `FasaNotifierSetup` para a maquina e execute `InstalarNotificadorFasa.exe`.
+
+O instalador:
+
+- Copia o notificador para `%LOCALAPPDATA%\FasaCertificados\Notificador`.
+- Registra a inicializacao automatica no Windows para o usuario atual.
+- Inicia o notificador assim que a instalacao termina.
+- Nao precisa de permissao de administrador.
+
+O pacote inclui `config.local.json`; trate essa pasta como confidencial porque ela contem o token do notificador.
 
 ## Limites
 

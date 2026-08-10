@@ -10,6 +10,7 @@ import {
   Save,
   ShieldCheck,
   Trash2,
+  UserCog,
   UsersRound,
   X,
 } from "lucide-react";
@@ -23,6 +24,8 @@ import {
   buildConfiguracoesOperationalSummary,
   type ConfiguracoesSummaryItem,
 } from "@/lib/configuracoes/presentation";
+import type { ManagedInternalUser } from "@/lib/admin/user-types";
+import type { UserRole } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils/cn";
 import { formatDaysLabel } from "@/lib/utils/format";
 
@@ -72,13 +75,18 @@ type RecipientPayload = ApiErrorPayload & {
   recipient?: Recipient;
 };
 
-type SettingsTab = "geral" | "canal" | "mensagens" | "destinatarios" | "seguranca";
+type UserPayload = ApiErrorPayload & {
+  user?: ManagedInternalUser;
+};
+
+type SettingsTab = "geral" | "canal" | "mensagens" | "destinatarios" | "usuarios" | "seguranca";
 
 const tabs = [
   { key: "geral", label: "Geral", icon: Bell },
   { key: "canal", label: "WhatsApp", icon: Bot },
   { key: "mensagens", label: "Mensagens", icon: MessageSquareText },
   { key: "destinatarios", label: "Destinatários", icon: UsersRound },
+  { key: "usuarios", label: "Usuários", icon: UserCog },
   { key: "seguranca", label: "Segurança", icon: ShieldCheck },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Bell }[];
 
@@ -96,6 +104,29 @@ const summaryIcons = {
 
 function normalizeDays(days: number[]) {
   return Array.from(new Set(days.filter((day) => Number.isInteger(day) && day >= 1 && day <= 365))).sort((a, b) => b - a);
+}
+
+function sortManagedUsers(users: ManagedInternalUser[]) {
+  return [...users].sort((left, right) => left.email.localeCompare(right.email, "pt-BR"));
+}
+
+function getUserRoleLabel(role: UserRole) {
+  return role === "admin" ? "Administrador" : "Financeiro";
+}
+
+function formatManagedUserDate(value: string | null) {
+  if (!value) {
+    return "Nunca";
+  }
+
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return "Data indisponível";
+  }
 }
 
 function getErrorMessage(payload: ApiErrorPayload | null, fallback: string) {
@@ -168,6 +199,7 @@ function SummaryCard({ item }: { item: ConfiguracoesSummaryItem }) {
 
 export function ConfiguracoesForm({
   canEdit,
+  currentUserId,
   userEmail,
   userRole,
   initialSettings,
@@ -176,8 +208,10 @@ export function ConfiguracoesForm({
   initialClientExpiringTemplate,
   initialClientExpiredTemplate,
   initialRecipients,
+  initialUsers,
 }: {
   canEdit: boolean;
+  currentUserId: string;
   userEmail: string | null;
   userRole: "admin" | "financeiro";
   initialSettings: SettingsFormState;
@@ -186,6 +220,7 @@ export function ConfiguracoesForm({
   initialClientExpiringTemplate: TemplateFormState;
   initialClientExpiredTemplate: TemplateFormState;
   initialRecipients: Recipient[];
+  initialUsers: ManagedInternalUser[];
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("geral");
   const [settings, setSettings] = useState({
@@ -200,9 +235,17 @@ export function ConfiguracoesForm({
   const [clientExpiredTemplate, setClientExpiredTemplate] = useState(initialClientExpiredTemplate.content);
   const [recipients, setRecipients] = useState(initialRecipients);
   const [recipientDraft, setRecipientDraft] = useState({ nome: "", telefone: "", ativo: true });
+  const [managedUsers, setManagedUsers] = useState(() => sortManagedUsers(initialUsers));
+  const [userDraft, setUserDraft] = useState({
+    email: "",
+    password: "",
+    role: "financeiro" as UserRole,
+    active: true,
+  });
   const [pending, setPending] = useState(false);
   const [scanPending, setScanPending] = useState(false);
   const [recipientPendingId, setRecipientPendingId] = useState<string | null>(null);
+  const [userPendingId, setUserPendingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,6 +255,10 @@ export function ConfiguracoesForm({
 
   function patchRecipient(id: string, patch: Partial<Recipient>) {
     setRecipients((current) => current.map((recipient) => (recipient.id === id ? { ...recipient, ...patch } : recipient)));
+  }
+
+  function patchManagedUser(id: string, patch: Partial<Pick<ManagedInternalUser, "role" | "active">>) {
+    setManagedUsers((current) => current.map((managedUser) => (managedUser.id === id ? { ...managedUser, ...patch } : managedUser)));
   }
 
   function addDay() {
@@ -428,6 +475,105 @@ export function ConfiguracoesForm({
     }
   }
 
+  async function createManagedUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canEdit) {
+      return;
+    }
+
+    setUserPendingId("new");
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(userDraft),
+      });
+      const payload = (await response.json().catch(() => null)) as UserPayload | null;
+
+      if (!response.ok || !payload?.user) {
+        setError(getErrorMessage(payload, "Não foi possível criar o usuário. Verifique os dados e tente novamente."));
+        return;
+      }
+
+      setManagedUsers((current) => sortManagedUsers([...current.filter((item) => item.id !== payload.user!.id), payload.user!]));
+      setUserDraft({ email: "", password: "", role: "financeiro", active: true });
+      setMessage("Usuário criado. Envie a senha temporária por um canal seguro.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
+      setUserPendingId(null);
+    }
+  }
+
+  async function saveManagedUser(managedUser: ManagedInternalUser) {
+    if (!canEdit || managedUser.id === currentUserId) {
+      return;
+    }
+
+    setUserPendingId(managedUser.id);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${managedUser.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          role: managedUser.role,
+          active: managedUser.active,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as UserPayload | null;
+
+      if (!response.ok || !payload?.user) {
+        setError(getErrorMessage(payload, "Não foi possível atualizar a permissão do usuário."));
+        return;
+      }
+
+      setManagedUsers((current) => sortManagedUsers(current.map((item) => (item.id === payload.user!.id ? payload.user! : item))));
+      setMessage("Permissão do usuário atualizada.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
+      setUserPendingId(null);
+    }
+  }
+
+  async function removeManagedUser(managedUser: ManagedInternalUser) {
+    if (
+      !canEdit ||
+      managedUser.id === currentUserId ||
+      !confirm(`Remover ${managedUser.email}? Esta ação remove o acesso deste usuário ao sistema.`)
+    ) {
+      return;
+    }
+
+    setUserPendingId(managedUser.id);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${managedUser.id}`, { method: "DELETE" });
+      const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+
+      if (!response.ok) {
+        setError(getErrorMessage(payload, "Não foi possível remover o usuário."));
+        return;
+      }
+
+      setManagedUsers((current) => current.filter((item) => item.id !== managedUser.id));
+      setMessage("Usuário removido do sistema.");
+    } catch {
+      setError(networkErrorMessage);
+    } finally {
+      setUserPendingId(null);
+    }
+  }
+
   const disabled = !canEdit || pending;
   const formBusy = pending || scanPending;
   const recipientLimitReached = recipients.length >= 5;
@@ -498,7 +644,160 @@ export function ConfiguracoesForm({
       {error ? <InlineAlert tone="error">{error}</InlineAlert> : null}
       {message ? <InlineAlert tone="success">{message}</InlineAlert> : null}
 
-      {activeTab === "destinatarios" ? (
+      {activeTab === "usuarios" ? (
+        <FormSection
+          title="Usuários e permissões"
+          description="Crie acessos internos, defina o cargo e remova usuários que não devem mais entrar no sistema."
+        >
+          {canEdit ? (
+            <form
+              onSubmit={createManagedUser}
+              className="mb-4 grid gap-2.5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_160px_96px_auto]"
+            >
+              <label className="grid gap-1 text-sm font-medium text-slate-800">
+                E-mail
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  disabled={userPendingId === "new"}
+                  value={userDraft.email}
+                  onChange={(event) => setUserDraft((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="usuario@empresa.com.br"
+                  className={inputClass}
+                />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-800">
+                Senha temporária
+                <input
+                  required
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  disabled={userPendingId === "new"}
+                  value={userDraft.password}
+                  onChange={(event) => setUserDraft((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="Mínimo 8 caracteres"
+                  className={inputClass}
+                />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-800">
+                Permissão
+                <select
+                  disabled={userPendingId === "new"}
+                  value={userDraft.role}
+                  onChange={(event) => setUserDraft((current) => ({ ...current, role: event.target.value as UserRole }))}
+                  className={inputClass}
+                >
+                  <option value="financeiro">Financeiro</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </label>
+              <label className="inline-flex h-16 items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  disabled={userPendingId === "new"}
+                  checked={userDraft.active}
+                  onChange={(event) => setUserDraft((current) => ({ ...current, active: event.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+                Ativo
+              </label>
+              <button type="submit" disabled={userPendingId === "new"} className={buttonClass("primary", "self-end")}>
+                {userPendingId === "new" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Criar usuário
+              </button>
+            </form>
+          ) : null}
+
+          <div className="grid gap-2.5">
+            {managedUsers.length === 0 ? (
+              <EmptyState
+                title="Nenhum usuário encontrado"
+                description="Crie o primeiro acesso interno para controlar permissões no painel."
+                icon={UserCog}
+              />
+            ) : (
+              managedUsers.map((managedUser) => {
+                const isCurrentUser = managedUser.id === currentUserId;
+                const rowPending = userPendingId === managedUser.id;
+
+                return (
+                  <article
+                    key={managedUser.id}
+                    className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 xl:grid-cols-[minmax(220px,1fr)_160px_120px_150px_auto]"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="break-all text-sm font-semibold text-slate-950">{managedUser.email}</p>
+                        {isCurrentUser ? <Badge tone="blue">Você</Badge> : null}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Criado em {formatManagedUserDate(managedUser.createdAt)}</p>
+                    </div>
+
+                    <label className="grid gap-1 text-sm font-medium text-slate-800">
+                      Permissão
+                      <select
+                        disabled={!canEdit || isCurrentUser || rowPending}
+                        value={managedUser.role}
+                        onChange={(event) => patchManagedUser(managedUser.id, { role: event.target.value as UserRole })}
+                        className={inputClass}
+                      >
+                        <option value="financeiro">Financeiro</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    </label>
+
+                    <label className="inline-flex h-16 items-center gap-2 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        disabled={!canEdit || isCurrentUser || rowPending}
+                        checked={managedUser.active}
+                        onChange={(event) => patchManagedUser(managedUser.id, { active: event.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                      />
+                      {managedUser.active ? "Ativo" : "Inativo"}
+                    </label>
+
+                    <div className="grid gap-1 text-sm text-slate-700">
+                      <span className="font-medium text-slate-800">Último acesso</span>
+                      <span className="text-xs text-slate-500">{formatManagedUserDate(managedUser.lastSignInAt)}</span>
+                      <Badge tone={managedUser.active ? "green" : "slate"}>{managedUser.active ? getUserRoleLabel(managedUser.role) : "Acesso pausado"}</Badge>
+                    </div>
+
+                    {canEdit ? (
+                      <div className="flex items-end gap-2">
+                        <button
+                          type="button"
+                          disabled={isCurrentUser || rowPending}
+                          onClick={() => saveManagedUser(managedUser)}
+                          className={buttonClass("secondary", "h-11 px-3")}
+                        >
+                          {rowPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          Salvar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isCurrentUser || rowPending}
+                          onClick={() => removeManagedUser(managedUser)}
+                          className={buttonClass("danger", "h-11 px-3")}
+                          aria-label={`Remover ${managedUser.email}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            O cargo Financeiro pode operar certificados, clientes, links e avisos. WhatsApp, configurações e usuários continuam restritos a Administrador.
+          </p>
+        </FormSection>
+      ) : activeTab === "destinatarios" ? (
         <FormSection
           title="Destinatários internos"
           description="Apenas estes números recebem mensagens automáticas destinadas à equipe interna."
