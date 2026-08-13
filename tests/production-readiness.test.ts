@@ -6,7 +6,7 @@ const validEnv = {
   NODE_ENV: "test",
   NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
-  SUPABASE_SERVICE_ROLE_KEY: "service",
+  SUPABASE_SECRET_KEY: "service",
   CERT_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
   CRON_SECRET: "x".repeat(32),
   NEXT_PUBLIC_SITE_URL: "https://fasa.example.com",
@@ -31,6 +31,18 @@ describe("production readiness", () => {
 
     expect(euAtendo?.ok).toBe(false);
     expect(euAtendo?.severity).toBe("critical");
+  });
+
+  it("aceita service role legado somente como fallback server-side", () => {
+    const checks = evaluateProductionEnvironment({
+      ...validEnv,
+      SUPABASE_SECRET_KEY: "",
+      SUPABASE_SERVICE_ROLE_KEY: "legacy-service-role",
+    });
+    const adminKey = checks.find((item) => item.id === "supabase_admin_key");
+
+    expect(adminKey?.ok).toBe(true);
+    expect(adminKey?.message).toContain("Migre para SUPABASE_SECRET_KEY");
   });
 
   it("exige feature flag e token quando a extensao e o provider ativo", () => {

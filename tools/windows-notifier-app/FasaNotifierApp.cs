@@ -91,7 +91,7 @@ internal sealed class FasaNotifierRuntime
     private Drawing.Icon trayIcon;
     private Mutex singleInstanceMutex;
     private DispatcherTimer pollTimer;
-    private NotificationWindow activeWindow;
+    private readonly List<NotificationWindow> activeWindows = new List<NotificationWindow>();
     private DateTime startedAtUtc;
     private bool isChecking;
     private bool shouldExitAfterCheck;
@@ -529,38 +529,54 @@ internal sealed class FasaNotifierRuntime
             CreatedAt = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture)
         };
 
-        NotificationWindow window = new NotificationWindow(preview, JoinAppUrl(this.config.BaseUrl, preview.Href), this.iconPath);
-        window.AutoCloseAfter = TimeSpan.FromSeconds(30);
-        ShowWindow(window);
+        ShowWindow(new NotificationWindow(preview, JoinAppUrl(this.config.BaseUrl, preview.Href), this.iconPath));
     }
 
     private void ShowWindow(NotificationWindow window)
     {
-        if (this.activeWindow != null)
-        {
-            try
-            {
-                this.activeWindow.Close();
-            }
-            catch
-            {
-            }
-        }
+        this.activeWindows.Add(window);
+        ArrangeNotificationWindows(true);
 
-        this.activeWindow = window;
         window.Closed += delegate
         {
-            if (object.ReferenceEquals(this.activeWindow, window))
-            {
-                this.activeWindow = null;
-            }
+            this.activeWindows.Remove(window);
+            ArrangeNotificationWindows(true);
 
-            if (this.options != null && this.options.PreviewPopup && this.notifyIcon == null)
+            if (this.options != null && this.options.PreviewPopup && this.notifyIcon == null && this.activeWindows.Count == 0)
             {
                 Shutdown();
             }
         };
         window.Show();
+    }
+
+    private void ArrangeNotificationWindows(bool animate)
+    {
+        Rect area = SystemParameters.WorkArea;
+        const double margin = 24;
+        const double gap = 12;
+        double nextBottom = area.Bottom - margin;
+
+        for (int index = this.activeWindows.Count - 1; index >= 0; index--)
+        {
+            NotificationWindow window = this.activeWindows[index];
+
+            if (window == null)
+            {
+                continue;
+            }
+
+            double left = area.Right - window.Width - margin;
+            double top = nextBottom - window.Height;
+
+            if (top < area.Top + margin)
+            {
+                top = area.Top + margin;
+            }
+
+            window.MoveTo(left, top, animate);
+            nextBottom = top - gap;
+        }
     }
 
     private string BuildSelfTestMessage(SummaryDto summary)
@@ -727,8 +743,6 @@ internal sealed class NotificationWindow : Window
     private readonly string url;
     private readonly string iconPath;
 
-    public TimeSpan? AutoCloseAfter;
-
     public NotificationWindow(NotificationDto notification, string url, string iconPath)
     {
         this.notification = notification;
@@ -762,9 +776,7 @@ internal sealed class NotificationWindow : Window
 
         this.Loaded += delegate
         {
-            PositionWindow();
             BeginEntranceAnimation();
-            StartAutoCloseTimer();
         };
         this.KeyDown += delegate(object sender, KeyEventArgs e)
         {
@@ -820,14 +832,6 @@ internal sealed class NotificationWindow : Window
         headerBand.CornerRadius = new CornerRadius(24, 24, 0, 0);
         Grid.SetRow(headerBand, 0);
         layout.Children.Add(headerBand);
-
-        Border accentTop = new Border();
-        accentTop.Height = 4;
-        accentTop.VerticalAlignment = VerticalAlignment.Top;
-        accentTop.Background = HexBrush("#2563eb");
-        accentTop.CornerRadius = new CornerRadius(24, 24, 0, 0);
-        Grid.SetRow(accentTop, 0);
-        layout.Children.Add(accentTop);
 
         Grid header = new Grid();
         header.Margin = new Thickness(26, 24, 26, 0);
@@ -1089,11 +1093,26 @@ internal sealed class NotificationWindow : Window
         return "Abra a central interna para revisar.";
     }
 
-    private void PositionWindow()
+    public void MoveTo(double left, double top, bool animate)
     {
-        Rect area = SystemParameters.WorkArea;
-        this.Left = area.Right - this.Width - 24;
-        this.Top = area.Bottom - this.Height - 24;
+        if (!animate || !this.IsLoaded)
+        {
+            this.BeginAnimation(Window.LeftProperty, null);
+            this.BeginAnimation(Window.TopProperty, null);
+            this.Left = left;
+            this.Top = top;
+            return;
+        }
+
+        CubicEase ease = new CubicEase();
+        ease.EasingMode = EasingMode.EaseOut;
+
+        DoubleAnimation slideX = new DoubleAnimation(this.Left, left, TimeSpan.FromMilliseconds(160));
+        slideX.EasingFunction = ease;
+        DoubleAnimation slideY = new DoubleAnimation(this.Top, top, TimeSpan.FromMilliseconds(160));
+        slideY.EasingFunction = ease;
+        this.BeginAnimation(Window.LeftProperty, slideX);
+        this.BeginAnimation(Window.TopProperty, slideY);
     }
 
     private void BeginEntranceAnimation()
@@ -1115,23 +1134,6 @@ internal sealed class NotificationWindow : Window
         slideY.EasingFunction = ease;
         this.BeginAnimation(Window.LeftProperty, slideX);
         this.BeginAnimation(Window.TopProperty, slideY);
-    }
-
-    private void StartAutoCloseTimer()
-    {
-        if (!this.AutoCloseAfter.HasValue)
-        {
-            return;
-        }
-
-        DispatcherTimer timer = new DispatcherTimer();
-        timer.Interval = this.AutoCloseAfter.Value;
-        timer.Tick += delegate
-        {
-            timer.Stop();
-            this.Close();
-        };
-        timer.Start();
     }
 
     private void OpenNotification()

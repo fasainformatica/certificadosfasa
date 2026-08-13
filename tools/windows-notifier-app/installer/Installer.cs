@@ -35,9 +35,8 @@ internal static class Installer
                 "Notificador"
             );
 
-            Directory.CreateDirectory(installDir);
             StopExistingNotifier();
-            RemoveLegacyFiles(installDir);
+            ResetInstallDirectory(installDir);
             CopyPackageFiles(sourceDir, installDir);
             RegisterStartup(installDir);
             StartNotifier(installDir);
@@ -88,23 +87,61 @@ internal static class Installer
         }
     }
 
-    private static void RemoveLegacyFiles(string installDir)
+    private static void ResetInstallDirectory(string installDir)
     {
-        string[] legacyFiles = { "FasaInternalNotifier.ps1" };
+        EnsureSafeInstallDirectory(installDir);
 
-        foreach (string fileName in legacyFiles)
+        if (Directory.Exists(installDir))
         {
-            string path = Path.Combine(installDir, fileName);
-
-            try
+            foreach (string filePath in Directory.GetFiles(installDir, "*", SearchOption.AllDirectories))
             {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
+                File.SetAttributes(filePath, FileAttributes.Normal);
             }
-            catch
+
+            Directory.Delete(installDir, true);
+        }
+
+        Directory.CreateDirectory(installDir);
+    }
+
+    private static void EnsureSafeInstallDirectory(string installDir)
+    {
+        string appDataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FasaCertificados"
+        );
+
+        string normalizedRoot = Path.GetFullPath(appDataRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string normalizedInstallDir = Path.GetFullPath(installDir)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        if (
+            normalizedInstallDir.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase) ||
+            !normalizedInstallDir.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            throw new InvalidOperationException("Diretorio de instalacao invalido.");
+        }
+    }
+
+    private static void RemoveLegacyStartupEntries()
+    {
+        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Run",
+            true
+        ))
+        {
+            if (key == null)
             {
+                return;
+            }
+
+            string[] legacyNames = { "FasaInternalNotifier", "FasaCertificadosInternalNotifier" };
+
+            foreach (string legacyName in legacyNames)
+            {
+                key.DeleteValue(legacyName, false);
             }
         }
     }
@@ -124,6 +161,7 @@ internal static class Installer
                 throw new InvalidOperationException("Nao foi possivel abrir a inicializacao do Windows para o usuario atual.");
             }
 
+            RemoveLegacyStartupEntries();
             key.SetValue(StartupName, command, RegistryValueKind.String);
         }
     }

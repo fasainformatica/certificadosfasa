@@ -2,6 +2,11 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-08-12
+
+- Ajustado o notificador Windows WPF para remover a faixa azul do popup, manter avisos na tela ate o usuario fechar ou abrir, empilhar multiplas notificacoes no canto inferior direito e limpar a instalacao anterior ao executar o instalador unico atualizado.
+- Adicionado hardening de seguranca pos-incidente: `SUPABASE_SECRET_KEY` preferencial, env helpers com `server-only`, headers de seguranca no Next.js, source maps de producao desativados, migration `20260813100000_security_incident_hardening.sql`, auditoria `SECURITY_AUDIT_SUPABASE.sql`, comando `npm run security:audit` e atualizacao do Next/PostCSS para remover vulnerabilidades do `npm audit`.
+
 ## 2026-08-10
 
 - Criada a Etapa 1 da futura central/app Windows de notificacoes internas, com migration `20260810100000_create_internal_notifications.sql`, schema consolidado, tipos Supabase e teste de contrato; a base nao dispara WhatsApp, nao altera `notification_events` e nao muda planejamento de avisos.
@@ -12,6 +17,7 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 - Criada a Etapa 6 das notificacoes internas, adicionando pop-ups nativos do navegador ativados manualmente pelo sininho, com linha de base para nao avisar historico antigo, clique para abrir certificado/central e persistencia local por navegador.
 - Criada a Etapa 7 das notificacoes internas, adicionando endpoint read-only `/api/internal-notifications/windows/summary`, variaveis `WINDOWS_NOTIFIER_*`, gerador de token e cliente PowerShell leve em `tools/windows-notifier` para pop-ups do Windows sem expor Supabase/service role.
 - Adicionada gestao administrativa de usuarios em `/configuracoes`, com criacao de usuarios Supabase Auth, remocao, ativacao/desativacao e definicao de permissao `admin` ou `financeiro`; as APIs `/api/admin/users` validam RBAC antes da service role e bloqueiam autoexclusao e remocao do ultimo admin ativo.
+- Adicionado app Windows WPF para notificacoes internas em `tools/windows-notifier-app`, com popup moderno, inicializacao automatica e instalador unico `InstalarNotificadorFasa-Unico.exe` que embute app, icone e configuracao local.
 
 ## 2026-07-30
 

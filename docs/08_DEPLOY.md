@@ -28,7 +28,8 @@ Para escoar fila no mesmo dia sem Vercel Pro, o projeto inclui um cron externo p
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
+SUPABASE_SERVICE_ROLE_KEY= # opcional legado
 CERT_ENCRYPTION_KEY=
 CRON_SECRET=
 EUATENDO_API_URL=
@@ -55,9 +56,26 @@ O mesmo valor de `WINDOWS_NOTIFIER_TOKEN` deve estar no servidor e no `config.lo
 
 1. Criar projeto Supabase.
 2. Executar `database/schema/supabase_schema.sql` em banco novo ou migrations em banco existente.
-3. Confirmar bucket privado `certificados-pfx`.
-4. Criar usuario em Supabase Auth.
-5. Promover usuario com `database/scripts/SUPABASE_PROMOVER_USUARIO_ADMIN.sql`.
+3. Em banco existente, aplicar `database/migrations/20260813100000_security_incident_hardening.sql`.
+4. Confirmar bucket privado `certificados-pfx`.
+5. Criar usuario em Supabase Auth.
+6. Promover usuario com `database/scripts/SUPABASE_PROMOVER_USUARIO_ADMIN.sql`.
+
+## Auditoria de seguranca
+
+Depois de rotacionar chaves e aplicar as migrations:
+
+```powershell
+npm.cmd run security:audit
+```
+
+No Supabase SQL Editor, execute:
+
+```text
+database/scripts/SECURITY_AUDIT_SUPABASE.sql
+```
+
+Esse SQL mostra RLS, grants, buckets, colunas sensiveis e indicadores agregados de Auth sem listar e-mails ou tokens.
 
 ## Cron Vercel
 

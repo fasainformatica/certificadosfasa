@@ -117,11 +117,13 @@ export function evaluateProductionEnvironment(env: NodeJS.ProcessEnv = process.e
       failMessage: "Configure NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     }),
     check({
-      id: "supabase_service_role",
-      label: "Supabase service role",
-      ok: hasValue(env, "SUPABASE_SERVICE_ROLE_KEY"),
-      okMessage: "SUPABASE_SERVICE_ROLE_KEY configurada no servidor.",
-      failMessage: "Configure SUPABASE_SERVICE_ROLE_KEY apenas no ambiente server-side.",
+      id: "supabase_admin_key",
+      label: "Chave administrativa Supabase",
+      ok: hasValue(env, "SUPABASE_SECRET_KEY") || hasValue(env, "SUPABASE_SERVICE_ROLE_KEY"),
+      okMessage: hasValue(env, "SUPABASE_SECRET_KEY")
+        ? "SUPABASE_SECRET_KEY configurada no servidor."
+        : "SUPABASE_SERVICE_ROLE_KEY configurada no servidor. Migre para SUPABASE_SECRET_KEY quando concluir a rotacao.",
+      failMessage: "Configure SUPABASE_SECRET_KEY ou SUPABASE_SERVICE_ROLE_KEY apenas no ambiente server-side.",
     }),
     check({
       id: "cert_encryption_key",

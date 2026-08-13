@@ -56,6 +56,16 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Tabelas de dispatcher WhatsApp: `whatsapp_dispatcher_state`, `whatsapp_provider_logs`, segmentadas por `provider`.
 - Tabelas de notificacao interna: `internal_notifications` e `internal_notification_reads`, usadas pela central interna do painel, sininho, pop-ups do navegador e cliente leve do Windows. Elas nao substituem `notification_events`, nao disparam WhatsApp e nao alteram planejamento de avisos.
 
+### Seguranca operacional
+
+- Chave administrativa Supabase aceita `SUPABASE_SECRET_KEY` como variavel preferencial e `SUPABASE_SERVICE_ROLE_KEY` apenas como fallback legado, sempre server-side.
+- `src/lib/supabase/admin.ts` e `src/lib/supabase/env.ts` usam `server-only` para reduzir risco de importacao acidental em Client Components.
+- `next.config.ts` desativa source maps de producao, remove `X-Powered-By` e aplica CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` e `X-DNS-Prefetch-Control`.
+- A migration `20260813100000_security_incident_hardening.sql` reforca RLS, revoga acesso anonimo direto ao schema `public`, mantem grants minimos para leituras autenticadas usadas pelo painel e garante o bucket `certificados-pfx` como privado.
+- `database/scripts/SECURITY_AUDIT_SUPABASE.sql` audita o banco real sem listar secrets ou dados pessoais completos.
+- `npm.cmd run security:audit` valida localmente Git/env, scan basico de secrets rastreados, headers, source maps, `server-only`, migration de hardening e service-role/RBAC.
+- Rotacao de chaves, expiracao JWT, signup publico, confirmacao de e-mail, MFA, rate limits de Auth e revogacao de chaves antigas precisam ser aplicados no painel Supabase/Vercel; o codigo nao consegue executar essas acoes administrativas sozinho.
+
 ### Fluxos
 
 - Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
@@ -418,6 +428,7 @@ Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ### Variaveis necessarias
 
+- `SUPABASE_SECRET_KEY` preferencial, ou `SUPABASE_SERVICE_ROLE_KEY` legado
 - `EUATENDO_API_URL`
 - `EUATENDO_API_TOKEN`
 - `EUATENDO_INSTANCE_ID`
@@ -446,7 +457,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 
 ### Notificacoes internas
 
-`/notificacoes-internas` exibe o historico interno do painel. `InternalNotificationsMenu` mostra o sininho, permite ativar pop-ups do navegador e aponta para a central completa. `tools/windows-notifier` fornece um cliente PowerShell leve para Windows, com tray icon, intervalo configuravel, token dedicado e abertura da central/certificado ao clicar no popup.
+`/notificacoes-internas` exibe o historico interno do painel. `InternalNotificationsMenu` mostra o sininho, permite ativar pop-ups do navegador e aponta para a central completa. `tools/windows-notifier-app` fornece o cliente Windows WPF principal, com tray icon, popup moderno sem fechamento automatico, avisos empilhados, intervalo configuravel, token dedicado, abertura da central/certificado ao clicar e instalador unico `InstalarNotificadorFasa-Unico.exe`, que limpa a instalacao anterior antes de copiar a versao nova; `tools/windows-notifier` fica como fallback PowerShell legado.
 
 ### Configuracoes
 
@@ -548,7 +559,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - Supabase remoto com schema/migrations aplicadas.
 - Bucket privado `certificados-pfx`.
 - Usuario admin em `user_profiles`.
-- Variaveis server-only corretas.
+- Variaveis server-only corretas, priorizando `SUPABASE_SECRET_KEY` em vez de service role legado.
 - Instancia euAtendo conectada.
 - Vercel Cron ativo.
 - `EUATENDO_PROVIDER_ENABLED=true` para envio automatico.
@@ -559,6 +570,8 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 
 - Credenciais euAtendo reais e instancia conectada no ambiente final.
 - Aplicacao das migrations no Supabase de producao.
+- Rotacao e revogacao das chaves antigas no Supabase e Vercel apos qualquer suspeita de vazamento.
+- Configuracoes de Auth no Supabase: signup publico, confirmacao de e-mail, MFA para admins, rate limits e expiracao de JWT.
 - Execucao efetiva dos crons Vercel no site publicado.
 - Volume real de mensagens e limites da conta euAtendo.
 
@@ -569,6 +582,7 @@ Nenhum bug funcional confirmado nesta consolidacao documental. Nao listar aqui b
 ## Riscos tecnicos
 
 - Migrations podem nao estar aplicadas no Supabase remoto; usar `/api/admin/health/production` para confirmar schema e bucket.
+- Chaves antigas de Supabase, cron, euAtendo, extensao WhatsApp ou notificador Windows continuam validas ate serem rotacionadas manualmente nos provedores.
 - Rate limit real da euAtendo e qualidade da conta WhatsApp precisam ser confirmados antes de qualquer aumento de cadencia.
 - Importacao em massa pode ser custosa com muitos PFX; limite atual e 80 certificados por envio.
 - Cron Vercel ainda precisa ser confirmado nos logs reais da plataforma.
@@ -577,12 +591,14 @@ Nenhum bug funcional confirmado nesta consolidacao documental. Nao listar aqui b
 ## Proximos passos recomendados
 
 1. Aplicar ou confirmar migrations em ambiente Supabase alvo.
-2. Validar `EUATENDO_API_TOKEN` e `EUATENDO_INSTANCE_ID` em `/whatsapp`.
-3. Executar envio de teste e envio manual por certificado.
-4. Ativar `EUATENDO_PROVIDER_ENABLED=true` somente apos homologacao.
-5. Acessar `/api/admin/health/production` como admin e corrigir qualquer check critico.
-6. Confirmar crons Vercel em logs reais.
-7. Monitorar backlog de `notification_events` e configurar cron externo ou Vercel Pro caso a fila precise escoar no mesmo dia.
+2. Em caso de suspeita de vazamento, rotacionar Supabase, Vercel, cron, euAtendo, extensao e notificador Windows antes de retomar operacao.
+3. Executar `npm.cmd run security:audit` localmente e `database/scripts/SECURITY_AUDIT_SUPABASE.sql` no SQL Editor.
+4. Validar `EUATENDO_API_TOKEN` e `EUATENDO_INSTANCE_ID` em `/whatsapp`.
+5. Executar envio de teste e envio manual por certificado.
+6. Ativar `EUATENDO_PROVIDER_ENABLED=true` somente apos homologacao.
+7. Acessar `/api/admin/health/production` como admin e corrigir qualquer check critico.
+8. Confirmar crons Vercel em logs reais.
+9. Monitorar backlog de `notification_events` e configurar cron externo ou Vercel Pro caso a fila precise escoar no mesmo dia.
 
 ## Como iniciar o desenvolvimento
 

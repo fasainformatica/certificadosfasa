@@ -33,6 +33,7 @@
 - [`../CHANGELOG.md`](../CHANGELOG.md): changelog do projeto.
 - [`../DOCUMENTACAO_CONSOLIDADA.md`](../DOCUMENTACAO_CONSOLIDADA.md): relatorio desta consolidacao.
 - [`../RELATORIO_REFATORACAO_VISUAL_UX.md`](../RELATORIO_REFATORACAO_VISUAL_UX.md): relatorio da refatoracao visual e UX.
+- [`../RELATORIO_SEGURANCA_CERTIFICADOSFASA.md`](../RELATORIO_SEGURANCA_CERTIFICADOSFASA.md): relatorio de hardening pos-incidente, etapas e pendencias manuais.
 - [`../UX_WRITING_MAP.md`](../UX_WRITING_MAP.md): inventario de textos alterados.
 - [`../CHECKLIST_UI_UX.md`](../CHECKLIST_UI_UX.md): checklist visual, responsivo e acessivel.
 

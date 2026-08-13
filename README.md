@@ -41,7 +41,8 @@ Crie `.env` com base em `.env.example`.
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
+SUPABASE_SERVICE_ROLE_KEY= # opcional legado
 CERT_ENCRYPTION_KEY=
 CRON_SECRET=
 EUATENDO_API_URL=https://apicluster.euatendo.app
@@ -54,7 +55,13 @@ WINDOWS_NOTIFIER_TOKEN=
 WINDOWS_NOTIFIER_ROLE=financeiro
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `CERT_ENCRYPTION_KEY`, `CRON_SECRET`, `EUATENDO_API_TOKEN` e `WINDOWS_NOTIFIER_TOKEN` sao server-only.
+`SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CERT_ENCRYPTION_KEY`, `CRON_SECRET`, `EUATENDO_API_TOKEN` e `WINDOWS_NOTIFIER_TOKEN` sao server-only.
+
+Para validar vazamento local, headers, RLS consolidado e service role antes de deploy:
+
+```powershell
+npm.cmd run security:audit
+```
 
 Para pop-ups em computadores Windows, veja [`tools/windows-notifier/README.md`](tools/windows-notifier/README.md).
 

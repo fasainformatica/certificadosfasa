@@ -46,13 +46,24 @@ O instalador fica em:
 tools\windows-notifier-app\dist\FasaNotifierWpfSetup\InstalarNotificadorFasa.exe
 ```
 
+Tambem e gerado um instalador unico:
+
+```text
+tools\windows-notifier-app\dist\InstalarNotificadorFasa-Unico.exe
+```
+
+Esse arquivo unico ja contem o app, icone, scripts auxiliares, README e `config.local.json`.
+
 ## Instalar em outro computador
 
-Envie a pasta inteira `FasaNotifierWpfSetup` para o computador e execute `InstalarNotificadorFasa.exe`.
+Opcao recomendada: envie apenas `InstalarNotificadorFasa-Unico.exe` para o computador e execute.
+
+Opcao de manutencao: envie a pasta inteira `FasaNotifierWpfSetup` para o computador e execute `InstalarNotificadorFasa.exe`.
 
 O instalador:
 
 - Copia o app para `%LOCALAPPDATA%\FasaCertificados\Notificador`.
+- Remove os arquivos da instalacao anterior antes de copiar a versao nova.
 - Registra a inicializacao automatica no Windows para o usuario atual.
 - Encerra instancias antigas do notificador.
 - Inicia o app assim que a instalacao termina.
@@ -64,6 +75,8 @@ Execute `TESTAR_NOTIFICADOR_FASA.bat` dentro da pasta instalada ou do pacote.
 
 O app abre uma previa visual do popup. Se `--self-test` for usado, ele tambem valida a conexao com o endpoint antes de exibir a previa.
 
+Os pop-ups nao fecham sozinhos. Quando mais de um aviso chega, as janelas ficam empilhadas no canto inferior direito ate o usuario abrir ou fechar cada uma.
+
 ## Limites
 
 - Nao envia WhatsApp.
@@ -72,3 +85,4 @@ O app abre uma previa visual do popup. Se `--self-test` for usado, ele tambem va
 - Nao acessa Supabase diretamente.
 - Precisa que o servidor esteja acessivel.
 - O token fica no computador em `config.local.json`; trate esse arquivo como segredo.
+- O instalador unico tambem contem esse token embutido; trate o EXE como confidencial.

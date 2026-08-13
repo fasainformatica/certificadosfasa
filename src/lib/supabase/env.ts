@@ -1,3 +1,5 @@
+import "server-only";
+
 function readEnv(name: string) {
   const value = process.env[name];
 
@@ -20,6 +22,12 @@ export function getSupabasePublicEnv() {
 }
 
 export function getSupabaseServiceRoleKey() {
+  const modernSecretKey = getOptionalEnv("SUPABASE_SECRET_KEY");
+
+  if (modernSecretKey) {
+    return modernSecretKey;
+  }
+
   return readEnv("SUPABASE_SERVICE_ROLE_KEY");
 }
 
