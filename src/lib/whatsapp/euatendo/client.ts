@@ -298,7 +298,7 @@ export function normalizeEuAtendoError(error: unknown) {
 
   return new EuAtendoProviderError({
     code: "TEMPORARY_PROVIDER_ERROR",
-    message: error instanceof Error ? error.message : "Falha inesperada na API euAtendo.",
+    message: "Falha inesperada na API euAtendo.",
     retryable: true,
   });
 }

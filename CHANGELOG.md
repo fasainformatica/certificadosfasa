@@ -2,6 +2,20 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-08-13
+
+- Endurecido o fluxo de signup Supabase: novos usuarios criados diretamente no Supabase Auth passam a nascer com `user_profiles.active = false`, ate aprovacao explicita de um administrador em `/configuracoes`.
+- Adicionada migration `20260813103000_lock_public_signup_profiles_and_rpc_privileges.sql`, revogando `EXECUTE` publico/anonimo de helpers de RBAC/RLS e documentando o uso seguro das funcoes `SECURITY DEFINER` sem parametros.
+- Expandida a auditoria Supabase para listar funcoes `SECURITY DEFINER`, permissao de RPCs, definicoes dos helpers de seguranca e agregacao de perfis por cargo/ativo.
+- Criado script separado `database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql` para lockdown emergencial do projeto Supabase `mftvsgzrujkalssiriny`, sem misturar com o banco do `certificadosfasa`.
+- Ampliada a checagem `scripts/check-service-role-rbac.mjs` para auditar a superficie de API: rotas internas exigem `requireApiUser`, crons exigem `CRON_SECRET`, download publico exige token/senha/rate limit, extensao WhatsApp exige Basic Auth e notificador Windows exige bearer token.
+- Adicionado helper `src/lib/security/sensitive-data.ts` para mascarar tokens, JWTs, service role, storage paths e telefones em erros/logs; dispatchers euAtendo/extensao, envio manual, homologacao WhatsApp, notification engine e reconciliacao de Storage passam a usar mensagens operacionais seguras.
+- Criados `SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql` e `SECURITY_SANITIZE_LEGACY_LOGS.sql` para auditar e limpar logs/metadados historicos com exemplos mascarados e `ROLLBACK` por padrao.
+- Payloads tecnicos de avisos novos passaram a guardar telefone do cliente mascarado, mantendo `telefone_destino` e `mensagem_renderizada` intactos para o envio.
+- Adicionado download autenticado de PFX em notificacoes internas de certificado: a central e o sininho exibem `Baixar certificado`, abrindo `GET /api/certificados/[id]/arquivo` com RBAC antes da service role e signed URL curta do Storage; o notificador Windows usa `GET /api/internal-notifications/windows/[id]/certificate-file` com bearer token, gera signed URL curta no servidor e salva o PFX direto em `Downloads`, sem abrir navegador.
+- Padronizado o dominio oficial `https://certificadosfasa.vercel.app` nos exemplos de env e configuracao do notificador Windows; o app WPF tambem passou a mostrar erro especifico quando a Vercel ainda nao publicou a rota de download direto ou quando o token do notificador nao bate.
+- `npm run security:audit` agora tambem escaneia arquivos novos nao ignorados, sem varrer `.env` local ou configuracoes confidenciais do notificador.
+
 ## 2026-08-12
 
 - Ajustado o notificador Windows WPF para remover a faixa azul do popup, manter avisos na tela ate o usuario fechar ou abrir, empilhar multiplas notificacoes no canto inferior direito e limpar a instalacao anterior ao executar o instalador unico atualizado.

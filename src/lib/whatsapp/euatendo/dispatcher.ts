@@ -8,6 +8,7 @@ import {
   calculateReservationTtlSeconds,
   SETTINGS_ID,
 } from "@/lib/notifications/engine";
+import { getSafeOperationalErrorMessage, redactSensitiveText } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json, NotificationAudience } from "@/lib/supabase/database.types";
 import { getOptionalEnv } from "@/lib/supabase/env";
@@ -381,7 +382,7 @@ async function logProviderAttempt(
     status,
     attempt_count: event?.attempt_count ?? null,
     error_code: errorCode,
-    error_message: errorMessage ? errorMessage.slice(0, 500) : null,
+    error_message: errorMessage ? redactSensitiveText(errorMessage, 500) : null,
     request_id: randomUUID(),
     response_id: responseId,
     metadata,
@@ -547,14 +548,16 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
   });
 
   if (error) {
+    const message = getSafeOperationalErrorMessage(error, "Nao foi possivel reservar a proxima mensagem.");
+
     await logProviderAttempt(admin, {
       event: null,
       operation: "reserve",
       status: "error",
       errorCode: "reserve_failed",
-      errorMessage: error.message,
+      errorMessage: message,
     });
-    return { status: "error", event_id: null, attempt_count: null, error_code: "reserve_failed", error_message: error.message };
+    return { status: "error", event_id: null, attempt_count: null, error_code: "reserve_failed", error_message: message };
   }
 
   const reserved = parseReserveResult(data);
@@ -619,15 +622,22 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       };
     }
 
-    const failure = await markFailure(admin, event, result);
+    const safeErrorMessage = result.errorMessage
+      ? getSafeOperationalErrorMessage(
+          { code: result.errorCode, message: result.errorMessage },
+          "Nao foi possivel enviar pela euAtendo.",
+        )
+      : null;
+    const safeResult = { ...result, errorMessage: safeErrorMessage };
+    const failure = await markFailure(admin, event, safeResult);
     await clearDispatcherLock(admin, nextAllowedSendAt);
     await logProviderAttempt(admin, {
       event,
       operation: "send_text",
       status: failure.status,
       durationMs,
-      errorCode: result.errorCode,
-      errorMessage: result.errorMessage,
+      errorCode: safeResult.errorCode,
+      errorMessage: safeResult.errorMessage,
       responseId: result.providerMessageId,
       metadata: {
         http_status: result.httpStatus,
@@ -643,11 +653,11 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       attempt_count: event.attempt_count,
       next_retry_at: failure.nextRetryAt,
       next_allowed_send_at: nextAllowedSendAt,
-      error_code: result.errorCode,
-      error_message: result.errorMessage,
+      error_code: safeResult.errorCode,
+      error_message: safeResult.errorMessage,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha inesperada no dispatcher euAtendo.";
+    const message = getSafeOperationalErrorMessage(error, "Falha inesperada no dispatcher euAtendo.");
     await clearDispatcherLock(admin, addSeconds(computeNextAllowedDispatchSeconds(settings)));
     await logProviderAttempt(admin, {
       event,

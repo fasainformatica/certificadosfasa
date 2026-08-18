@@ -39,6 +39,10 @@ describe("internal notification service", () => {
     expect(payload.dedupe_key).toBe(
       "certificate_upload:updated:11111111-1111-4111-8111-111111111111:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
+    expect(payload.metadata).toMatchObject({
+      certificate_download_available: true,
+      certificate_download_requires_login: true,
+    });
     expect(JSON.stringify(payload)).not.toContain("senha");
     expect(JSON.stringify(payload)).not.toContain("storage_path");
     expect(JSON.stringify(payload)).not.toContain("service_role");

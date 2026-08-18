@@ -41,6 +41,7 @@ Crie `.env` com base em `.env.example`.
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=https://certificadosfasa.vercel.app
 SUPABASE_SECRET_KEY=
 SUPABASE_SERVICE_ROLE_KEY= # opcional legado
 CERT_ENCRYPTION_KEY=

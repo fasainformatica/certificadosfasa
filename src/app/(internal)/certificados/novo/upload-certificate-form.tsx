@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, UploadCloud } from "lucide-react";
+import { Download, Eye, EyeOff, Loader2, UploadCloud } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -29,6 +30,14 @@ type UploadCertificateFormProps = {
   initialClientId?: string;
 };
 
+type UploadResult = {
+  id: string;
+  cnpj: string;
+  nome_titular: string;
+  data_vencimento: string;
+  operacao: "created" | "updated";
+};
+
 function getClientFormData(client?: ClientOption) {
   return {
     nome_razao_social: client?.nome_razao_social ?? "",
@@ -52,6 +61,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
   const [clientData, setClientData] = useState(getClientFormData(initialClient));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const fileMissing = error === "Selecione um arquivo .pfx.";
   const fileSummary = getUploadFileSummary(file);
 
@@ -79,6 +89,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
     }
 
     setError(null);
+    setUploadResult(null);
 
     if (!file) {
       setError("Selecione um arquivo .pfx.");
@@ -106,7 +117,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
         body,
       });
       const payload = (await response.json()) as {
-        certificado?: { id: string };
+        certificado?: UploadResult;
         error?: { message: string };
       };
 
@@ -116,7 +127,8 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
         return;
       }
 
-      router.replace(`/certificados/${payload.certificado.id}`);
+      setUploadResult(payload.certificado);
+      setPending(false);
       router.refresh();
     } catch {
       setError(getUploadCommunicationErrorMessage());
@@ -142,6 +154,32 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
           PFX privado
         </span>
       </div>
+
+      {uploadResult ? (
+        <div
+          className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-950"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="font-semibold">
+            {uploadResult.operacao === "updated"
+              ? "Certificado atualizado com sucesso."
+              : "Certificado cadastrado com sucesso."}
+          </p>
+          <p className="mt-1 text-green-900/80">
+            O arquivo PFX atual ja esta disponivel para download interno seguro.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a href={`/api/certificados/${uploadResult.id}/arquivo`} className={buttonClass("primary", "min-h-9 px-3 text-xs")}>
+              <Download aria-hidden="true" className="h-3.5 w-3.5" />
+              Baixar certificado
+            </a>
+            <Link href={`/certificados/${uploadResult.id}`} className={buttonClass("secondary", "min-h-9 px-3 text-xs")}>
+              Ver detalhes
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-2">
         <label htmlFor="arquivo" className="text-sm font-medium text-slate-800">

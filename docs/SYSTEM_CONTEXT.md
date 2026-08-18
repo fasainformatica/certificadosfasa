@@ -31,7 +31,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Refatoracao visual de 2026-07-15: o painel interno usa shell com sidebar responsiva, superficies neutras, hierarquia operacional por tarefas, cards de metricas, tabelas escaneaveis, estados vazios e mensagens em portugues do Brasil.
 - Vocabulario principal: Visao geral, Certificados, Clientes, Central de avisos, Automacao do WhatsApp e Configuracoes do sistema.
 - Status persistidos continuam tecnicos, mas a apresentacao converte para rotulos humanos como Valido, Vence em breve, Vencido, Na fila, Enviado, Falha no envio, Conectado e Envio automatico pausado.
-- O header interno possui `InternalNotificationsMenu`, um sininho que consulta `GET /api/internal-notifications/summary`, abre uma lista compacta de notificacoes ativas, permite marcar como lida ou dispensar, aponta para a central completa em `/notificacoes-internas` e oferece ativacao manual de pop-ups do navegador. Tambem existe cliente Windows leve em `tools/windows-notifier` para pop-ups fora do navegador.
+- O header interno possui `InternalNotificationsMenu`, um sininho que consulta `GET /api/internal-notifications/summary`, abre uma lista compacta de notificacoes ativas, permite marcar como lida ou dispensar, aponta para a central completa em `/notificacoes-internas` e oferece ativacao manual de pop-ups do navegador. Tambem existe cliente Windows WPF em `tools/windows-notifier-app` para pop-ups fora do navegador.
 
 ### Backend
 
@@ -43,7 +43,7 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Notification engine em `src/lib/notifications/engine.ts`.
 - Provider euAtendo em `src/lib/whatsapp/euatendo/`.
 - Provider alternativo da extensao Chrome em `src/lib/whatsapp/extension/` e rotas `src/app/sistema/api/whatsapp/**`.
-- Notificacoes internas em `src/app/api/internal-notifications/**`, com leitura operacional para `admin` e `financeiro`, resumo de nao lidas, estado individual de leitura/dispensa e endpoint read-only para o cliente Windows.
+- Notificacoes internas em `src/app/api/internal-notifications/**`, com leitura operacional para `admin` e `financeiro`, resumo de nao lidas, estado individual de leitura/dispensa e endpoints protegidos por token para o cliente Windows.
 
 ### Banco
 
@@ -62,8 +62,11 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - `src/lib/supabase/admin.ts` e `src/lib/supabase/env.ts` usam `server-only` para reduzir risco de importacao acidental em Client Components.
 - `next.config.ts` desativa source maps de producao, remove `X-Powered-By` e aplica CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` e `X-DNS-Prefetch-Control`.
 - A migration `20260813100000_security_incident_hardening.sql` reforca RLS, revoga acesso anonimo direto ao schema `public`, mantem grants minimos para leituras autenticadas usadas pelo painel e garante o bucket `certificados-pfx` como privado.
+- A migration `20260813103000_lock_public_signup_profiles_and_rpc_privileges.sql` redefine `handle_new_user()` para criar novos perfis internos como inativos, ate aprovacao administrativa, e remove execucao publica/anonima dos helpers de RBAC/RLS.
 - `database/scripts/SECURITY_AUDIT_SUPABASE.sql` audita o banco real sem listar secrets ou dados pessoais completos.
-- `npm.cmd run security:audit` valida localmente Git/env, scan basico de secrets rastreados, headers, source maps, `server-only`, migration de hardening e service-role/RBAC.
+- `database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql` audita logs/metadados historicos com exemplos mascarados; `database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql` limpa historico apenas quando o operador trocar o `ROLLBACK` final por `COMMIT`.
+- `src/lib/security/sensitive-data.ts` centraliza mascaramento de tokens, JWTs, service role, storage paths e telefones em mensagens de erro e logs operacionais.
+- `npm.cmd run security:audit` valida localmente Git/env, scan basico de secrets em arquivos versionados e novos nao ignorados, headers, source maps, `server-only`, migrations de hardening, service-role/RBAC e classificacao de rotas API publicas/intencionais.
 - Rotacao de chaves, expiracao JWT, signup publico, confirmacao de e-mail, MFA, rate limits de Auth e revogacao de chaves antigas precisam ser aplicados no painel Supabase/Vercel; o codigo nao consegue executar essas acoes administrativas sozinho.
 
 ### Fluxos
@@ -71,8 +74,11 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Upload de PFX: frontend envia arquivo e senha, backend valida PFX, extrai dados, criptografa senha, grava Storage em caminho versionado por hash, registra banco por RPC e recalcula avisos.
 - Ao cadastrar ou substituir um PFX por upload individual ou importacao em massa, o backend grava uma notificacao interna segura em `internal_notifications`. Essa gravacao nao bloqueia o upload se falhar e nao contem senha, token, service role, `storage_path` ou payload bruto.
 - Download publico: `admin` ou `financeiro` gera link e senha unica, banco guarda hashes, usuario informa senha, backend gera signed URL curta e invalida o link apos uso.
+- Usuarios internos: admins criam usuarios em `/configuracoes` usando Supabase Auth Admin e definem o cargo em `user_profiles`. Cadastros feitos diretamente pelo Supabase Auth ficam inativos por padrao e nao devem ganhar acesso ao painel ate aprovacao explicita.
 - Avisos: engine planeja eventos em `notification_events`; o provider ativo e definido por `WHATSAPP_PROVIDER`. O dispatcher euAtendo envia via API server-side. O provider `whatsapp_extension` expoe `/sistema/api/whatsapp/messages` para a extensao reservar uma mensagem por vez, registrar acks e aplicar delay/retry pela mesma tabela de cadencia.
 - Notificacoes internas: a base usa `internal_notifications` e `internal_notification_reads`. `GET /api/internal-notifications` lista notificacoes visiveis ao usuario atual, `GET /api/internal-notifications/summary` retorna contadores para o sininho e `POST /api/internal-notifications/[id]/read|dismiss` altera somente o estado individual do usuario. Upload individual e importacao em massa criam eventos `certificate_created` ou `certificate_updated` por `src/lib/internal-notifications/service.ts`, sempre server-side e sem alterar WhatsApp. A rota `/notificacoes-internas` mostra historico paginado, busca, filtros por estado/tipo/prioridade e acoes por item. Quando o operador ativa `Ativar pop-ups` no sininho, o navegador pode mostrar um aviso nativo para novas notificacoes enquanto o painel estiver aberto. O cliente Windows consulta `GET /api/internal-notifications/windows/summary` com `WINDOWS_NOTIFIER_TOKEN`, mostra popup de novas notificacoes e abre a central ou o certificado ao clicar.
+- Notificacoes internas de `certificate_created` e `certificate_updated` exibem acao `Baixar certificado`. No painel web, o link aponta para `GET /api/certificados/[id]/arquivo`, exige sessao interna `admin` ou `financeiro`, gera signed URL curta do Storage e audita `download_certificado_interno`. No notificador Windows, o DTO envia `windowsDownloadHref` para `GET /api/internal-notifications/windows/[id]/certificate-file`; a rota valida `WINDOWS_NOTIFIER_TOKEN`, gera signed URL curta no servidor, audita `download_certificado_windows_notifier` e o app baixa o PFX direto para `Downloads` seguindo o redirecionamento sem abrir navegador. O notificador nao recebe senha PFX, nao recebe signed URL antecipada e nao expoe `storage_path`.
+- Payloads tecnicos de `notification_events` usam telefone de cliente mascarado para diagnostico. O `telefone_destino` da fila e a `mensagem_renderizada` continuam preservados porque sao necessarios para o envio.
 - Crons: Vercel chama endpoints protegidos por `CRON_SECRET`; GitHub Actions pode chamar o dispatcher euAtendo a cada 5 minutos para escoar fila no mesmo dia sem Vercel Pro.
 
 ## Estrutura de pastas
@@ -457,7 +463,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 
 ### Notificacoes internas
 
-`/notificacoes-internas` exibe o historico interno do painel. `InternalNotificationsMenu` mostra o sininho, permite ativar pop-ups do navegador e aponta para a central completa. `tools/windows-notifier-app` fornece o cliente Windows WPF principal, com tray icon, popup moderno sem fechamento automatico, avisos empilhados, intervalo configuravel, token dedicado, abertura da central/certificado ao clicar e instalador unico `InstalarNotificadorFasa-Unico.exe`, que limpa a instalacao anterior antes de copiar a versao nova; `tools/windows-notifier` fica como fallback PowerShell legado.
+`/notificacoes-internas` exibe o historico interno do painel. `InternalNotificationsMenu` mostra o sininho, permite ativar pop-ups do navegador e aponta para a central completa. `tools/windows-notifier-app` fornece o cliente Windows WPF principal, com tray icon, popup moderno sem fechamento automatico, avisos empilhados, intervalo configuravel, token dedicado, abertura da central/certificado ao clicar, download de PFX direto para `Downloads` pelo botao `Baixar certificado` e instalador unico `InstalarNotificadorFasa-Unico.exe`, que limpa a instalacao anterior antes de copiar a versao nova; `tools/windows-notifier` fica como fallback PowerShell legado.
 
 ### Configuracoes
 
@@ -491,6 +497,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - `GET /api/internal-notifications`
 - `GET /api/internal-notifications/summary`
 - `GET /api/internal-notifications/windows/summary`
+- `GET /api/internal-notifications/windows/[id]/certificate-file`
 - `POST /api/internal-notifications/[id]/read`
 - `POST /api/internal-notifications/[id]/dismiss`
 - `GET /api/whatsapp/euatendo/health`
@@ -562,6 +569,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 - Variaveis server-only corretas, priorizando `SUPABASE_SECRET_KEY` em vez de service role legado.
 - Instancia euAtendo conectada.
 - Vercel Cron ativo.
+- `NEXT_PUBLIC_SITE_URL=https://certificadosfasa.vercel.app` no projeto Vercel oficial.
 - `EUATENDO_PROVIDER_ENABLED=true` para envio automatico.
 - `WINDOWS_NOTIFIER_ENABLED=true` e `WINDOWS_NOTIFIER_TOKEN` para cliente Windows de notificacoes internas.
 - As migrations `20260715150000_add_euatendo_dispatch_batching.sql`, `20260715151000_fix_euatendo_reserve_outer_join.sql` e `20260729120000_add_certificate_renewal_status.sql` aplicadas para lote do dispatcher e situacao de renovacao.

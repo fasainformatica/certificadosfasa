@@ -1,5 +1,6 @@
 import "server-only";
 
+import { redactSensitiveText } from "@/lib/security/sensitive-data";
 import { CERTIFICATES_BUCKET } from "@/lib/storage/certificates";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
@@ -10,9 +11,7 @@ export type StorageReconciliationOperation = "upload" | "delete" | "restore" | "
 export type StorageReconciliationStatus = "pending" | "processing" | "completed" | "failed";
 
 function sanitizeStorageError(error: unknown) {
-  return (error instanceof Error ? error.message : String(error))
-    .replace(/certificados\/[0-9]{14}\/(?:[a-f0-9]{64}|certificado)\.pfx/gi, "[storage_path]")
-    .slice(0, 500);
+  return redactSensitiveText(error, 500);
 }
 
 export async function createStorageReconciliationJob({

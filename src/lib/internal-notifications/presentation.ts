@@ -62,6 +62,9 @@ export type InternalNotificationDto = {
   title: string;
   body: string | null;
   href: string | null;
+  downloadHref: string | null;
+  windowsDownloadHref: string | null;
+  downloadLabel: string | null;
   entityType: string | null;
   entityId: string | null;
   certificadoId: string | null;
@@ -149,10 +152,53 @@ export function toInternalNotificationReadStateDto(
   };
 }
 
+export function getInternalNotificationCertificateDownloadHref(row: InternalNotificationApiRow) {
+  if (
+    !row.certificado_id ||
+    (row.type !== "certificate_created" && row.type !== "certificate_updated")
+  ) {
+    return null;
+  }
+
+  return `/api/certificados/${row.certificado_id}/arquivo`;
+}
+
+export function getInternalNotificationWindowsCertificateDownloadHref(row: InternalNotificationApiRow) {
+  if (
+    !row.id ||
+    !row.certificado_id ||
+    (row.type !== "certificate_created" && row.type !== "certificate_updated")
+  ) {
+    return null;
+  }
+
+  return `/api/internal-notifications/windows/${row.id}/certificate-file`;
+}
+
+export function getInternalNotificationDtoDownloadHref(
+  notification: Pick<InternalNotificationDto, "type" | "certificadoId" | "downloadHref">,
+) {
+  if (notification.downloadHref) {
+    return notification.downloadHref;
+  }
+
+  if (
+    !notification.certificadoId ||
+    (notification.type !== "certificate_created" && notification.type !== "certificate_updated")
+  ) {
+    return null;
+  }
+
+  return `/api/certificados/${notification.certificadoId}/arquivo`;
+}
+
 export function toInternalNotificationDto(
   row: InternalNotificationApiRow,
   readState?: InternalNotificationReadRow,
 ): InternalNotificationDto {
+  const downloadHref = getInternalNotificationCertificateDownloadHref(row);
+  const windowsDownloadHref = getInternalNotificationWindowsCertificateDownloadHref(row);
+
   return {
     id: row.id,
     type: row.type,
@@ -160,6 +206,9 @@ export function toInternalNotificationDto(
     title: row.title,
     body: row.body,
     href: row.href,
+    downloadHref,
+    windowsDownloadHref,
+    downloadLabel: downloadHref ? "Baixar certificado" : null,
     entityType: row.entity_type,
     entityId: row.entity_id,
     certificadoId: row.certificado_id,

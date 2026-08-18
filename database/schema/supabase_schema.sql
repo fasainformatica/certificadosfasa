@@ -395,11 +395,14 @@ set search_path = public, extensions
 as $$
 begin
   insert into public.user_profiles (id, role, active)
-  values (new.id, 'financeiro', true)
+  values (new.id, 'financeiro', false)
   on conflict (id) do nothing;
   return new;
 end;
 $$;
+
+comment on function public.handle_new_user() is
+  'Cria perfil interno inativo para novos usuarios do Supabase Auth. Administradores ativam acesso explicitamente em /configuracoes.';
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -2569,6 +2572,17 @@ grant execute on function public.current_user_role() to authenticated;
 grant execute on function public.is_internal_user() to authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.can_read_internal() to authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+grant execute on function public.handle_new_user() to service_role;
+
+comment on function public.current_user_role() is
+  'Helper RLS SECURITY DEFINER sem parametros; retorna apenas o role ativo vinculado a auth.uid().';
+comment on function public.is_internal_user() is
+  'Helper RLS SECURITY DEFINER sem parametros; valida apenas se auth.uid() possui perfil ativo.';
+comment on function public.is_admin() is
+  'Helper RLS SECURITY DEFINER sem parametros; usado por policies administrativas.';
+comment on function public.can_read_internal() is
+  'Helper RLS SECURITY DEFINER sem parametros; usado por policies de leitura interna.';
 
 revoke all privileges on table public.user_profiles from authenticated;
 grant select (id, role, active, created_at, updated_at)

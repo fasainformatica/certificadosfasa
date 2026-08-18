@@ -51,6 +51,8 @@ describe("internal notifications page", () => {
     expect(pageSource).toContain("<TableShell");
     expect(pageSource).toContain("<NotificationCard");
     expect(pageSource).toContain("Ver certificado");
+    expect(pageSource).toContain("getInternalNotificationDtoDownloadHref(notification)");
+    expect(pageSource).toContain("Baixar certificado");
     expect(actionButtonSource).toContain("Marcar lida");
     expect(actionButtonSource).toContain("Dispensar");
   });

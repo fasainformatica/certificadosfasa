@@ -32,6 +32,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `GET /api/internal-notifications`
 - `GET /api/internal-notifications/summary`
 - `GET /api/internal-notifications/windows/summary`
+- `GET /api/internal-notifications/windows/[id]/certificate-file`
 - `POST /api/internal-notifications/[id]/read`
 - `POST /api/internal-notifications/[id]/dismiss`
 
@@ -53,7 +54,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 ## Autorizacao
 
-Rotas administrativas usam `requireApiUser(["admin"])` quando a acao exige admin. Rotas cron exigem `CRON_SECRET`. Download publico nao exige login, mas exige token e senha validos. O endpoint read-only do cliente Windows exige `WINDOWS_NOTIFIER_TOKEN` e nao altera dados.
+Rotas administrativas usam `requireApiUser(["admin"])` quando a acao exige admin. Rotas cron exigem `CRON_SECRET`. Download publico nao exige login, mas exige token e senha validos. Os endpoints do cliente Windows exigem `WINDOWS_NOTIFIER_TOKEN`; o resumo nao altera dados e o download de PFX so retorna arquivo para notificacao de certificado visivel ao cargo configurado.
 
 `npm test` executa `scripts/check-service-role-rbac.mjs`, que falha quando uma nova API route usa `createSupabaseAdminClient` sem validacao de autenticacao/autorizacao antes da operacao.
 

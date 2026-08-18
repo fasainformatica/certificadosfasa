@@ -34,6 +34,8 @@ describe("internal notifications menu", () => {
     expect(menuSource).toContain("Nenhuma notificação interna");
     expect(menuSource).toContain('href="/notificacoes-internas"');
     expect(menuSource).toContain("Ver central completa");
+    expect(menuSource).toContain("getInternalNotificationDtoDownloadHref(notification)");
+    expect(menuSource).toContain("Baixar certificado");
     expect(menuSource).toContain("Ativar pop-ups");
     expect(menuSource).toContain("Desativar pop-ups");
     expect(menuSource).toContain("Pop-ups ativados.");

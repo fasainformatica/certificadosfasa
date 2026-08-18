@@ -42,9 +42,14 @@ internal sealed class NotifierConfig
 internal sealed class NotificationDto
 {
     public string Id;
+    public string Type;
     public string Title;
     public string Body;
     public string Href;
+    public string DownloadHref;
+    public string WindowsDownloadHref;
+    public string DownloadLabel;
+    public string CertificadoId;
     public string CreatedAt;
 }
 
@@ -347,9 +352,14 @@ internal sealed class FasaNotifierRuntime
         return new NotificationDto
         {
             Id = GetString(latest, "id"),
+            Type = GetString(latest, "type"),
             Title = GetString(latest, "title"),
             Body = GetString(latest, "body"),
             Href = GetString(latest, "href"),
+            DownloadHref = GetString(latest, "downloadHref"),
+            WindowsDownloadHref = GetString(latest, "windowsDownloadHref"),
+            DownloadLabel = GetString(latest, "downloadLabel"),
+            CertificadoId = GetString(latest, "certificadoId"),
             CreatedAt = GetString(latest, "createdAt")
         };
     }
@@ -515,7 +525,36 @@ internal sealed class FasaNotifierRuntime
     private void ShowNotification(NotificationDto notification)
     {
         string url = JoinAppUrl(this.config.BaseUrl, notification.Href);
-        ShowWindow(new NotificationWindow(notification, url, this.iconPath));
+        string downloadPath = ResolveCertificateDownloadPath(notification);
+        string downloadUrl = string.IsNullOrWhiteSpace(downloadPath)
+            ? null
+            : JoinAppUrl(this.config.BaseUrl, downloadPath);
+
+        ShowWindow(new NotificationWindow(notification, url, downloadUrl, this.config.Token, this.iconPath));
+    }
+
+    private string ResolveCertificateDownloadPath(NotificationDto notification)
+    {
+        if (notification == null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(notification.WindowsDownloadHref))
+        {
+            return notification.WindowsDownloadHref;
+        }
+
+        bool certificateNotification =
+            string.Equals(notification.Type, "certificate_created", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(notification.Type, "certificate_updated", StringComparison.OrdinalIgnoreCase);
+
+        if (!certificateNotification || string.IsNullOrWhiteSpace(notification.Id))
+        {
+            return null;
+        }
+
+        return "/api/internal-notifications/windows/" + notification.Id + "/certificate-file";
     }
 
     private void ShowPreviewPopup()
@@ -529,7 +568,7 @@ internal sealed class FasaNotifierRuntime
             CreatedAt = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture)
         };
 
-        ShowWindow(new NotificationWindow(preview, JoinAppUrl(this.config.BaseUrl, preview.Href), this.iconPath));
+        ShowWindow(new NotificationWindow(preview, JoinAppUrl(this.config.BaseUrl, preview.Href), null, this.config.Token, this.iconPath));
     }
 
     private void ShowWindow(NotificationWindow window)
@@ -741,15 +780,19 @@ internal sealed class NotificationWindow : Window
 {
     private readonly NotificationDto notification;
     private readonly string url;
+    private readonly string downloadUrl;
+    private readonly string downloadToken;
     private readonly string iconPath;
 
-    public NotificationWindow(NotificationDto notification, string url, string iconPath)
+    public NotificationWindow(NotificationDto notification, string url, string downloadUrl, string downloadToken, string iconPath)
     {
         this.notification = notification;
         this.url = url;
+        this.downloadUrl = downloadUrl;
+        this.downloadToken = downloadToken;
         this.iconPath = iconPath;
 
-        this.Width = 520;
+        this.Width = 580;
         this.Height = 274;
         this.WindowStyle = WindowStyle.None;
         this.ResizeMode = ResizeMode.NoResize;
@@ -891,10 +934,16 @@ internal sealed class NotificationWindow : Window
 
         Grid footer = new Grid();
         footer.Margin = new Thickness(28, 16, 28, 18);
+        bool hasDownloadAction = HasDownloadAction();
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(122) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+        if (hasDownloadAction)
+        {
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(148) });
+        }
         Grid.SetRow(footer, 2);
 
         TextBlock product = new TextBlock();
@@ -906,15 +955,25 @@ internal sealed class NotificationWindow : Window
         Grid.SetColumn(product, 0);
         footer.Children.Add(product);
 
-        Button closeButton = CreateTextButton("Fechar", 92, 40, "#ffffff", "#f8fafc", "#334155", "#0f172a", "#cbd5e1", "#94a3b8");
+        Button closeButton = CreateTextButton("Fechar", 88, 40, "#ffffff", "#f8fafc", "#334155", "#0f172a", "#cbd5e1", "#94a3b8");
         closeButton.Click += delegate { this.Close(); };
         Grid.SetColumn(closeButton, 1);
         footer.Children.Add(closeButton);
 
-        Button openButton = CreateTextButton("Abrir aviso", 122, 40, "#2563eb", "#1d4ed8", "#ffffff", "#ffffff", "#2563eb", "#1d4ed8");
+        Button openButton = hasDownloadAction
+            ? CreateTextButton("Abrir aviso", 112, 40, "#ffffff", "#f8fafc", "#334155", "#0f172a", "#cbd5e1", "#94a3b8")
+            : CreateTextButton("Abrir aviso", 112, 40, "#2563eb", "#1d4ed8", "#ffffff", "#ffffff", "#2563eb", "#1d4ed8");
         openButton.Click += delegate { OpenNotification(); };
         Grid.SetColumn(openButton, 3);
         footer.Children.Add(openButton);
+
+        if (hasDownloadAction)
+        {
+            Button downloadButton = CreateTextButton(SafeDownloadLabel(), 148, 40, "#2563eb", "#1d4ed8", "#ffffff", "#ffffff", "#2563eb", "#1d4ed8");
+            downloadButton.Click += delegate { StartDownload(downloadButton); };
+            Grid.SetColumn(downloadButton, 5);
+            footer.Children.Add(downloadButton);
+        }
 
         layout.Children.Add(footer);
         card.Child = layout;
@@ -1093,6 +1152,21 @@ internal sealed class NotificationWindow : Window
         return "Abra a central interna para revisar.";
     }
 
+    private bool HasDownloadAction()
+    {
+        return !string.IsNullOrWhiteSpace(this.downloadUrl);
+    }
+
+    private string SafeDownloadLabel()
+    {
+        if (this.notification != null && !string.IsNullOrWhiteSpace(this.notification.DownloadLabel))
+        {
+            return this.notification.DownloadLabel;
+        }
+
+        return "Baixar certificado";
+    }
+
     public void MoveTo(double left, double top, bool animate)
     {
         if (!animate || !this.IsLoaded)
@@ -1152,6 +1226,290 @@ internal sealed class NotificationWindow : Window
         }
 
         this.Close();
+    }
+
+    private void StartDownload(Button button)
+    {
+        if (!HasDownloadAction())
+        {
+            return;
+        }
+
+        object originalContent = button.Content;
+        button.IsEnabled = false;
+        button.Content = "Baixando...";
+
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            string downloadedPath = null;
+            Exception failure = null;
+
+            try
+            {
+                downloadedPath = DownloadCertificateToDownloads();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            this.Dispatcher.BeginInvoke(new Action(delegate
+            {
+                button.Content = originalContent;
+                button.IsEnabled = true;
+
+                if (failure != null)
+                {
+                    WpfMessageBox.Show(
+                        BuildDownloadFailureMessage(failure),
+                        "Fasa Certificados",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                    return;
+                }
+
+                WpfMessageBox.Show(
+                    "Certificado baixado em:" + Environment.NewLine + downloadedPath,
+                    "Fasa Certificados",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information
+                );
+                this.Close();
+            }));
+        });
+    }
+
+    private string BuildDownloadFailureMessage(Exception failure)
+    {
+        string detail = GetDownloadFailureDetail(failure);
+        string message = "Nao foi possivel baixar o certificado.";
+
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            message += Environment.NewLine + Environment.NewLine + detail;
+        }
+        else
+        {
+            message += " Verifique a conexao do notificador e tente novamente.";
+        }
+
+        return message;
+    }
+
+    private string GetDownloadFailureDetail(Exception failure)
+    {
+        WebException webException = failure as WebException;
+
+        if (webException != null)
+        {
+            HttpWebResponse response = webException.Response as HttpWebResponse;
+
+            if (response != null)
+            {
+                int status = (int)response.StatusCode;
+
+                if (status == 401 || status == 403)
+                {
+                    return "O token do notificador foi recusado. Confira WINDOWS_NOTIFIER_TOKEN na Vercel e no app instalado.";
+                }
+
+                if (status == 404)
+                {
+                    return "O servidor ainda nao tem a rota de download direto publicada. Faca o deploy do projeto atualizado na Vercel.";
+                }
+
+                if (status == 502)
+                {
+                    return "O servidor nao conseguiu ler o PFX no Storage. Verifique se o certificado existe no bucket privado.";
+                }
+
+                return "Servidor retornou status " + status.ToString(CultureInfo.InvariantCulture) + ".";
+            }
+
+            return "Servidor indisponivel ou sem resposta. Verifique a internet e a URL configurada.";
+        }
+
+        if (failure is UnauthorizedAccessException)
+        {
+            return "O Windows nao permitiu gravar na pasta Downloads.";
+        }
+
+        if (failure is IOException)
+        {
+            return "Nao foi possivel gravar o arquivo na pasta Downloads.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(failure.Message))
+        {
+            return failure.Message;
+        }
+
+        return null;
+    }
+
+    private string DownloadCertificateToDownloads()
+    {
+        if (string.IsNullOrWhiteSpace(this.downloadUrl))
+        {
+            throw new InvalidOperationException("Link de download nao informado.");
+        }
+
+        if (string.IsNullOrWhiteSpace(this.downloadToken))
+        {
+            throw new InvalidOperationException("Token do notificador nao configurado.");
+        }
+
+        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(this.downloadUrl);
+        request.Method = "GET";
+        request.Headers[HttpRequestHeader.Authorization] = "Bearer " + this.downloadToken;
+        request.Accept = "application/x-pkcs12, application/octet-stream";
+        request.Timeout = 30000;
+
+        using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+        {
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
+            {
+                throw new InvalidOperationException("Servidor retornou status " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) + ".");
+            }
+
+            string downloadsDir = GetDownloadsDirectory();
+            Directory.CreateDirectory(downloadsDir);
+
+            string fileName = SanitizeFileName(ReadFileNameFromResponse(response));
+            string targetPath = GetAvailableDownloadPath(downloadsDir, fileName);
+
+            using (Stream responseStream = response.GetResponseStream())
+            using (FileStream fileStream = File.Create(targetPath))
+            {
+                if (responseStream == null)
+                {
+                    throw new InvalidOperationException("Resposta de download vazia.");
+                }
+
+                byte[] buffer = new byte[81920];
+                int read;
+
+                while ((read = responseStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    fileStream.Write(buffer, 0, read);
+                }
+            }
+
+            return targetPath;
+        }
+    }
+
+    private string GetDownloadsDirectory()
+    {
+        string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        }
+
+        return Path.Combine(userProfile, "Downloads");
+    }
+
+    private string ReadFileNameFromResponse(HttpWebResponse response)
+    {
+        string disposition = response.Headers["Content-Disposition"];
+        string headerFileName = ReadContentDispositionFileName(disposition);
+
+        if (!string.IsNullOrWhiteSpace(headerFileName))
+        {
+            return headerFileName;
+        }
+
+        return "certificado-fasa.pfx";
+    }
+
+    private string ReadContentDispositionFileName(string header)
+    {
+        if (string.IsNullOrWhiteSpace(header))
+        {
+            return null;
+        }
+
+        string[] parts = header.Split(';');
+
+        foreach (string rawPart in parts)
+        {
+            string part = rawPart.Trim();
+
+            if (part.StartsWith("filename*=", StringComparison.OrdinalIgnoreCase))
+            {
+                string value = part.Substring("filename*=".Length).Trim().Trim('"');
+                int encodingSeparator = value.IndexOf("''", StringComparison.Ordinal);
+
+                if (encodingSeparator >= 0)
+                {
+                    value = value.Substring(encodingSeparator + 2);
+                }
+
+                return Uri.UnescapeDataString(value);
+            }
+        }
+
+        foreach (string rawPart in parts)
+        {
+            string part = rawPart.Trim();
+
+            if (part.StartsWith("filename=", StringComparison.OrdinalIgnoreCase))
+            {
+                return part.Substring("filename=".Length).Trim().Trim('"');
+            }
+        }
+
+        return null;
+    }
+
+    private string SanitizeFileName(string value)
+    {
+        string fileName = string.IsNullOrWhiteSpace(value) ? "certificado-fasa.pfx" : Path.GetFileName(value.Trim());
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        {
+            fileName = fileName.Replace(invalidChar, '-');
+        }
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = "certificado-fasa.pfx";
+        }
+
+        if (!fileName.EndsWith(".pfx", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName += ".pfx";
+        }
+
+        return fileName;
+    }
+
+    private string GetAvailableDownloadPath(string directory, string fileName)
+    {
+        string candidate = Path.Combine(directory, fileName);
+
+        if (!File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        string name = Path.GetFileNameWithoutExtension(fileName);
+        string extension = Path.GetExtension(fileName);
+
+        for (int index = 1; index < 1000; index++)
+        {
+            candidate = Path.Combine(directory, name + " (" + index.ToString(CultureInfo.InvariantCulture) + ")" + extension);
+
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new IOException("Nao foi possivel encontrar um nome livre para salvar o certificado.");
     }
 
     private SolidColorBrush HexBrush(string value)

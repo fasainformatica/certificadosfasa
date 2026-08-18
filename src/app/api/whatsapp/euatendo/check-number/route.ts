@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getSafeOperationalErrorMessage } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
 import { euAtendoCheckNumberSchema } from "@/lib/whatsapp/euatendo/schemas";
@@ -63,15 +64,17 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    const safeMessage = getSafeOperationalErrorMessage(error, "Nao foi possivel verificar o numero na euAtendo.");
+
     await admin.from("audit_logs").insert({
       user_id: auth.user.id,
       acao: "euatendo_check_number",
       metadata: {
         telefone: maskPhone(normalizedNumber),
-        error: error instanceof Error ? error.message.slice(0, 200) : "erro",
+        error: safeMessage,
       },
     });
 
-    return jsonError("Não foi possível verificar o número na euAtendo.", 502, "euatendo_check_number");
+    return jsonError(safeMessage, 502, "euatendo_check_number");
   }
 }

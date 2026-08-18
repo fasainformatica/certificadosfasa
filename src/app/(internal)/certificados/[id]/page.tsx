@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { Download } from "lucide-react";
 
 import { buttonClass } from "@/components/ui/button-styles";
 import { SectionCard } from "@/components/ui/section-card";
@@ -161,12 +162,18 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
         description="Consulte validade, cliente vinculado, renovação e ações administrativas seguras."
         actions={
           canManageCertificate ? (
-            <Link
-              href={`/certificados/novo?cliente_id=${certificado.clientes?.id ?? ""}`}
-              className={buttonClass("secondary")}
-            >
-              Renovar certificado
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <a href={`/api/certificados/${id}/arquivo`} className={buttonClass("primary")}>
+                <Download aria-hidden="true" className="h-4 w-4" />
+                Baixar certificado
+              </a>
+              <Link
+                href={`/certificados/novo?cliente_id=${certificado.clientes?.id ?? ""}`}
+                className={buttonClass("secondary")}
+              >
+                Renovar certificado
+              </Link>
+            </div>
           ) : null
         }
       />

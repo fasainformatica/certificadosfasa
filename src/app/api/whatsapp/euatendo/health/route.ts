@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getSafeOperationalErrorMessage } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEuAtendoConfigStatus, EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo";
 import { maskPhone } from "@/lib/utils/phone";
@@ -61,12 +62,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ health: safeHealth });
   } catch (error) {
+    const safeMessage = getSafeOperationalErrorMessage(error, "Nao foi possivel testar a API euAtendo.");
+
     await admin.from("audit_logs").insert({
       user_id: auth.user.id,
       acao: "euatendo_health_check",
       metadata: {
         ok: false,
-        error: error instanceof Error ? error.message.slice(0, 200) : "erro",
+        error: safeMessage,
       },
     });
 
@@ -79,7 +82,7 @@ export async function GET(request: NextRequest) {
         instance: null,
         listedInstance: null,
         errorCode: "CONFIGURATION_ERROR",
-        errorMessage: "Não foi possível testar a API euAtendo. Verifique as variáveis de ambiente server-only.",
+        errorMessage: safeMessage,
       },
     });
   }

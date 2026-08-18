@@ -13,6 +13,14 @@ const routeSource = readFileSync(
   join(process.cwd(), "src/app/api/internal-notifications/windows/summary/route.ts"),
   "utf8",
 );
+const certificateFileRouteSource = readFileSync(
+  join(process.cwd(), "src/app/api/certificados/[id]/arquivo/route.ts"),
+  "utf8",
+);
+const windowsCertificateFileRouteSource = readFileSync(
+  join(process.cwd(), "src/app/api/internal-notifications/windows/[id]/certificate-file/route.ts"),
+  "utf8",
+);
 const notifierScript = readFileSync(join(process.cwd(), "tools/windows-notifier/FasaInternalNotifier.ps1"), "utf8");
 const notifierBat = readFileSync(join(process.cwd(), "tools/windows-notifier/INICIAR_NOTIFICADOR_FASA.bat"), "utf8");
 const notifierConfigExample = readFileSync(join(process.cwd(), "tools/windows-notifier/config.example.json"), "utf8");
@@ -171,6 +179,19 @@ describe("windows notifier route and client package", () => {
     expect(wpfNotifierSource).toContain("using System.Windows;");
     expect(wpfNotifierSource).toContain("/api/internal-notifications/windows/summary");
     expect(wpfNotifierSource).toContain("Bearer ");
+    expect(wpfNotifierSource).toContain("DownloadHref");
+    expect(wpfNotifierSource).toContain("WindowsDownloadHref");
+    expect(wpfNotifierSource).toContain("DownloadLabel");
+    expect(wpfNotifierSource).toContain("CertificadoId");
+    expect(wpfNotifierSource).toContain("ResolveCertificateDownloadPath");
+    expect(wpfNotifierSource).toContain("StartDownload");
+    expect(wpfNotifierSource).toContain("DownloadCertificateToDownloads");
+    expect(wpfNotifierSource).toContain("BuildDownloadFailureMessage");
+    expect(wpfNotifierSource).toContain("O servidor ainda nao tem a rota de download direto publicada");
+    expect(wpfNotifierSource).toContain("O token do notificador foi recusado");
+    expect(wpfNotifierSource).toContain("GetDownloadsDirectory");
+    expect(wpfNotifierSource).toContain("HttpRequestHeader.Authorization");
+    expect(wpfNotifierSource).toContain("Baixar certificado");
     expect(wpfNotifierSource).toContain("NotificationWindow");
     expect(wpfNotifierSource).toContain("DropShadowEffect");
     expect(wpfNotifierSource).toContain("BeginEntranceAnimation");
@@ -182,6 +203,8 @@ describe("windows notifier route and client package", () => {
     expect(wpfNotifierSource).not.toContain("accentTop");
     expect(wpfNotifierSource).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(wpfNotifierSource).not.toContain("createSupabase");
+    expect(wpfNotifierSource).not.toContain("storage_path");
+    expect(wpfNotifierSource).not.toContain("ProcessStartInfo(this.downloadUrl)");
     expect(wpfNotifierInstallerSource).toContain("FasaNotifierApp.exe");
     expect(wpfNotifierInstallerSource).toContain("FasaCertificadosNotifier");
     expect(wpfNotifierInstallerSource).toContain("Windows\\CurrentVersion\\Run");
@@ -203,5 +226,39 @@ describe("windows notifier route and client package", () => {
     expect(wpfNotifierReadme).toContain("confidencial");
     expect(gitignore).toContain("tools/windows-notifier-app/config.local.json");
     expect(gitignore).toContain("tools/windows-notifier-app/dist/");
+  });
+
+  it("baixa certificado pelo navegador autenticado sem dar privilegio ao token do notificador", () => {
+    const authIndex = certificateFileRouteSource.indexOf("requireApiUser(OPERATIONAL_ROLES)");
+    const adminIndex = certificateFileRouteSource.indexOf("createSupabaseAdminClient()");
+
+    expect(authIndex).toBeGreaterThanOrEqual(0);
+    expect(adminIndex).toBeGreaterThan(authIndex);
+    expect(certificateFileRouteSource).toContain("createSignedUrl");
+    expect(certificateFileRouteSource).toContain("NextResponse.redirect");
+    expect(certificateFileRouteSource).toContain("download_certificado_interno");
+    expect(certificateFileRouteSource).not.toContain("authenticateWindowsNotifier");
+    expect(certificateFileRouteSource).not.toContain("WINDOWS_NOTIFIER_TOKEN");
+    expect(wpfNotifierReadme).toContain("pasta `Downloads` do Windows");
+    expect(wpfNotifierReadme).toContain("sem abrir Chrome, Edge ou qualquer navegador");
+    expect(wpfNotifierReadme).toContain("Baixa certificados somente quando o usuario clica");
+  });
+
+  it("baixa certificado pelo endpoint do notificador sem abrir navegador", () => {
+    const authIndex = windowsCertificateFileRouteSource.indexOf("authenticateWindowsNotifier(request)");
+    const adminIndex = windowsCertificateFileRouteSource.indexOf("createSupabaseAdminClient()");
+
+    expect(authIndex).toBeGreaterThanOrEqual(0);
+    expect(adminIndex).toBeGreaterThan(authIndex);
+    expect(windowsCertificateFileRouteSource).toContain("buildWindowsNotifierVisibilityFilters");
+    expect(windowsCertificateFileRouteSource).toContain("CERTIFICATES_BUCKET");
+    expect(windowsCertificateFileRouteSource).toContain("createSignedUrl(certificado.storage_path, 60");
+    expect(windowsCertificateFileRouteSource).toContain("NextResponse.redirect");
+    expect(windowsCertificateFileRouteSource).toContain("download_certificado_windows_notifier");
+    expect(windowsCertificateFileRouteSource).not.toContain("requireApiUser");
+    expect(windowsCertificateFileRouteSource).not.toContain(".download(certificado.storage_path)");
+    expect(wpfNotifierSource).toContain('request.Headers[HttpRequestHeader.Authorization] = "Bearer " + this.downloadToken');
+    expect(wpfNotifierSource).toContain('Path.Combine(userProfile, "Downloads")');
+    expect(wpfNotifierSource).toContain("GetAvailableDownloadPath");
   });
 });

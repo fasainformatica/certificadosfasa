@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getSafeOperationalErrorMessage } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
 import { euAtendoTestMessageSchema } from "@/lib/whatsapp/euatendo/schemas";
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
           retryAfterSeconds: result?.retryAfterSeconds ?? null,
         });
       } catch (error) {
-        cadenceReleaseError = error instanceof Error ? error.message : "Falha ao liberar cadencia do WhatsApp.";
+        cadenceReleaseError = getSafeOperationalErrorMessage(error, "Falha ao liberar cadencia do WhatsApp.");
       }
     }
 
@@ -159,16 +160,18 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    const safeMessage = getSafeOperationalErrorMessage(error, "Nao foi possivel enviar a mensagem de teste pela euAtendo.");
+
     await admin.from("audit_logs").insert({
       user_id: auth.user.id,
       acao: "euatendo_test_message",
       metadata: {
         telefone: maskPhone(normalizedNumber),
         sent: false,
-        error: error instanceof Error ? error.message.slice(0, 200) : "erro",
+        error: safeMessage,
       },
     });
 
-    return jsonError("Não foi possível enviar a mensagem de teste pela euAtendo.", 502, "euatendo_test_message");
+    return jsonError(safeMessage, 502, "euatendo_test_message");
   }
 }

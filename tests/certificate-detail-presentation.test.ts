@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   formatCertificateFingerprint,
   getCertificateExpirationPresentation,
   getWhatsAppNoticePresentation,
 } from "@/lib/certificados/detail-presentation";
+
+const detailPageSource = readFileSync(join(process.cwd(), "src/app/(internal)/certificados/[id]/page.tsx"), "utf8");
 
 describe("certificate detail presentation", () => {
   it("reduz identificador tecnico longo sem apagar a referencia", () => {
@@ -33,5 +37,11 @@ describe("certificate detail presentation", () => {
       label: "Avisos permitidos",
       tone: "green",
     });
+  });
+
+  it("exibe download interno autenticado no detalhe do certificado", () => {
+    expect(detailPageSource).toContain("Baixar certificado");
+    expect(detailPageSource).toContain("/api/certificados/${id}/arquivo");
+    expect(detailPageSource).toContain("canManageCertificate");
   });
 });

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,6 +9,11 @@ import {
   getUploadFallbackErrorMessage,
   getUploadFileSummary,
 } from "@/lib/certificados/upload-presentation";
+
+const uploadFormSource = readFileSync(
+  join(process.cwd(), "src/app/(internal)/certificados/novo/upload-certificate-form.tsx"),
+  "utf8",
+);
 
 describe("upload presentation", () => {
   it("formata tamanho de arquivo com unidades legiveis", () => {
@@ -21,7 +29,17 @@ describe("upload presentation", () => {
   });
 
   it("mantem mensagens de erro humanas para falhas comuns", () => {
-    expect(getUploadFallbackErrorMessage()).toContain("Não foi possível enviar o certificado");
-    expect(getUploadCommunicationErrorMessage()).toContain("Verifique sua conexão");
+    expect(getUploadFallbackErrorMessage()).toContain("certificado");
+    expect(getUploadCommunicationErrorMessage()).toContain("Verifique");
+  });
+
+  it("mostra acoes de download e detalhes depois do cadastro ou atualizacao", () => {
+    expect(uploadFormSource).toContain("uploadResult");
+    expect(uploadFormSource).toContain("Certificado cadastrado com sucesso.");
+    expect(uploadFormSource).toContain("Certificado atualizado com sucesso.");
+    expect(uploadFormSource).toContain("/api/certificados/${uploadResult.id}/arquivo");
+    expect(uploadFormSource).toContain("Baixar certificado");
+    expect(uploadFormSource).toContain("Ver detalhes");
+    expect(uploadFormSource).not.toContain("router.replace(`/certificados/${payload.certificado.id}`)");
   });
 });

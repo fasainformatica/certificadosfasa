@@ -42,7 +42,42 @@ from pg_policies
 where schemaname = 'public'
 order by tablename, policyname;
 
--- 4. Buckets e exposicao publica de Storage.
+-- 4. Funcoes SECURITY DEFINER e search_path.
+select
+  n.nspname as schema_name,
+  p.proname as function_name,
+  pg_get_function_identity_arguments(p.oid) as arguments,
+  p.prosecdef as security_definer,
+  coalesce(
+    array_to_string(p.proconfig, ', '),
+    ''
+  ) as function_config
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.prosecdef is true
+order by p.proname, arguments;
+
+-- 5. Permissoes EXECUTE em funcoes publicas para roles sensiveis.
+select
+  routine_schema,
+  routine_name,
+  grantee,
+  privilege_type
+from information_schema.routine_privileges
+where routine_schema = 'public'
+  and grantee in ('PUBLIC', 'anon', 'authenticated')
+order by routine_name, grantee, privilege_type;
+
+-- 6. Definicao dos helpers usados por RLS.
+select p.proname, pg_get_functiondef(p.oid)
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in ('current_user_role','is_admin','is_internal_user','can_read_internal','handle_new_user')
+order by p.proname;
+
+-- 7. Buckets e exposicao publica de Storage.
 select
   id,
   name,
@@ -52,7 +87,7 @@ select
 from storage.buckets
 order by id;
 
--- 5. Grants diretos em storage para anon/authenticated.
+-- 8. Grants diretos em storage para anon/authenticated.
 select
   table_schema,
   table_name,
@@ -64,7 +99,7 @@ where table_schema = 'storage'
   and grantee in ('PUBLIC', 'anon', 'authenticated')
 order by table_name, grantee, privilege_type;
 
--- 6. Colunas com nomes sensiveis no schema public.
+-- 9. Colunas com nomes sensiveis no schema public.
 select
   table_schema,
   table_name,
@@ -82,7 +117,7 @@ where table_schema = 'public'
   )
 order by table_name, column_name;
 
--- 7. Indicadores agregados de Auth sem listar e-mails ou dados pessoais.
+-- 10. Indicadores agregados de Auth sem listar e-mails ou dados pessoais.
 select
   count(*) as total_users,
   count(*) filter (where email_confirmed_at is not null) as email_confirmed_users,
@@ -92,7 +127,16 @@ select
   max(last_sign_in_at) as latest_sign_in_at
 from auth.users;
 
--- 8. Ultimos eventos de auditoria do sistema sem expor metadata detalhada.
+-- 11. Perfis internos agregados para detectar signup aberto com ativacao indevida.
+select
+  role,
+  active,
+  count(*) as total
+from public.user_profiles
+group by role, active
+order by role, active;
+
+-- 12. Ultimos eventos de auditoria do sistema sem expor metadata detalhada.
 select
   acao,
   count(*) as total,
@@ -102,7 +146,7 @@ where created_at >= now() - interval '30 days'
 group by acao
 order by latest_at desc;
 
--- 9. Download publico: links ativos e usados, sem expor tokens.
+-- 13. Download publico: links ativos e usados, sem expor tokens.
 select
   count(*) filter (where ativo is true and usado is false) as active_unused_links,
   count(*) filter (where usado is true) as used_links,
@@ -111,7 +155,7 @@ select
   max(usado_em) as latest_used_at
 from public.links_download;
 
--- 10. Objetos no bucket privado de certificados.
+-- 14. Objetos no bucket privado de certificados.
 select
   bucket_id,
   count(*) as object_count,

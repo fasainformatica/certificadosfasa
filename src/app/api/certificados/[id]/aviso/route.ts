@@ -14,6 +14,7 @@ import {
   validateTemplateContent,
 } from "@/lib/notifications/engine";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getSafeOperationalErrorMessage, redactSensitiveText } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json, NotificationProvider } from "@/lib/supabase/database.types";
 import { normalizeBrazilianPhone, maskPhone } from "@/lib/utils/phone";
@@ -142,7 +143,7 @@ async function logManualAttempt({
       status,
       attempt_count: 1,
       error_code: errorCode,
-      error_message: errorMessage ? errorMessage.slice(0, 500) : null,
+      error_message: errorMessage ? redactSensitiveText(errorMessage, 500) : null,
       request_id: randomUUID(),
       response_id: responseId,
       metadata,
@@ -485,7 +486,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
           retryAfterSeconds: result?.retryAfterSeconds ?? null,
         });
       } catch (error) {
-        cadenceReleaseError = error instanceof Error ? error.message : "Falha ao liberar cadencia do WhatsApp.";
+        cadenceReleaseError = getSafeOperationalErrorMessage(error, "Falha ao liberar cadencia do WhatsApp.");
       }
     }
 
@@ -538,6 +539,8 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
       },
     });
   } catch (error) {
+    const safeMessage = getSafeOperationalErrorMessage(error, "Erro inesperado no envio manual.");
+
     await logManualAttempt({
       admin,
       userId: auth.user.id,
@@ -546,7 +549,7 @@ export async function POST(request: NextRequest, { params }: AvisoRouteProps) {
       status: "error",
       durationMs: Date.now() - startedAt,
       errorCode: "manual_notice_error",
-      errorMessage: error instanceof Error ? error.message : "Erro inesperado no envio manual.",
+      errorMessage: safeMessage,
       metadata: { stage: "manual_notice" },
     });
 

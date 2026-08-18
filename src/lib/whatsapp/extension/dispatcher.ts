@@ -7,6 +7,7 @@ import {
   clampNotificationDelaySettings,
   SETTINGS_ID,
 } from "@/lib/notifications/engine";
+import { getSafeOperationalErrorMessage, redactSensitiveText } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   Database,
@@ -279,7 +280,7 @@ async function logExtensionAttempt(
     status,
     attempt_count: event?.attempt_count ?? null,
     error_code: errorCode,
-    error_message: errorMessage ? errorMessage.slice(0, 500) : null,
+    error_message: errorMessage ? redactSensitiveText(errorMessage, 500) : null,
     request_id: randomUUID(),
     response_id: responseId,
     metadata: {
@@ -495,13 +496,15 @@ export async function reserveNextWhatsAppExtensionMessage({
   });
 
   if (error) {
+    const message = getSafeOperationalErrorMessage(error, "Nao foi possivel reservar a proxima mensagem para a extensao.");
+
     await logExtensionAttempt(admin, {
       auth,
       event: null,
       operation: "extension_reserve",
       status: "error",
       errorCode: "reserve_failed",
-      errorMessage: error.message,
+      errorMessage: message,
       metadata: summarizeExtensionStatus(asRecord(body)?.status, auth),
     });
 

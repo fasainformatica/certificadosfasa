@@ -18,13 +18,13 @@ Crie `config.local.json` com:
 
 ```json
 {
-  "baseUrl": "http://localhost:3000",
+  "baseUrl": "https://certificadosfasa.vercel.app",
   "token": "mesmo_valor_do_WINDOWS_NOTIFIER_TOKEN",
   "intervalSeconds": 60
 }
 ```
 
-Use o dominio da Vercel em `baseUrl` quando for usar em producao.
+Para teste local, troque `baseUrl` temporariamente para `http://localhost:3000`. Para producao, mantenha `https://certificadosfasa.vercel.app`.
 
 ## Gerar o instalador
 
@@ -77,12 +77,16 @@ O app abre uma previa visual do popup. Se `--self-test` for usado, ele tambem va
 
 Os pop-ups nao fecham sozinhos. Quando mais de um aviso chega, as janelas ficam empilhadas no canto inferior direito ate o usuario abrir ou fechar cada uma.
 
+Quando a notificacao for de certificado cadastrado ou atualizado, o popup mostra o botao `Baixar certificado`. O clique baixa o arquivo PFX direto para a pasta `Downloads` do Windows usando o token do notificador, sem abrir Chrome, Edge ou qualquer navegador. Se ja existir um arquivo com o mesmo nome, o app cria uma copia numerada, como `certificado (1).pfx`.
+
 ## Limites
 
 - Nao envia WhatsApp.
 - Nao altera certificados.
 - Nao marca notificacoes como lidas.
 - Nao acessa Supabase diretamente.
+- Nao recebe senha do PFX.
+- Baixa certificados somente quando o usuario clica em `Baixar certificado`.
 - Precisa que o servidor esteja acessivel.
 - O token fica no computador em `config.local.json`; trate esse arquivo como segredo.
 - O instalador unico tambem contem esse token embutido; trate o EXE como confidencial.

@@ -79,6 +79,8 @@ export function buildCertificateUploadInternalNotificationPayload(
       source: input.source ?? "certificate_upload_service",
       operation: input.operation,
       cnpj: input.cnpj,
+      certificate_download_available: true,
+      certificate_download_requires_login: true,
     },
   };
 }

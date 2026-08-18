@@ -28,6 +28,7 @@ Para escoar fila no mesmo dia sem Vercel Pro, o projeto inclui um cron externo p
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=https://certificadosfasa.vercel.app
 SUPABASE_SECRET_KEY=
 SUPABASE_SERVICE_ROLE_KEY= # opcional legado
 CERT_ENCRYPTION_KEY=
@@ -39,6 +40,15 @@ EUATENDO_PROVIDER_ENABLED=
 EUATENDO_DISPATCH_MAX_EVENTS_PER_RUN=1
 WINDOWS_NOTIFIER_ENABLED=false
 WINDOWS_NOTIFIER_TOKEN=
+WINDOWS_NOTIFIER_ROLE=financeiro
+```
+
+Para o dominio oficial, confirme estes valores no projeto correto da Vercel:
+
+```env
+NEXT_PUBLIC_SITE_URL=https://certificadosfasa.vercel.app
+WINDOWS_NOTIFIER_ENABLED=true
+WINDOWS_NOTIFIER_TOKEN=mesmo_valor_do_config_local_do_notificador
 WINDOWS_NOTIFIER_ROLE=financeiro
 ```
 
@@ -57,9 +67,23 @@ O mesmo valor de `WINDOWS_NOTIFIER_TOKEN` deve estar no servidor e no `config.lo
 1. Criar projeto Supabase.
 2. Executar `database/schema/supabase_schema.sql` em banco novo ou migrations em banco existente.
 3. Em banco existente, aplicar `database/migrations/20260813100000_security_incident_hardening.sql`.
-4. Confirmar bucket privado `certificados-pfx`.
-5. Criar usuario em Supabase Auth.
-6. Promover usuario com `database/scripts/SUPABASE_PROMOVER_USUARIO_ADMIN.sql`.
+4. Em banco existente, aplicar `database/migrations/20260813103000_lock_public_signup_profiles_and_rpc_privileges.sql`.
+5. Confirmar bucket privado `certificados-pfx`.
+6. Criar usuario em Supabase Auth.
+7. Promover usuario com `database/scripts/SUPABASE_PROMOVER_USUARIO_ADMIN.sql`.
+
+## Auth Supabase
+
+No painel Supabase, revisar antes de liberar producao:
+
+1. Desligar signup publico em `Authentication > Sign In / Up`, salvo se houver convite controlado.
+2. Manter confirmacao de e-mail ativa.
+3. Configurar MFA para administradores quando o plano permitir.
+4. Revisar rate limits e CAPTCHA em `Authentication > Security`.
+5. Reduzir JWT expiry para uma janela operacional curta.
+6. Auditar usuarios ativos em `user_profiles`; contas desconhecidas devem ficar `active = false`.
+
+A migration `20260813103000_lock_public_signup_profiles_and_rpc_privileges.sql` mitiga o risco de signup aberto criando perfis novos como inativos, mas nao substitui o desligamento do signup no painel Supabase.
 
 ## Auditoria de seguranca
 
@@ -76,6 +100,29 @@ database/scripts/SECURITY_AUDIT_SUPABASE.sql
 ```
 
 Esse SQL mostra RLS, grants, buckets, colunas sensiveis e indicadores agregados de Auth sem listar e-mails ou tokens.
+
+Depois da auditoria principal, revise logs antigos com:
+
+```text
+database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql
+```
+
+Se houver achados, use `database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql` primeiro com o `ROLLBACK` padrao. O script mostra o resumo de linhas afetadas sem gravar nada. Para aplicar a limpeza, troque somente o `ROLLBACK` final por `COMMIT` depois de revisar o resultado.
+
+O arquivo `database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql` e exclusivo para o outro projeto Supabase `mftvsgzrujkalssiriny`. Nao execute esse arquivo no projeto `certificadosfasa`.
+
+O `npm.cmd run security:audit` tambem escaneia arquivos novos nao ignorados pelo Git. Ele nao varre `.env` local nem `config.local.json` do notificador, porque esses arquivos podem conter credenciais reais e nao devem ser versionados.
+
+## Validacao de rotas API
+
+O comando `npm.cmd test` executa `scripts/check-service-role-rbac.mjs` ao final da suite. Essa checagem falha quando:
+
+- Uma rota interna fica sem `requireApiUser`.
+- Uma rota cria Supabase Admin antes de validar autenticacao.
+- Um cron deixa de validar `CRON_SECRET`.
+- Uma rota da extensao WhatsApp deixa de validar Basic Auth.
+- A rota do notificador Windows deixa de validar bearer token.
+- A rota publica de download deixa de conter token hash, senha e controle de tentativas.
 
 ## Cron Vercel
 

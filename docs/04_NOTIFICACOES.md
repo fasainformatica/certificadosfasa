@@ -110,8 +110,9 @@ Endpoints disponiveis na Etapa 2:
 - `POST /api/internal-notifications/[id]/read`: marca a notificacao como lida para o usuario atual.
 - `POST /api/internal-notifications/[id]/dismiss`: dispensa a notificacao para o usuario atual sem apagar o registro global.
 - `GET /api/internal-notifications/windows/summary`: endpoint read-only para o cliente Windows, protegido por `WINDOWS_NOTIFIER_TOKEN`.
+- `GET /api/internal-notifications/windows/[id]/certificate-file`: endpoint do cliente Windows para baixar o PFX de uma notificacao de certificado, protegido por `WINDOWS_NOTIFIER_TOKEN`.
 
-Essas rotas exigem usuario interno com cargo `admin` ou `financeiro`, validam RBAC antes do uso de service role e reaplicam a visibilidade por usuario/cargo antes de retornar ou alterar qualquer item.
+As rotas do painel exigem usuario interno com cargo `admin` ou `financeiro`, validam RBAC antes do uso de service role e reaplicam a visibilidade por usuario/cargo antes de retornar ou alterar qualquer item. As rotas do cliente Windows nao usam sessao do navegador; elas exigem bearer token dedicado, reaplicam a visibilidade por cargo e nao retornam senha PFX, signed URL antecipada ou `storage_path`.
 
 Geracao automatica na Etapa 3:
 
@@ -150,12 +151,13 @@ Pop-ups do navegador disponiveis na Etapa 6:
 
 Cliente Windows disponivel na Etapa 7:
 
-- Arquivos em `tools/windows-notifier`.
-- `FasaInternalNotifier.ps1` roda em PowerShell com `NotifyIcon`, consulta o servidor por intervalo configuravel e mostra popup para novas notificacoes.
-- `INICIAR_NOTIFICADOR_FASA.bat` inicia o cliente em janela oculta.
+- Cliente principal em `tools/windows-notifier-app`, com WPF, tray icon, instalador unico e inicializacao automatica por usuario.
+- Fallback legado em `tools/windows-notifier`, com PowerShell e `NotifyIcon`.
+- O app consulta o servidor por intervalo configuravel e mostra popup para novas notificacoes.
 - `TESTAR_NOTIFICADOR_FASA.bat` faz uma consulta unica para validar token, URL e rota.
 - `config.local.json` fica fora do Git e deve conter `baseUrl`, `token` e `intervalSeconds`.
 - A primeira notificacao encontrada vira linha de base para evitar avisar historico antigo.
+- Em notificacoes de certificado, o botao `Baixar certificado` salva o PFX direto em `Downloads` usando endpoint protegido por `WINDOWS_NOTIFIER_TOKEN`; esse endpoint gera uma signed URL curta no servidor e o app segue o redirecionamento sem abrir navegador.
 - O cliente nao altera banco, nao marca notificacao como lida, nao envia WhatsApp e nao recebe `SUPABASE_SERVICE_ROLE_KEY`.
 - O endpoint Windows nao retorna `dedupe_key`, `storage_path`, service role ou resposta bruta de provider.
 

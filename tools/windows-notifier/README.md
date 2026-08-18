@@ -23,13 +23,13 @@ npm.cmd run security:generate-windows-notifier-token
 
 ```json
 {
-  "baseUrl": "http://localhost:3000",
+  "baseUrl": "https://certificadosfasa.vercel.app",
   "token": "mesmo_valor_do_WINDOWS_NOTIFIER_TOKEN",
   "intervalSeconds": 60
 }
 ```
 
-Use o dominio da Vercel em `baseUrl` quando for usar em producao.
+Para teste local, troque `baseUrl` temporariamente para `http://localhost:3000`. Para producao, mantenha `https://certificadosfasa.vercel.app`.
 
 ## Teste
 

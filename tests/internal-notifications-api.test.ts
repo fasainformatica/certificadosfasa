@@ -8,6 +8,9 @@ import {
   isInternalNotificationSeverity,
   isInternalNotificationType,
   isUuid,
+  getInternalNotificationCertificateDownloadHref,
+  getInternalNotificationDtoDownloadHref,
+  getInternalNotificationWindowsCertificateDownloadHref,
   parseInternalNotificationState,
   toInternalNotificationDto,
   type InternalNotificationApiRow,
@@ -99,8 +102,55 @@ describe("internal notifications api helpers", () => {
 
     expect(dto.title).toBe("Certificado atualizado");
     expect(dto.entityType).toBe("certificado");
+    expect(dto.downloadHref).toBe("/api/certificados/11111111-1111-4111-8111-111111111111/arquivo");
+    expect(dto.windowsDownloadHref).toBe(
+      "/api/internal-notifications/windows/11111111-1111-4111-8111-111111111111/certificate-file",
+    );
+    expect(dto.downloadLabel).toBe("Baixar certificado");
     expect(dto.isRead).toBe(false);
     expect("dedupe_key" in dto).toBe(false);
+  });
+
+  it("calcula download autenticado apenas para notificacoes de certificado", () => {
+    const certificadoRow: InternalNotificationApiRow = {
+      id: "11111111-1111-4111-8111-111111111111",
+      type: "certificate_created",
+      severity: "success",
+      title: "Novo certificado cadastrado",
+      body: null,
+      href: "/certificados/22222222-2222-4222-8222-222222222222",
+      entity_type: "certificado",
+      entity_id: "22222222-2222-4222-8222-222222222222",
+      certificado_id: "22222222-2222-4222-8222-222222222222",
+      cliente_id: null,
+      target_role: null,
+      target_user_id: null,
+      actor_user_id: null,
+      metadata: {},
+      created_at: "2026-08-10T10:00:00.000Z",
+      expires_at: null,
+    };
+    const systemRow = {
+      ...certificadoRow,
+      type: "system_notice" as const,
+      certificado_id: "22222222-2222-4222-8222-222222222222",
+    };
+
+    expect(getInternalNotificationCertificateDownloadHref(certificadoRow)).toBe(
+      "/api/certificados/22222222-2222-4222-8222-222222222222/arquivo",
+    );
+    expect(getInternalNotificationCertificateDownloadHref(systemRow)).toBeNull();
+    expect(getInternalNotificationWindowsCertificateDownloadHref(certificadoRow)).toBe(
+      "/api/internal-notifications/windows/11111111-1111-4111-8111-111111111111/certificate-file",
+    );
+    expect(getInternalNotificationWindowsCertificateDownloadHref(systemRow)).toBeNull();
+    expect(
+      getInternalNotificationDtoDownloadHref({
+        type: "certificate_updated",
+        certificadoId: "22222222-2222-4222-8222-222222222222",
+        downloadHref: null,
+      }),
+    ).toBe("/api/certificados/22222222-2222-4222-8222-222222222222/arquivo");
   });
 
   it("monta filtros de visibilidade para service role reaplicar RBAC da tabela", () => {

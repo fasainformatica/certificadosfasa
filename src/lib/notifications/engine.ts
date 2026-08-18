@@ -7,6 +7,7 @@ import {
   EXPIRING_TEMPLATE_VARIABLES,
   REQUIRED_TEMPLATE_VARIABLES,
 } from "@/lib/notifications/validation";
+import { redactSensitiveText } from "@/lib/security/sensitive-data";
 import { refreshCertificateStatuses } from "@/lib/certificados/status";
 import { PLANNABLE_CERTIFICATE_RENEWAL_STATUSES } from "@/lib/certificados/renewal-status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -14,7 +15,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
 import type { WhatsAppProviderName } from "@/lib/whatsapp/euatendo/types";
 import { providerSupportsClientNotifications } from "@/lib/whatsapp/providers";
-import { normalizeBrazilianPhone } from "@/lib/utils/phone";
+import { maskPhone, normalizeBrazilianPhone } from "@/lib/utils/phone";
 
 export const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
 export const DEFAULT_DELAY_MIN_SECONDS = 180;
@@ -323,6 +324,12 @@ function getClienteTelefone(cliente: Pick<ClienteRow, "telefone" | "whatsapp"> |
   return telefone || "Telefone nao cadastrado";
 }
 
+function getClienteTelefoneForPayload(cliente: Pick<ClienteRow, "telefone" | "whatsapp"> | null | undefined) {
+  const telefone = getClienteTelefone(cliente);
+
+  return telefone === "Telefone nao cadastrado" ? telefone : maskPhone(telefone);
+}
+
 function getClienteWhatsappDestination(cliente: Pick<ClienteRow, "telefone" | "whatsapp"> | null | undefined) {
   const telefone = cliente?.whatsapp?.trim() || cliente?.telefone?.trim();
 
@@ -552,10 +559,7 @@ export async function ensureDefaultNotificationTemplate() {
 }
 
 function sanitizeError(error: unknown) {
-  return (error instanceof Error ? error.message : String(error))
-    .replace(/pfx_(live|sig)_[A-Za-z0-9_-]+/g, "[secret]")
-    .replace(/\b55\d{10,11}\b/g, "[telefone]")
-    .slice(0, 500);
+  return redactSensitiveText(error, 500);
 }
 
 function payloadHash(value: unknown) {
@@ -693,7 +697,7 @@ async function createPlannedExpirationEvent({
   });
   const payload = {
     cliente_nome: cliente.nome_razao_social,
-    cliente_telefone: getClienteTelefone(cliente),
+    cliente_telefone: getClienteTelefoneForPayload(cliente),
     cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
     certificado_nome: certificado.nome_titular,
     data_vencimento: certificado.data_vencimento,
@@ -838,7 +842,7 @@ async function createPlannedExpirationEventsBatch({
         const idempotencyKey = `certificado:${certificado.id}:dias:${dias}:recipient:${recipient.id}:send:${sendDate}`;
         const payload = {
           cliente_nome: cliente.nome_razao_social,
-          cliente_telefone: getClienteTelefone(cliente),
+          cliente_telefone: getClienteTelefoneForPayload(cliente),
           cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
           certificado_nome: certificado.nome_titular,
           data_vencimento: certificado.data_vencimento,
@@ -888,8 +892,8 @@ async function createPlannedExpirationEventsBatch({
           const idempotencyKey = `certificado:${certificado.id}:dias:${dias}:client:${cliente.id}:send:${sendDate}`;
           const payload = {
             cliente_nome: cliente.nome_razao_social,
-            cliente_telefone: getClienteTelefone(cliente),
-            telefone_cliente: getClienteTelefone(cliente),
+            cliente_telefone: getClienteTelefoneForPayload(cliente),
+            telefone_cliente: getClienteTelefoneForPayload(cliente),
             cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
             certificado_nome: certificado.nome_titular,
             nome_titular: certificado.nome_titular,
@@ -984,8 +988,8 @@ async function createPlannedExpirationEventsBatch({
             const idempotencyKey = `certificado:${certificado.id}:dias:${dias}:client:${cliente.id}:send:${sendDate}`;
             const payload = {
               cliente_nome: cliente.nome_razao_social,
-              cliente_telefone: getClienteTelefone(cliente),
-              telefone_cliente: getClienteTelefone(cliente),
+              cliente_telefone: getClienteTelefoneForPayload(cliente),
+              telefone_cliente: getClienteTelefoneForPayload(cliente),
               cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
               certificado_nome: certificado.nome_titular,
               nome_titular: certificado.nome_titular,
@@ -1100,7 +1104,7 @@ async function createDailyExpiredEvents({
       certificado_id: certificado.id,
       cliente_id: certificado.cliente_id,
       cliente_nome: cliente?.nome_razao_social ?? certificado.nome_titular,
-      cliente_telefone: getClienteTelefone(cliente),
+      cliente_telefone: getClienteTelefoneForPayload(cliente),
       cnpj_mascarado: maskCnpjForPayload(certificado.cnpj),
       cnpj_hash: createHash("sha256").update(certificado.cnpj).digest("hex"),
       certificado_nome: certificado.nome_titular,

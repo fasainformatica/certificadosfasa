@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getSafeOperationalErrorMessage } from "@/lib/security/sensitive-data";
+
 import { EuAtendoClient, normalizeEuAtendoError } from "./client";
 import { getEuAtendoConfigStatus } from "./config";
 import { EUATENDO_PROVIDER, type WhatsAppProvider, type WhatsAppTextInput } from "./types";
@@ -49,7 +51,7 @@ export class EuAtendoWhatsAppProvider implements WhatsAppProvider {
         instance: null,
         listedInstance: null,
         errorCode: normalized.code,
-        errorMessage: normalized.message,
+        errorMessage: getSafeOperationalErrorMessage(normalized, "Nao foi possivel validar a integracao euAtendo."),
       } as const;
     }
   }
@@ -83,7 +85,7 @@ export class EuAtendoWhatsAppProvider implements WhatsAppProvider {
         retryAfterSeconds: normalized.retryAfterSeconds,
         sanitizedResponse: normalized.sanitizedResponse,
         errorCode: normalized.code,
-        errorMessage: normalized.message,
+        errorMessage: getSafeOperationalErrorMessage(normalized, "Nao foi possivel enviar pela euAtendo."),
       };
     }
   }

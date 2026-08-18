@@ -60,6 +60,7 @@ function trackedFiles() {
 }
 
 const tracked = trackedFiles();
+const untracked = git(["ls-files", "--others", "--exclude-standard"]).split(/\r?\n/).filter(Boolean);
 
 const forbiddenTrackedFiles = [
   ".env",
@@ -111,7 +112,23 @@ const secretPatterns = [
   },
 ];
 
-for (const filePath of tracked) {
+const secretScanExcludedFiles = new Set([
+  ...forbiddenTrackedFiles,
+  ".env.local.example",
+]);
+const secretScanFiles = Array.from(new Set([...tracked, ...untracked])).filter((filePath) => {
+  if (secretScanExcludedFiles.has(filePath)) {
+    return false;
+  }
+
+  if (/^\.env(?:\.|$)/.test(filePath) && filePath !== ".env.example") {
+    return false;
+  }
+
+  return true;
+});
+
+for (const filePath of secretScanFiles) {
   if (!isProbablyTextFile(filePath)) {
     continue;
   }
@@ -133,7 +150,7 @@ for (const filePath of tracked) {
 }
 
 if (!failures.some((entry) => entry.name.endsWith("hardcoded") || entry.name === "Service role publica por engano")) {
-  ok("Scan local de secrets rastreados nao encontrou valores criticos", "Padroes JWT, sb_secret e private key.");
+  ok("Scan local de secrets em arquivos versionados e novos nao encontrou valores criticos", "Padroes JWT, sb_secret e private key.");
 }
 
 const nextConfig = read("next.config.ts");
@@ -170,6 +187,8 @@ if (!failures.some((entry) => entry.name === "Modulo server-side sem server-only
 
 const hardeningMigration = "database/migrations/20260813100000_security_incident_hardening.sql";
 const hardeningSql = read(hardeningMigration);
+const signupLockMigration = "database/migrations/20260813103000_lock_public_signup_profiles_and_rpc_privileges.sql";
+const signupLockSql = read(signupLockMigration);
 const requiredTables = [
   "user_profiles",
   "clientes",
@@ -214,10 +233,94 @@ if (!failures.some((entry) => entry.name.startsWith("Migration"))) {
   ok("Migration de hardening cobre RLS, anon e bucket privado", hardeningMigration);
 }
 
+for (const expected of [
+  "create or replace function public.handle_new_user()",
+  "values (new.id, 'financeiro', false)",
+  "revoke execute on function public.handle_new_user() from public, anon, authenticated;",
+  "grant execute on function public.is_admin() to authenticated, service_role;",
+]) {
+  if (!signupLockSql.includes(expected)) {
+    fail("Migration de bloqueio de signup incompleta", expected);
+  }
+}
+
+if (!failures.some((entry) => entry.name === "Migration de bloqueio de signup incompleta")) {
+  ok("Novos usuarios do Supabase Auth nascem inativos ate aprovacao administrativa", signupLockMigration);
+}
+
 if (!fs.existsSync(path.join(root, "database/scripts/SECURITY_AUDIT_SUPABASE.sql"))) {
   fail("SQL de auditoria Supabase ausente", "database/scripts/SECURITY_AUDIT_SUPABASE.sql");
 } else {
   ok("SQL de auditoria Supabase criado", "database/scripts/SECURITY_AUDIT_SUPABASE.sql");
+}
+
+if (!fs.existsSync(path.join(root, "database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql"))) {
+  fail("SQL de lockdown do projeto mftv ausente", "database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql");
+} else {
+  const mftvSql = read("database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql");
+
+  for (const expected of ["modulos", "user_roles", "suporte_tickets", "enable row level security", "revoke usage on schema public from public, anon"]) {
+    if (!mftvSql.includes(expected)) {
+      fail("SQL de lockdown do projeto mftv incompleto", expected);
+    }
+  }
+
+  if (!failures.some((entry) => entry.name === "SQL de lockdown do projeto mftv incompleto")) {
+    ok("SQL separado de lockdown para mftvsgzrujkalssiriny criado", "database/scripts/SECURITY_LOCKDOWN_MFTVSGZRUJKALSSIRINY.sql");
+  }
+}
+
+if (!fs.existsSync(path.join(root, "database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql"))) {
+  fail("SQL de auditoria de logs historicos ausente", "database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql");
+} else {
+  const legacyAuditSql = read("database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql");
+
+  for (const expected of [
+    "security_redact_text",
+    "audit_logs",
+    "storage_reconciliation_jobs",
+    "notification_events",
+    "whatsapp_provider_logs",
+    "provider_response",
+    "payload",
+    "redacted_sample",
+  ]) {
+    if (!legacyAuditSql.includes(expected)) {
+      fail("SQL de auditoria de logs historicos incompleto", expected);
+    }
+  }
+
+  if (!failures.some((entry) => entry.name === "SQL de auditoria de logs historicos incompleto")) {
+    ok("SQL read-only audita exposicao historica em logs", "database/scripts/SECURITY_AUDIT_LEGACY_LOG_EXPOSURE.sql");
+  }
+}
+
+if (!fs.existsSync(path.join(root, "database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql"))) {
+  fail("SQL de limpeza controlada de logs historicos ausente", "database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql");
+} else {
+  const sanitizeLegacySql = read("database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql");
+
+  for (const expected of [
+    "begin;",
+    "security_safe_operational_message",
+    "security_sanitized_json_log",
+    "security_redact_notification_payload",
+    "notification_events.payload.phone_keys",
+    "whatsapp_provider_logs.metadata",
+    "rollback;",
+  ]) {
+    if (!sanitizeLegacySql.includes(expected)) {
+      fail("SQL de limpeza controlada de logs historicos incompleto", expected);
+    }
+  }
+
+  if (sanitizeLegacySql.includes("\ncommit;")) {
+    fail("SQL de limpeza controlada nao pode comitar por padrao", "Troque manualmente ROLLBACK por COMMIT apenas apos revisar.");
+  }
+
+  if (!failures.some((entry) => entry.name === "SQL de limpeza controlada de logs historicos incompleto")) {
+    ok("SQL de limpeza de logs historicos usa ROLLBACK por padrao", "database/scripts/SECURITY_SANITIZE_LEGACY_LOGS.sql");
+  }
 }
 
 try {
@@ -226,7 +329,7 @@ try {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
-  ok("Service role em APIs continua protegido por autenticacao", "scripts/check-service-role-rbac.mjs");
+  ok("Rotas API e service role continuam protegidos por autenticacao explicita", "scripts/check-service-role-rbac.mjs");
 } catch (error) {
   fail("Service role/RBAC falhou", error.stderr?.toString() || error.message);
 }

@@ -20,6 +20,7 @@ npm.cmd run build
 - `src/lib/notifications/engine.ts`
 - `src/lib/notifications/validation.ts`
 - `src/lib/internal-notifications/windows-notifier.ts`
+- `src/app/api/internal-notifications/windows/[id]/certificate-file/route.ts`
 - `src/lib/whatsapp/euatendo/client.ts`
 - `src/lib/whatsapp/euatendo/provider.ts`
 - `src/lib/whatsapp/euatendo/dispatcher.ts`

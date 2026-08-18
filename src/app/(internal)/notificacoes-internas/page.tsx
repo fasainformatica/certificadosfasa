@@ -1,4 +1,4 @@
-import { AlertTriangle, ArchiveX, Bell, Inbox, Search } from "lucide-react";
+import { AlertTriangle, ArchiveX, Bell, Download, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 
 import { BroadcastNotificationForm } from "@/app/(internal)/notificacoes-internas/broadcast-notification-form";
@@ -15,6 +15,7 @@ import { requireInternalUser } from "@/lib/auth/rbac";
 import {
   buildInternalNotificationIdFilter,
   createInternalNotificationReadStateMap,
+  getInternalNotificationDtoDownloadHref,
   isInternalNotificationSeverity,
   isInternalNotificationType,
   parseInternalNotificationState,
@@ -233,6 +234,16 @@ function NotificationCard({
         </div>
       </dl>
       <div className="mt-4 flex flex-wrap gap-2">
+        {(() => {
+          const downloadHref = getInternalNotificationDtoDownloadHref(notification);
+
+          return downloadHref ? (
+            <a href={downloadHref} className={buttonClass("primary", "min-h-9 px-3 text-xs")}>
+              <Download aria-hidden="true" className="h-3.5 w-3.5" />
+              {notification.downloadLabel ?? "Baixar certificado"}
+            </a>
+          ) : null;
+        })()}
         {notification.href ? (
           <Link href={notification.href} className={buttonClass("secondary", "min-h-9 px-3 text-xs")}>
             Ver certificado
@@ -471,6 +482,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
                 {notifications.map(({ notification, cliente, certificado }) => {
                   const state = getStateMeta(notification);
                   const cnpj = cliente?.cnpj ?? certificado?.cnpj ?? jsonStringValue(notification.metadata, "cnpj");
+                  const downloadHref = getInternalNotificationDtoDownloadHref(notification);
                   const subject =
                     certificado?.nome_titular
                       ? formatCertificateTitle(certificado.nome_titular, certificado.cnpj)
@@ -514,6 +526,15 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
+                          {downloadHref ? (
+                            <a
+                              href={downloadHref}
+                              className={buttonClass("primary", "min-h-9 px-3 text-xs")}
+                            >
+                              <Download aria-hidden="true" className="h-3.5 w-3.5" />
+                              {notification.downloadLabel ?? "Baixar certificado"}
+                            </a>
+                          ) : null}
                           {notification.href ? (
                             <Link href={notification.href} className={buttonClass("secondary", "min-h-9 px-3 text-xs")}>
                               Ver certificado
