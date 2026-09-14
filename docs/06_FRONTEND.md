@@ -27,6 +27,9 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 ## Padrao
 
+- Navegacao lateral usa prefetch automatico com o skeleton existente, sem forcar consultas completas de todas as abas. O item clicado mostra andamento por `useLinkStatus`.
+- Leituras independentes de listagem e resumo sao paralelas em Certificados, Central de avisos e notificacoes internas; Configuracoes preserva a dependencia entre inicializar e ler templates. Ver [medicao e limites da otimizacao](PERFORMANCE_NAVEGACAO.md).
+
 - Telas internas usam Server Components quando possivel.
 - Componentes interativos ficam como Client Components locais.
 - Acoes sensiveis chamam APIs server-side.

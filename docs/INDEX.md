@@ -12,6 +12,7 @@
 - [`04_NOTIFICACOES.md`](04_NOTIFICACOES.md): notification engine, outbox, retries e idempotencia.
 - [`05_WHATSAPP_EUATENDO.md`](05_WHATSAPP_EUATENDO.md): integracao euAtendo, dispatcher e homologacao.
 - [`06_FRONTEND.md`](06_FRONTEND.md): telas e componentes.
+- [`PERFORMANCE_NAVEGACAO.md`](PERFORMANCE_NAVEGACAO.md): otimizacao de consultas, prefetch, medicao e limites de validacao.
 - [`07_BACKEND.md`](07_BACKEND.md): APIs, jobs e providers.
 - [`08_DEPLOY.md`](08_DEPLOY.md): deploy, variaveis e cron.
 - [`09_HISTORICO.md`](09_HISTORICO.md): historico tecnico consolidado.

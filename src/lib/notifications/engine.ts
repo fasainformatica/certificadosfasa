@@ -524,31 +524,33 @@ async function ensureTemplate({
 
 export async function ensureDefaultNotificationTemplates() {
   const admin = createSupabaseAdminClient();
-  const expiring = await ensureTemplate({
-    admin,
-    type: "certificate_expiring",
-    title: "Aviso de vencimento de certificado",
-    content: DEFAULT_CERTIFICATE_TEMPLATE,
-  });
-  const expired = await ensureTemplate({
-    admin,
-    type: "certificate_expired",
-    title: "Certificados vencidos",
-    content: DEFAULT_EXPIRED_CERTIFICATE_TEMPLATE,
-  });
-  const clientExpiring = await ensureTemplate({
-    admin,
-    type: "client_certificate_expiring",
-    title: "Aviso de vencimento ao cliente",
-    content: DEFAULT_CLIENT_CERTIFICATE_EXPIRING_TEMPLATE,
-  });
-  const clientExpired = await ensureTemplate({
-    admin,
-    type: "client_certificate_expired",
-    title: "Certificado vencido ao cliente",
-    content: DEFAULT_CLIENT_CERTIFICATE_EXPIRED_TEMPLATE,
-    active: false,
-  });
+  const [expiring, expired, clientExpiring, clientExpired] = await Promise.all([
+    ensureTemplate({
+      admin,
+      type: "certificate_expiring",
+      title: "Aviso de vencimento de certificado",
+      content: DEFAULT_CERTIFICATE_TEMPLATE,
+    }),
+    ensureTemplate({
+      admin,
+      type: "certificate_expired",
+      title: "Certificados vencidos",
+      content: DEFAULT_EXPIRED_CERTIFICATE_TEMPLATE,
+    }),
+    ensureTemplate({
+      admin,
+      type: "client_certificate_expiring",
+      title: "Aviso de vencimento ao cliente",
+      content: DEFAULT_CLIENT_CERTIFICATE_EXPIRING_TEMPLATE,
+    }),
+    ensureTemplate({
+      admin,
+      type: "client_certificate_expired",
+      title: "Certificado vencido ao cliente",
+      content: DEFAULT_CLIENT_CERTIFICATE_EXPIRED_TEMPLATE,
+      active: false,
+    }),
+  ]);
 
   return { expiring, expired, clientExpiring, clientExpired };
 }

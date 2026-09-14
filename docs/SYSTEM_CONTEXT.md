@@ -129,6 +129,14 @@ docs/reference
 
 ## Frontend e UX
 
+### Desempenho da navegacao (2026-09-14)
+
+- `AppNavigation` usa prefetch automatico do Next, limitado pelo `loading.tsx` nas rotas dinamicas, em vez de forcar o carregamento completo de todas as abas visiveis. `useLinkStatus` indica a navegacao pendente no link clicado, com espaco reservado e suporte a reducao de movimento.
+- Certificados, Central de avisos e notificacoes internas consultam listagem e contadores independentes em paralelo, mantendo filtros, paginacao, visibilidade e autenticacao.
+- Configuracoes carrega ajustes, destinatarios, usuarios e inicializacao dos templates em paralelo. A consulta final dos templates aguarda sua inicializacao. Os quatro tipos de template sao inicializados em paralelo, mantendo textos personalizados, migracao do template legado e template de vencidos ao cliente inativo por padrao.
+- Nao foi adicionado cache compartilhado de sessao, perfil ou dados privados. Nao ha migration, mudanca de intervalo de envio ou alteracao no dispatcher.
+- `node scripts/measure-navigation-latency.mjs` compara tres consultas HEAD de leitura no Supabase localmente configurado; nao lista registros, nao escreve nem envia mensagens. Nao equivale a uma medicao autenticada de navegacao na Vercel. Detalhes em [PERFORMANCE_NAVEGACAO.md](PERFORMANCE_NAVEGACAO.md).
+
 ### Hierarquia visual
 
 - As telas internas priorizam situacoes que exigem acao, estado operacional, indicadores principais, dados de apoio e historico.

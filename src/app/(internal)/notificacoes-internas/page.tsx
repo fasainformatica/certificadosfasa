@@ -282,17 +282,10 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
   const readStates = (rawReadStates ?? []) as InternalNotificationReadRow[];
   const stateFilter = buildInternalNotificationIdFilter(selectedState, readStates);
 
-  const [activeCount, unreadCount, dismissedCount, attentionCount] = await Promise.all([
-    countVisibleNotifications({ admin, readStates, state: "active", visibility }),
-    countVisibleNotifications({ admin, readStates, state: "unread", visibility }),
-    countVisibleNotifications({ admin, readStates, state: "dismissed", visibility }),
-    countVisibleNotifications({ admin, readStates, state: "active", severities: ["warning", "error"], visibility }),
-  ]);
-
-  let rows: InternalNotificationPageRow[] = [];
-  let total = 0;
-
-  if (!stateFilter.shouldReturnEmpty) {
+  async function loadRows() {
+    if (stateFilter.shouldReturnEmpty) {
+      return { rows: [] as InternalNotificationPageRow[], total: 0 };
+    }
     let query = admin
       .from("internal_notifications")
       .select(NOTIFICATION_SELECT, { count: "exact" })
@@ -317,9 +310,19 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
     }
 
     const { data, count } = await query;
-    rows = (data ?? []) as unknown as InternalNotificationPageRow[];
-    total = count ?? 0;
+    return {
+      rows: (data ?? []) as unknown as InternalNotificationPageRow[],
+      total: count ?? 0,
+    };
   }
+
+  const [{ rows, total }, activeCount, unreadCount, dismissedCount, attentionCount] = await Promise.all([
+    loadRows(),
+    countVisibleNotifications({ admin, readStates, state: "active", visibility }),
+    countVisibleNotifications({ admin, readStates, state: "unread", visibility }),
+    countVisibleNotifications({ admin, readStates, state: "dismissed", visibility }),
+    countVisibleNotifications({ admin, readStates, state: "active", severities: ["warning", "error"], visibility }),
+  ]);
 
   const readStateMap = createInternalNotificationReadStateMap(readStates);
   const notifications = rows.map((row) => ({

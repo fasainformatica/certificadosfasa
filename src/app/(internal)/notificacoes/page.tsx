@@ -239,17 +239,20 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
   if (params.pageSize) urlParams.set("pageSize", params.pageSize);
   const pagination = parsePagination(urlParams);
   const admin = createSupabaseAdminClient();
-  const { data: settings } = await admin
-    .from("notification_settings")
-    .select("timezone")
-    .eq("id", SETTINGS_ID)
-    .maybeSingle();
+  const [{ data: settings }, { data: recipients }, searchFilter] = await Promise.all([
+    admin
+      .from("notification_settings")
+      .select("timezone")
+      .eq("id", SETTINGS_ID)
+      .maybeSingle(),
+    admin
+      .from("notification_recipients")
+      .select("id, nome, telefone_normalizado, ativo")
+      .order("nome", { ascending: true }),
+    search ? buildNotificationEventSearchFilter(admin, search) : null,
+  ]);
   const today = getTodayDateString(settings?.timezone || "America/Sao_Paulo");
   const activeQuickFilter = getActiveQuickFilter({ status, type, sendDate, today });
-  const { data: recipients } = await admin
-    .from("notification_recipients")
-    .select("id, nome, telefone_normalizado, ativo")
-    .order("nome", { ascending: true });
 
   let query = admin
     .from("notification_events")
@@ -260,7 +263,6 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
     .order("send_date", { ascending: true })
     .order("created_at", { ascending: false })
     .range(pagination.from, pagination.to);
-  const searchFilter = search ? await buildNotificationEventSearchFilter(admin, search) : null;
 
   if (status) {
     query = query.eq("status", status);
@@ -290,10 +292,12 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
     query = query.or(searchFilter);
   }
 
-  const { data: rawEvents, count } = await query;
+  const [{ data: rawEvents, count }, summary] = await Promise.all([
+    query,
+    loadNotificationSummary(admin, today),
+  ]);
   const events = rawEvents ?? [];
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
-  const summary = await loadNotificationSummary(admin, today);
   const operationalFocus = buildOperationalFocus(summary);
   const hasFilters = Boolean(search || status || type || sendDate || recipientId || provider || audience);
 

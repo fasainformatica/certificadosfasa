@@ -14,22 +14,24 @@ import { ConfiguracoesForm } from "./configuracoes-form";
 export default async function ConfiguracoesPage() {
   const user = await requireAdmin();
   const admin = createSupabaseAdminClient();
-  await ensureDefaultNotificationTemplates();
-  const { data: notificationSettings } = await admin
-    .from("notification_settings")
-    .select("*")
-    .eq("id", SETTINGS_ID)
-    .single();
-  const { data: templates } = await admin
-    .from("notification_templates")
-    .select("id, type, content")
-    .in("type", ["certificate_expiring", "certificate_expired", "client_certificate_expiring", "client_certificate_expired"])
-    .order("type", { ascending: true });
-  const { data: recipients } = await admin
-    .from("notification_recipients")
-    .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
-    .order("created_at", { ascending: true });
-  const internalUsers = await listManagedInternalUsers(admin);
+  const [{ data: notificationSettings }, { data: templates }, { data: recipients }, internalUsers] = await Promise.all([
+    admin
+      .from("notification_settings")
+      .select("*")
+      .eq("id", SETTINGS_ID)
+      .single(),
+    // A leitura dos templates depende da inicializacao; as outras consultas nao.
+    ensureDefaultNotificationTemplates().then(() => admin
+      .from("notification_templates")
+      .select("id, type, content")
+      .in("type", ["certificate_expiring", "certificate_expired", "client_certificate_expiring", "client_certificate_expired"])
+      .order("type", { ascending: true })),
+    admin
+      .from("notification_recipients")
+      .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
+      .order("created_at", { ascending: true }),
+    listManagedInternalUsers(admin),
+  ]);
   const delaySettings = clampNotificationDelaySettings(notificationSettings);
   const pollingInterval = clampNotificationPollingInterval(notificationSettings?.polling_interval_seconds);
   const expiringTemplate = templates?.find((item) => item.type === "certificate_expiring");

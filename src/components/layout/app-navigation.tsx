@@ -3,6 +3,7 @@
 import {
   BarChart3,
   FileKey2,
+  Loader2,
   Menu,
   MessageSquareText,
   Send,
@@ -10,7 +11,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
@@ -30,6 +31,21 @@ const navigationIcons = {
   whatsapp: MessageSquareText,
   settings: Settings,
 };
+
+function NavigationPendingIndicator() {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span className="ml-auto flex h-4 w-4 shrink-0 items-center" role="status">
+      {pending ? (
+        <>
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+          <span className="sr-only">Carregando</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
 
 export function AppNavigation({ items }: { items: NavigationItem[] }) {
   const pathname = usePathname();
@@ -59,7 +75,6 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
       <Link
         key={item.href}
         href={item.href}
-        prefetch
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
         className={cn(
@@ -78,6 +93,7 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
           <Icon aria-hidden="true" className="h-[17px] w-[17px]" />
         </span>
         <span className="relative min-w-0 truncate">{item.label}</span>
+        <NavigationPendingIndicator />
       </Link>
     );
   }

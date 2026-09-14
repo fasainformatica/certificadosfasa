@@ -181,8 +181,10 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         : query.or(`nome_titular.ilike.%${search}%,cnpj.ilike.%${digits || search}%`);
   }
 
-  const { data: certificados, count } = await query;
-  const renewalSummary = await loadRenewalSummary(supabase);
+  const [{ data: certificados, count }, renewalSummary] = await Promise.all([
+    query,
+    loadRenewalSummary(supabase),
+  ]);
   const canManageCertificates = canManageOperationalData(user.role);
   const certificadosWithStatus = (certificados ?? []).map((certificado) => ({
     ...certificado,

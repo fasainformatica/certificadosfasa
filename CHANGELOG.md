@@ -2,6 +2,13 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-09-14
+
+- Otimizada a navegacao lateral: prefetch automatico de rotas dinamicas e indicador acessivel de carregamento no item clicado.
+- Paralelizadas leituras independentes em Certificados, Central de avisos, notificacoes internas e Configuracoes, mantendo autenticacao, filtros e dados apresentados.
+- Paralelizada a inicializacao dos quatro tipos de template, preservando criacao dos ausentes, textos personalizados e atualizacao do template legado.
+- Adicionados testes da inicializacao de templates e script read-only de medicao de latencia; detalhes em `docs/PERFORMANCE_NAVEGACAO.md`. Nenhuma migration necessaria.
+
 ## 2026-08-13
 
 - Endurecido o fluxo de signup Supabase: novos usuarios criados diretamente no Supabase Auth passam a nascer com `user_profiles.active = false`, ate aprovacao explicita de um administrador em `/configuracoes`.
