@@ -19,6 +19,9 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 ## Componentes
 
+- Preferencias de destinatarios: `src/components/notifications/recipient-preferences.tsx`, fieldset com duas opcoes independentes e labels associados. Usado no cadastro e na edicao em Configuracoes > Destinatarios.
+- Avisos internos: o formulario informa a inclusao condicional no WhatsApp e mostra a contagem enfileirada, sem afirmar entrega. A Central de avisos oferece filtros e rotulos para `certificate_updated` e `internal_notice`.
+
 - Layout: `src/components/layout`.
 - UI base: `src/components/ui`.
 - Marca: `src/components/brand`.

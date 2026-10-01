@@ -102,7 +102,7 @@ export const templateUpdateSchema = z.object({
   content: z.string().trim().min(30, "O template deve ter ao menos 30 caracteres.").max(1600),
 });
 
-export const notificationRecipientSchema = z.object({
+const notificationRecipientFields = z.object({
   nome: z.string().trim().min(2, "Informe o nome do destinatario.").max(80),
   telefone: z
     .string()
@@ -119,10 +119,18 @@ export const notificationRecipientSchema = z.object({
         return z.NEVER;
       }
     }),
-  ativo: z.coerce.boolean().default(true),
+  ativo: z.boolean(),
+  notify_general: z.boolean(),
+  notify_certificate_updates: z.boolean(),
 });
 
-export const notificationRecipientUpdateSchema = notificationRecipientSchema.partial().refine(
+export const notificationRecipientSchema = notificationRecipientFields.extend({
+  ativo: z.boolean().default(true),
+  notify_general: z.boolean().default(true),
+  notify_certificate_updates: z.boolean().default(false),
+});
+
+export const notificationRecipientUpdateSchema = notificationRecipientFields.partial().refine(
   (value) => Object.keys(value).length > 0,
   "Informe ao menos um campo para atualizar.",
 );

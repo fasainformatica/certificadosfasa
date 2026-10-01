@@ -2,6 +2,15 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-10-01
+
+- Adicionadas preferencias independentes `notify_general` e `notify_certificate_updates` aos destinatarios internos, com edicao exclusiva de administradores. Destinatarios existentes mantem apenas avisos gerais por padrao.
+- Atualizacoes de certificados e comunicados manuais da central interna passam a enfileirar WhatsApp para destinatarios ativos que optaram por atualizacoes, preservando painel e Windows.
+- Fanout transacional com idempotencia por notificacao/destinatario; reserva euAtendo/extensao valida preferencias e origem, sem mudar intervalo ou numero de envios. Desmarcar cancela pendentes; reenvios nao contornam a preferencia.
+- Novos tipos apresentados e filtraveis na Central de avisos. Comunicados mostram quantidade enfileirada; cadastro inicial nao dispara aviso de atualizacao.
+- Migration obrigatoria `20261001133454_recipient_notification_preferences.sql`, schema consolidado atualizado e guia `docs/DESTINATARIOS_TIPOS_DE_AVISO.md`.
+- Testes de SQL em PostgreSQL isolado via PGlite (dependencia somente de desenvolvimento), APIs, validacao de preferencias, componente e dispatchers.
+
 ## 2026-09-14
 
 - Otimizada a navegacao lateral: prefetch automatico de rotas dinamicas e indicador acessivel de carregamento no item clicado.

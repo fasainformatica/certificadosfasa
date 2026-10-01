@@ -19,7 +19,7 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("notification_recipients")
-    .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
+    .select("id, nome, telefone, telefone_normalizado, ativo, notify_general, notify_certificate_updates, created_at, updated_at")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -57,8 +57,10 @@ export async function POST(request: NextRequest) {
       telefone: parsed.data.telefone,
       telefone_normalizado: parsed.data.telefone,
       ativo: parsed.data.ativo,
+      notify_general: parsed.data.notify_general,
+      notify_certificate_updates: parsed.data.notify_certificate_updates,
     })
-    .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
+    .select("id, nome, telefone, telefone_normalizado, ativo, notify_general, notify_certificate_updates, created_at, updated_at")
     .single();
 
   if (error) {

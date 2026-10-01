@@ -595,6 +595,7 @@ async function loadActiveRecipients(admin: AdminClient) {
     .from("notification_recipients")
     .select("id, nome, telefone_normalizado, ativo")
     .eq("ativo", true)
+    .eq("notify_general", true)
     .order("nome", { ascending: true });
 
   if (error) {

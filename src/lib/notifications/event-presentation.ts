@@ -26,11 +26,13 @@ export const NOTIFICATION_EVENT_STATUS_META: Record<NotificationEventStatus, { l
   skipped: { label: "Ignorado", tone: "slate" },
 };
 
-export const NOTIFICATION_EVENT_TYPES = ["certificate_expiring", "certificate_expired"] as const;
+export const NOTIFICATION_EVENT_TYPES = ["certificate_expiring", "certificate_expired", "certificate_updated", "internal_notice"] as const;
 
 export const NOTIFICATION_EVENT_TYPE_LABELS: Record<(typeof NOTIFICATION_EVENT_TYPES)[number], string> = {
   certificate_expiring: "Aviso de vencimento",
   certificate_expired: "Resumo de vencidos",
+  certificate_updated: "Certificado atualizado",
+  internal_notice: "Comunicado interno",
 };
 
 type NotificationPresentationEvent = {
@@ -53,6 +55,8 @@ export function isRetryableNotificationStatus(status: string) {
 }
 
 export function getNotificationNoticeText(event: Pick<NotificationPresentationEvent, "type" | "dias_restantes" | "certificados">) {
+  if (event.type === "certificate_updated") return "Atualização de certificado para a equipe";
+  if (event.type === "internal_notice") return "Aviso publicado na central interna";
   if (event.type === "certificate_expired") {
     return "Resumo diário de certificados vencidos";
   }
@@ -82,6 +86,10 @@ export function getSafeNotificationErrorMessage(errorMessage: string | null | un
   }
 
   const normalized = raw.toLowerCase();
+
+  if (normalized.startsWith("aviso cancelado:")) {
+    return "Aviso cancelado. Verifique as preferências do destinatário e se o comunicado ainda está disponível.";
+  }
 
   if (normalized.includes("for update") || normalized.includes("outer join") || normalized.includes("reserve")) {
     return "Não foi possível reservar a próxima mensagem.";

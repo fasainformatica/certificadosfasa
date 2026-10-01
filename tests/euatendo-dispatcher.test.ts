@@ -86,14 +86,14 @@ vi.mock("@/lib/whatsapp/euatendo/provider", () => ({
   },
 }));
 
-function reservedEvent(id: string) {
+function reservedEvent(id: string, type = "client_certificate_expiring") {
   return {
     status: "reserved",
     lock_id: `lock-${id}`,
     event: {
       id,
       audience: "client",
-      type: "client_certificate_expiring",
+      type,
       telefone_destino: "5511999999999",
       mensagem_renderizada: `Mensagem ${id}`,
       template_id: null,
@@ -114,9 +114,9 @@ describe("dispatcher euAtendo", () => {
     vi.clearAllMocks();
   });
 
-  it("processa uma mensagem por execucao e respeita a janela de cadencia", async () => {
+  it.each(["certificate_expiring", "certificate_updated", "internal_notice"])("processa uma mensagem %s por execucao e respeita a cadencia", async (type) => {
     rpcQueue.push(
-      { data: reservedEvent("event-1"), error: null },
+      { data: reservedEvent("event-1", type), error: null },
       { data: reservedEvent("event-2"), error: null },
     );
 

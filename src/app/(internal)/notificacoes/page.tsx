@@ -459,16 +459,16 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-950">
-                        {formatDisplayName(cliente?.nome_razao_social ?? (event.type === "certificate_expired" ? "Resumo diário" : "-"))}
+                        {formatDisplayName(cliente?.nome_razao_social ?? (event.type === "internal_notice" ? "Comunicado interno" : event.type === "certificate_expired" ? "Resumo diário" : "-"))}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">{cliente?.cnpj ? formatCnpj(cliente.cnpj) : "Lista consolidada"}</p>
+                      <p className="mt-1 text-xs text-slate-500">{cliente?.cnpj ? formatCnpj(cliente.cnpj) : event.type === "internal_notice" ? "Equipe interna" : "Lista consolidada"}</p>
                     </div>
                     <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
                   </div>
                   <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
                     <p><span className="font-medium text-slate-950">Certificado:</span> {certificadoNome}</p>
                     <p><span className="font-medium text-slate-950">Tipo:</span> {NOTIFICATION_EVENT_TYPE_LABELS[event.type as keyof typeof NOTIFICATION_EVENT_TYPE_LABELS] ?? "Aviso"}</p>
-                    <p><span className="font-medium text-slate-950">Prazo:</span> {noticeText}</p>
+                    <p><span className="font-medium text-slate-950">Resumo:</span> {noticeText}</p>
                     <p>
                       <span className="font-medium text-slate-950">Destinatário:</span>{" "}
                       {event.audience === "client" ? "Cliente" : recipient?.nome ?? "Destinatário removido"} ({maskPhone(event.telefone_destino)})
@@ -529,9 +529,9 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                     <tr key={event.id} className="transition duration-150 hover:bg-slate-50">
                       <TableCell className="max-w-[250px]">
                         <p className="font-semibold text-slate-950">
-                          {formatDisplayName(cliente?.nome_razao_social ?? (event.type === "certificate_expired" ? "Resumo diário" : "-"))}
+                          {formatDisplayName(cliente?.nome_razao_social ?? (event.type === "internal_notice" ? "Comunicado interno" : event.type === "certificate_expired" ? "Resumo diário" : "-"))}
                         </p>
-                        <p className="text-xs text-slate-500">{cliente?.cnpj ? formatCnpj(cliente.cnpj) : "Lista consolidada"}</p>
+                        <p className="text-xs text-slate-500">{cliente?.cnpj ? formatCnpj(cliente.cnpj) : event.type === "internal_notice" ? "Equipe interna" : "Lista consolidada"}</p>
                       </TableCell>
                       <TableCell className="max-w-[220px] text-slate-700">
                         <p className="line-clamp-2">{certificadoNome}</p>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
+import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 type InternalNotificationInsert = Database["public"]["Tables"]["internal_notifications"]["Insert"];
@@ -111,7 +112,14 @@ export async function createInternalNotification(
   payload: InternalNotificationInsert,
 ): Promise<InternalNotificationCreateResult> {
   try {
-    const { data, error } = await admin.from("internal_notifications").insert(payload).select("id").maybeSingle();
+    const metadata = payload.metadata && typeof payload.metadata === "object" && !Array.isArray(payload.metadata)
+      ? payload.metadata
+      : {};
+    // The database queues opted-in recipients in the same transaction as the internal notice.
+    const { data, error } = await admin.from("internal_notifications").insert({
+      ...payload,
+      metadata: { ...metadata, whatsapp_provider: getActiveNotificationProvider() },
+    }).select("id").maybeSingle();
 
     if (error) {
       return {

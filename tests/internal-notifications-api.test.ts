@@ -188,7 +188,7 @@ describe("internal notifications routes", () => {
     expect(source).not.toContain("storage_path");
   });
 
-  it("envia aviso interno geral sem WhatsApp e sem alvo individual", () => {
+  it("publica aviso interno com contagem da fila sem disparar WhatsApp diretamente", () => {
     const source = readRoute("src/app/api/internal-notifications/broadcast/route.ts");
 
     expect(source).toContain("buildBroadcastInternalNotificationPayload");
@@ -196,7 +196,8 @@ describe("internal notifications routes", () => {
     expect(source).toContain("windows_notifier_targeted: true");
     expect(source).toContain("active_user_count");
     expect(source).toContain("expiresInHours");
-    expect(source).not.toContain("notification_events");
+    expect(source).toContain("internal_notification_id");
+    expect(source).toContain("whatsapp_queued_count");
     expect(source).not.toContain("euatendo");
     expect(source).not.toContain("whatsapp_extension");
   });

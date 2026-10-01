@@ -28,7 +28,7 @@ export default async function ConfiguracoesPage() {
       .order("type", { ascending: true })),
     admin
       .from("notification_recipients")
-      .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
+      .select("id, nome, telefone, telefone_normalizado, ativo, notify_general, notify_certificate_updates, created_at, updated_at")
       .order("created_at", { ascending: true }),
     listManagedInternalUsers(admin),
   ]);

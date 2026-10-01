@@ -19,6 +19,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { ActionBar } from "@/components/ui/action-bar";
 import { buttonClass, inputClass, textAreaClass } from "@/components/ui/button-styles";
 import { EmptyState } from "@/components/ui/empty-state";
+import { RecipientPreferences } from "@/components/notifications/recipient-preferences";
 import { Badge } from "@/components/ui/status-badge";
 import {
   buildConfiguracoesOperationalSummary,
@@ -58,6 +59,8 @@ type Recipient = {
   telefone: string;
   telefone_normalizado: string;
   ativo: boolean;
+  notify_general: boolean;
+  notify_certificate_updates: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -234,7 +237,7 @@ export function ConfiguracoesForm({
   const [clientExpiringTemplate, setClientExpiringTemplate] = useState(initialClientExpiringTemplate.content);
   const [clientExpiredTemplate, setClientExpiredTemplate] = useState(initialClientExpiredTemplate.content);
   const [recipients, setRecipients] = useState(initialRecipients);
-  const [recipientDraft, setRecipientDraft] = useState({ nome: "", telefone: "", ativo: true });
+  const [recipientDraft, setRecipientDraft] = useState({ nome: "", telefone: "", ativo: true, notify_general: true, notify_certificate_updates: false });
   const [managedUsers, setManagedUsers] = useState(() => sortManagedUsers(initialUsers));
   const [userDraft, setUserDraft] = useState({
     email: "",
@@ -403,8 +406,8 @@ export function ConfiguracoesForm({
 
       const savedRecipient = payload.recipient;
       setRecipients((current) => [...current, savedRecipient]);
-      setRecipientDraft({ nome: "", telefone: "", ativo: true });
-      setMessage("Destinatário salvo. Os avisos futuros foram reconstruídos.");
+      setRecipientDraft({ nome: "", telefone: "", ativo: true, notify_general: true, notify_certificate_updates: false });
+      setMessage("Destinatário salvo. As preferências serão usadas nos próximos avisos; o envio respeita as pausas configuradas.");
     } catch {
       setError(networkErrorMessage);
     } finally {
@@ -429,6 +432,8 @@ export function ConfiguracoesForm({
           nome: recipient.nome,
           telefone: recipient.telefone,
           ativo: recipient.ativo,
+          notify_general: recipient.notify_general,
+          notify_certificate_updates: recipient.notify_certificate_updates,
         }),
       });
       const payload = (await response.json().catch(() => null)) as RecipientPayload | null;
@@ -440,7 +445,7 @@ export function ConfiguracoesForm({
 
       const savedRecipient = payload.recipient;
       patchRecipient(recipient.id, savedRecipient);
-      setMessage("Destinatário atualizado. Os avisos futuros foram reconstruídos.");
+      setMessage("Preferências salvas. Avisos ainda na fila das categorias desmarcadas foram cancelados. Envios já iniciados não podem ser desfeitos.");
     } catch {
       setError(networkErrorMessage);
     } finally {
@@ -800,7 +805,7 @@ export function ConfiguracoesForm({
       ) : activeTab === "destinatarios" ? (
         <FormSection
           title="Destinatários internos"
-          description="Apenas estes números recebem mensagens automáticas destinadas à equipe interna."
+          description="Escolha quais avisos cada número da equipe deve receber pelo WhatsApp. Os avisos no painel e no Windows continuam normalmente."
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <Badge tone={recipientLimitReached ? "amber" : "blue"}>{recipients.length}/5 cadastrados</Badge>
@@ -867,6 +872,12 @@ export function ConfiguracoesForm({
                       </button>
                     </div>
                   ) : null}
+                  <RecipientPreferences
+                    value={recipient}
+                    onChange={(patch) => patchRecipient(recipient.id, patch)}
+                    disabled={!canEdit || recipientPendingId !== null}
+                    label={`Avisos para ${recipient.nome}`}
+                  />
                 </div>
               ))
             )}
@@ -914,6 +925,12 @@ export function ConfiguracoesForm({
                 {recipientPendingId === "new" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Adicionar destinatário
               </button>
+              <RecipientPreferences
+                value={recipientDraft}
+                onChange={(patch) => setRecipientDraft((current) => ({ ...current, ...patch }))}
+                disabled={recipientPendingId !== null || recipientLimitReached}
+                label="Avisos para o novo destinatário"
+              />
             </form>
           ) : null}
 

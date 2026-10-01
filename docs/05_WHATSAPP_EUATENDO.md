@@ -8,6 +8,8 @@ euAtendo e o provider oficial. A extensao Chrome `Fasa Certificados WhatsApp` po
 
 ## Arquivos
 
+Atualizacao 2026-10-01: os dois canais tambem consomem `certificate_updated` e `internal_notice` na mesma fila. Somente destinatarios internos ativos com `notify_certificate_updates` marcado recebem esses eventos. Avisos de vencimento usam `notify_general`. O contrato da extensao, o cron, a reserva de uma mensagem por vez e a cadencia nao mudaram. Nao e necessario reinstalar extensao ou app Windows. Consulte [`DESTINATARIOS_TIPOS_DE_AVISO.md`](DESTINATARIOS_TIPOS_DE_AVISO.md) antes de publicar: ha migration obrigatoria.
+
 - `src/lib/whatsapp/euatendo/client.ts`
 - `src/lib/whatsapp/euatendo/provider.ts`
 - `src/lib/whatsapp/euatendo/dispatcher.ts`

@@ -35,6 +35,8 @@ export async function PATCH(request: NextRequest, { params }: RecipientRouteProp
     telefone?: string;
     telefone_normalizado?: string;
     ativo?: boolean;
+    notify_general?: boolean;
+    notify_certificate_updates?: boolean;
   } = {};
 
   if (parsed.data.nome !== undefined) {
@@ -50,12 +52,19 @@ export async function PATCH(request: NextRequest, { params }: RecipientRouteProp
     patch.ativo = parsed.data.ativo;
   }
 
+  if (parsed.data.notify_general !== undefined) {
+    patch.notify_general = parsed.data.notify_general;
+  }
+  if (parsed.data.notify_certificate_updates !== undefined) {
+    patch.notify_certificate_updates = parsed.data.notify_certificate_updates;
+  }
+
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("notification_recipients")
     .update(patch)
     .eq("id", id)
-    .select("id, nome, telefone, telefone_normalizado, ativo, created_at, updated_at")
+    .select("id, nome, telefone, telefone_normalizado, ativo, notify_general, notify_certificate_updates, created_at, updated_at")
     .maybeSingle();
 
   if (error) {

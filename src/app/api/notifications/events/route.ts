@@ -21,7 +21,7 @@ const STATUS_FILTERS = new Set<NotificationEventStatus>([
   "cancelled",
   "skipped",
 ]);
-const TYPE_FILTERS = new Set(["certificate_expiring", "certificate_expired", "manual_test"]);
+const TYPE_FILTERS = new Set(["certificate_expiring", "certificate_expired", "manual_test", "certificate_updated", "internal_notice"]);
 const AUDIENCE_FILTERS = new Set(["internal", "client"]);
 
 type EventApiRow = {

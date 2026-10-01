@@ -70,8 +70,9 @@ describe("internal notifications page", () => {
     expect(broadcastFormSource).toContain("/api/internal-notifications/broadcast");
     expect(broadcastFormSource).toContain("Enviar aviso interno");
     expect(broadcastFormSource).toContain("notificadores Windows");
-    expect(broadcastFormSource).toContain("Nao envia WhatsApp");
-    expect(broadcastFormSource).toContain("Confirmo o envio para todos os usuarios internos");
+    expect(broadcastFormSource).toContain("WhatsApp conforme destinatários");
+    expect(broadcastFormSource).toContain("whatsapp_queued_count");
+    expect(broadcastFormSource).toContain("Confirmo a publicação para todos os usuários internos");
     expect(broadcastFormSource).toContain("fasa:internal-notifications:refresh");
     expect(broadcastFormSource).toContain("credentials: \"same-origin\"");
   });

@@ -406,6 +406,8 @@ export type Database = {
           telefone: string;
           telefone_normalizado: string;
           ativo: boolean;
+          notify_general: boolean;
+          notify_certificate_updates: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -415,6 +417,8 @@ export type Database = {
           telefone: string;
           telefone_normalizado: string;
           ativo?: boolean;
+          notify_general?: boolean;
+          notify_certificate_updates?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -448,6 +452,7 @@ export type Database = {
       notification_events: {
         Row: {
           id: string;
+          internal_notification_id: string | null;
           cliente_id: string | null;
           certificado_id: string | null;
           recipient_id: string | null;
@@ -484,6 +489,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          internal_notification_id?: string | null;
           cliente_id?: string | null;
           certificado_id?: string | null;
           recipient_id?: string | null;

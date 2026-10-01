@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils/cn";
 
 type BroadcastResponse = {
   active_user_count?: number;
+  whatsapp_queued_count?: number | null;
   message?: string;
 };
 
@@ -42,6 +43,7 @@ export function BroadcastNotificationForm() {
 
   async function submitBroadcast(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setError("");
     setSuccess("");
 
@@ -78,7 +80,12 @@ export function BroadcastNotificationForm() {
           ? `${payload.active_user_count} usuarios internos`
           : "usuarios internos";
 
-      setSuccess(`Aviso enviado para ${recipients} e notificadores Windows conectados.`);
+      const whatsappResult = typeof payload.whatsapp_queued_count === "number"
+        ? payload.whatsapp_queued_count > 0
+          ? `${payload.whatsapp_queued_count} aviso(s) adicionado(s) à fila do WhatsApp, respeitando pausas e intervalos de envio.`
+          : 'Nenhum destinatário ativo com "Certificados atualizados" marcado para receber pelo WhatsApp.'
+        : "Consulte a Central de avisos para acompanhar a fila do WhatsApp.";
+      setSuccess(`Aviso publicado para ${recipients} e notificadores Windows. ${whatsappResult}`);
       setTitle("");
       setBody("");
       setSeverity("info");
@@ -106,12 +113,12 @@ export function BroadcastNotificationForm() {
           <div className="min-w-0">
             <h2 className="text-base font-bold text-slate-950">Enviar aviso interno</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Envie uma mensagem para todos os usuarios do painel e para os computadores com o notificador Windows ativo.
+              Envie para todos os usuários do painel e do notificador Windows. No WhatsApp, recebem apenas os destinatários ativos com “Certificados atualizados” marcado.
             </p>
           </div>
         </div>
         <span className="inline-flex w-fit rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
-          Nao envia WhatsApp
+          WhatsApp conforme destinatários
         </span>
       </div>
 
@@ -186,7 +193,7 @@ export function BroadcastNotificationForm() {
               disabled={pending}
             />
             <span>
-              Confirmo o envio para todos os usuarios internos e notificadores Windows conectados a este sistema.
+              Confirmo a publicação para todos os usuários internos e notificadores Windows, e a inclusão na fila do WhatsApp para os destinatários selecionados.
             </span>
           </label>
           <button

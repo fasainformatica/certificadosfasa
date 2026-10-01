@@ -43,6 +43,10 @@ export async function POST(request: NextRequest, { params }: RetryRouteProps) {
     return jsonError("Evento nao encontrado ou nao pode ser reenfileirado.", 404, "evento_retry");
   }
 
+  if (data.status !== "retry") {
+    return jsonError("Este aviso nao pode ser reenfileirado. Verifique se o destinatario esta ativo, se a categoria esta marcada e se o comunicado ainda esta disponivel.", 409, "evento_destinatario_indisponivel");
+  }
+
   await admin.from("audit_logs").insert({
     user_id: auth.user.id,
     acao: "reenfileirar_notificacao",

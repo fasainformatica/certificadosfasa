@@ -64,7 +64,7 @@ describe("WhatsApp extension provider", () => {
     expect(result.ok && result.context.connectedNumber).toBe("5511999999999");
   });
 
-  it("reserva no maximo uma mensagem e retorna destino internacional para a extensao", async () => {
+  it.each(["certificate_expiring", "certificate_updated", "internal_notice"])("reserva somente uma mensagem %s para a extensao", async (type) => {
     process.env.WHATSAPP_PROVIDER = WHATSAPP_EXTENSION_PROVIDER;
     const reservedEvent = {
       status: "reserved",
@@ -72,7 +72,7 @@ describe("WhatsApp extension provider", () => {
       event: {
         id: "event-1",
         audience: "client",
-        type: "certificate_expiring",
+        type,
         telefone_destino: "5511999999999",
         mensagem_renderizada: "Mensagem de aviso",
         attempt_count: 1,

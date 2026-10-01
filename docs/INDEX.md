@@ -10,6 +10,7 @@
 - [`02_FLUXO_COMPLETO.md`](02_FLUXO_COMPLETO.md): fluxos ponta a ponta.
 - [`03_BANCO_DE_DADOS.md`](03_BANCO_DE_DADOS.md): schema, tabelas, relacoes e SQL.
 - [`04_NOTIFICACOES.md`](04_NOTIFICACOES.md): notification engine, outbox, retries e idempotencia.
+- [`DESTINATARIOS_TIPOS_DE_AVISO.md`](DESTINATARIOS_TIPOS_DE_AVISO.md): migration e configuracao de avisos gerais ou certificados atualizados por destinatario.
 - [`05_WHATSAPP_EUATENDO.md`](05_WHATSAPP_EUATENDO.md): integracao euAtendo, dispatcher e homologacao.
 - [`06_FRONTEND.md`](06_FRONTEND.md): telas e componentes.
 - [`PERFORMANCE_NAVEGACAO.md`](PERFORMANCE_NAVEGACAO.md): otimizacao de consultas, prefetch, medicao e limites de validacao.

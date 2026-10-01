@@ -100,10 +100,16 @@ export async function POST(request: Request) {
     .eq("active", true)
     .in("role", OPERATIONAL_ROLES);
 
+  const { count: queuedCount, error: queueCountError } = await admin
+    .from("notification_events")
+    .select("id", { count: "exact", head: true })
+    .eq("internal_notification_id", result.id ?? "00000000-0000-0000-0000-000000000000");
+
   return NextResponse.json({
     notification_id: result.id,
     active_user_count: activeUserCount ?? 0,
     windows_notifier_targeted: true,
-    message: "Aviso interno enviado para os usuarios do painel e notificadores Windows.",
+    whatsapp_queued_count: queueCountError ? null : (queuedCount ?? 0),
+    message: "Aviso interno publicado no painel e nos notificadores Windows. O WhatsApp segue as preferencias dos destinatarios e os intervalos da fila.",
   });
 }

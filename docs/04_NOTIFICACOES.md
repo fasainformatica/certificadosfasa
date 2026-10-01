@@ -56,7 +56,7 @@ Variaveis permitidas ficam em `src/lib/notifications/validation.ts`. Templates c
 2. Carrega settings.
 3. Atualiza status dos certificados.
 4. Remove eventos futuros reconstruiveis.
-5. Carrega destinatarios ativos.
+5. Carrega destinatarios ativos com `notify_general = true`.
 6. Garante templates padrao.
 7. Cria eventos internos.
 8. Cria eventos para cliente quando o provider ativo suporta envio ao cliente (`euatendo` ou `whatsapp_extension`), telefone existe e cliente permite.
@@ -101,7 +101,21 @@ Erros tecnicos vindos de provider, SQL ou reserva sao convertidos para mensagens
 
 `internal_notifications` e `internal_notification_reads` sao a base da central interna do painel, dos pop-ups do navegador e do cliente leve do Windows para alertar operadores sobre eventos do sistema, como atualizacao de certificado.
 
-Essa base e separada de `notification_events`: ela nao entra na fila de WhatsApp, nao envia mensagens para clientes, nao reserva dispatcher e nao altera o planejamento automatico. A escrita deve ser feita por API server-side com RBAC; clientes autenticados comuns recebem apenas leitura das notificacoes visiveis para seu usuario/cargo e podem marcar seu proprio estado como lido ou dispensado.
+Essa base continua separada de `notification_events` para leitura, visibilidade e estados do painel/Windows. Desde 2026-10-01, novas notificacoes `certificate_updated` e comunicados manuais globais `system_notice` tambem geram eventos na fila do WhatsApp para destinatarios ativos com `notify_certificate_updates = true`. Nao sao enviados para clientes e nao alteram o planejamento de vencimentos. A escrita continua server-side com RBAC; usuarios comuns apenas leem notificacoes visiveis e alteram seu proprio estado de leitura.
+
+## Preferencias por destinatario (2026-10-01)
+
+- `notify_general`: avisos de vencimento e resumo de vencidos; padrao `true`, preservando destinatarios existentes.
+- `notify_certificate_updates`: certificados atualizados e comunicados manuais da central interna; padrao `false`.
+- As duas opcoes sao independentes. `ativo = false` impede novos avisos de ambas as categorias.
+- O servidor inclui o canal ativo em `metadata.whatsapp_provider`. O trigger `queue_internal_notification_whatsapp` grava os eventos junto com a notificacao interna, na mesma transacao.
+- Cada novo evento tem `internal_notification_id` e chave `internal_notification:{id}:recipient:{recipient_id}`. Nao inclui senha PFX, arquivo, token ou link de download.
+- Eventos `certificate_updated` e `internal_notice` usam titulo e corpo da notificacao; nao dependem dos templates de vencimento. `dias_restantes = 0` e apenas compatibilidade com a coluna obrigatoria, nunca apresentado como "vence hoje".
+- O rebuild nao remove nem recria esses dois novos tipos. Selecionar a opcao nao reproduz notificacoes antigas; `certificate_created` continua apenas no painel/Windows.
+- Desmarcar uma categoria cancela seus eventos `pending/retry`. Reservados, em processamento e enviados nao sao alterados. Telefone de eventos ainda na fila acompanha a alteracao do destinatario.
+- Ambos os RPCs reaplicam as preferencias na reserva. Comunicados expirados, removidos ou privados nao podem ser enviados; reenvio manual tambem passa pelo guard de preferencias.
+- Novos avisos podem ficar na fila com a automacao pausada. O envio continua sujeito a enabled, pausas, janela, limites, intervalo e canal operacional. Nao ha envio direto pelo upload ou formulario.
+- Instalacao e teste controlado: [`DESTINATARIOS_TIPOS_DE_AVISO.md`](DESTINATARIOS_TIPOS_DE_AVISO.md).
 
 Endpoints disponiveis na Etapa 2:
 
