@@ -4,7 +4,8 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-10-06
 
-- Links individuais de uso unico para atualizacoes de certificados, somente quando ha mais de um destinatario ativo marcado para atualizacoes no momento do aviso. Emissao no despacho; mensagens gerais e novos cadastros nao recebem links.
+- Corrigida a regra de link automatico: um unico destinatario ativo selecionado para certificados atualizados recebe seu link individual. Migration incremental `20261006172256_certificate_delivery_single_recipient.sql`; avisos ja enviados permanecem no historico sem reenvio.
+- Links individuais de uso unico para atualizacoes de certificados. A primeira versao exigia mais de um destinatario ativo; a migration incremental acima permite apenas um. Emissao no despacho; mensagens gerais e novos cadastros nao recebem links.
 - Links manuais independentes dos automaticos. Validade de 7 dias para links novos; a senha temporaria abre uma unica sessao de 15 minutos com senha do PFX e botao de download.
 - Download via proxy privado, sem signed URL no navegador; confirmacao de recebimento bloqueia novas transferencias sem retirar a senha da pagina aberta. Recuperacao de falha limitada a 2 minutos desde a primeira tentativa, sem renovar prazo.
 - RPCs restritas a service_role serializam emissao, tentativas de senha e transferencias. Substituir o PFX invalida links/sessoes anteriores; credenciais para retries de WhatsApp ficam criptografadas, fora do texto persistido da fila e dos logs.

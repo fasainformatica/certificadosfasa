@@ -37,7 +37,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 5. Usuario acessa `/download/[token]` e informa a senha.
 6. Backend valida a senha e consome seu acesso, criando uma unica sessao em memoria e mostrando senha do PFX + botao de download.
 7. O arquivo e transferido por proxy privado. A confirmacao do navegador bloqueia novas transferencias; a senha continua na pagina aberta. Em caso de falha, retry por ate 2 minutos do primeiro pedido, sem renovar prazo. Recarregar torna o link indisponivel.
-8. Novas atualizacoes de certificados geram um link por destinatario no despacho somente se havia dois ou mais destinatarios ativos marcados para atualizacoes ao criar o aviso. Novos cadastros e comunicados gerais nao recebem link. Detalhes: `LINKS_ATUALIZACAO_CERTIFICADO.md`.
+8. Novas atualizacoes de certificados geram um link por destinatario no despacho quando havia ao menos um destinatario ativo marcado para atualizacoes ao criar o aviso. Novos cadastros e comunicados gerais nao recebem link. Detalhes: `LINKS_ATUALIZACAO_CERTIFICADO.md`.
 
 ## Avisos
 

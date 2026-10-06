@@ -2,9 +2,11 @@
 
 ## O que mudou
 
-Ao atualizar um certificado existente, a notificacao registra quantos destinatarios ativos estao marcados em **Certificados atualizados**. Se houver **dois ou mais**, cada um recebe seu proprio link e senha temporaria pelo canal WhatsApp ativo. Com apenas um selecionado, recebe o aviso textual sem link automatico. Sem destinatarios selecionados, nenhum envio WhatsApp e criado.
+Ao atualizar um certificado existente, a notificacao verifica os destinatarios ativos marcados em **Certificados atualizados**. Com **um ou mais**, cada um recebe seu proprio link e senha temporaria pelo canal WhatsApp ativo. Sem destinatarios selecionados, nenhum envio WhatsApp e criado.
 
 A mensagem contem titular, CNPJ, novo vencimento, link, senha temporaria e aviso de uso unico. O link e preparado quando chega a vez desse destinatario na fila; o intervalo entre mensagens nao foi alterado. Avisos internos gerais continuam sendo enviados como texto. Cadastrar um certificado novo continua gerando apenas a notificacao interna/painel/Windows.
+
+Avisos ja enviados sem link, como o anterior a esta correcao, nao sao reenviados automaticamente. Para compartilhar esse certificado agora, gere um link manual na tela do certificado e envie-o ao destinatario por um canal controlado.
 
 O link criado manualmente na tela do certificado continua disponivel e independente: criar, trocar senha ou invalidar o manual nao afeta os automaticos. Atualizar o arquivo PFX invalida todos os links da versao anterior.
 
@@ -26,8 +28,9 @@ Nao execute o schema consolidado inteiro em um banco existente.
 1. Abra o projeto Supabase usado pelo dominio oficial `https://certificadosfasa.vercel.app`.
 2. Se ainda nao aplicou a atualizacao anterior de destinatarios, execute primeiro `database/migrations/20261001133454_recipient_notification_preferences.sql` no **SQL Editor**.
 3. Abra `database/migrations/20261006152037_certificate_delivery_links.sql` no projeto local. Execute seu conteudo completo no **SQL Editor > New query > Run**.
-4. O script e transacional e pode ser reaplicado. Acrescenta campos, indices, triggers e duas funcoes server-only; nao apaga certificados ou arquivos.
-5. Confira as novas funcoes sem expor tokens/senhas:
+4. Em seguida execute `database/migrations/20261006172256_certificate_delivery_single_recipient.sql` no mesmo projeto. Se a migration de links anterior ja foi aplicada, execute **somente esta nova migration**. Ela altera apenas a regra para os proximos avisos de atualizacao.
+5. Os scripts sao transacionais e podem ser reaplicados; nao apagam certificados ou arquivos.
+6. Confira as funcoes sem expor tokens/senhas:
 
 ```sql
 select to_regprocedure('public.issue_certificate_download(uuid,text,text,jsonb,uuid,uuid)') as emissao,
@@ -46,7 +49,7 @@ Para evitar executar o codigo antigo sobre o indice novo, pause temporariamente 
 4. Nao ha chave nova de integracao. Nao coloque a service role ou chave de criptografia na extensao/navegador. Nao e necessario reinstalar a extensao ou o app Windows.
 5. Confira os destinatarios antes de reativar o envio automatico. O cron, horario permitido, pausa e cadencia continuam valendo.
 
-Nao foram aplicados SQL remoto, push ou deploy por esta implementacao.
+Aplicar uma migration no SQL Editor e uma acao separada de publicar codigo no GitHub. Confira que o SQL novo foi executado no mesmo projeto Supabase usado pela Vercel.
 
 ## Teste controlado apos publicar
 
@@ -56,7 +59,7 @@ Use certificado de homologacao e numeros internos autorizados. Nao habilite clie
 - Recarregue a pagina: deve ficar indisponivel. Uma segunda aba nao pode liberar a senha temporaria novamente.
 - Com dois destinatarios internos ativos selecionados, atualize um certificado de homologacao. Aguarde a fila normal: cada um deve receber URL e senha distintas.
 - Consumir o link do primeiro nao deve bloquear o segundo nem o manual.
-- Com apenas um selecionado, atualizar deve manter o aviso textual, sem novo link automatico.
+- Com apenas um destinatario ativo selecionado, atualizar deve enviar um link e uma senha temporaria para ele.
 - Envie um comunicado geral: deve continuar textual. Novo cadastro nao deve gerar essa entrega por WhatsApp.
 - Para simular falha, interrompa a rede durante a transferencia, religue e tente na mesma pagina antes dos dois minutos; depois desse prazo o acesso deve ser negado.
 - Confirme que a pagina ainda funciona com textos longos e no celular; validacao visual automatizada nao foi possivel nesta sessao.

@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 const schema = readFileSync(resolve("database/schema/supabase_schema.sql"), "utf8").replace(/\r\n/g, "\n");
 const migration = readFileSync(resolve("database/migrations/20261006152037_certificate_delivery_links.sql"), "utf8");
+const singleRecipientMigration = readFileSync(resolve("database/migrations/20261006172256_certificate_delivery_single_recipient.sql"), "utf8");
 const recipientsMigration = readFileSync(resolve("database/migrations/20261001133454_recipient_notification_preferences.sql"), "utf8");
 const certificate = "10000000-0000-4000-8000-000000000001";
 const passwordHash = "scrypt-test-placeholder-for-sql-tests";
@@ -67,6 +68,8 @@ beforeAll(async () => {
   await db.exec(recipientsMigration);
   await db.exec(migration);
   await db.exec(migration);
+  await db.exec(singleRecipientMigration);
+  await db.exec(singleRecipientMigration);
 }, 30000);
 beforeEach(async () => {
   await db.exec(`begin; insert into certificados(id,hash_arquivo) values('${certificate}','${"a".repeat(64)}');
@@ -93,13 +96,19 @@ describe("certificate delivery SQL", () => {
     expect((await access(manual.hash, "authorize")).status).toBe("unavailable");
     expect((await access(first.hash, "authorize")).status).toBe("authorized");
   });
-  it("does not generate automatic links with only one selected recipient", async () => {
+  it("generates an individual link with only one selected recipient", async () => {
     await db.exec("update notification_recipients set notify_certificate_updates=false where nome='Two'");
-    await queue();
+    const noticeId = await queue();
+    const snapshot = await db.query<{ enabled: boolean }>(
+      "select (metadata->>'certificate_delivery_enabled')::boolean as enabled from internal_notifications where id=$1",
+      [noticeId],
+    );
+    expect(snapshot.rows[0].enabled).toBe(true);
     await db.exec("update notification_recipients set notify_certificate_updates=true");
     const { ids, reservation } = await reserveEvents();
-    expect((await issue(ids[0], reservation)).status).toBe("text_only");
-    expect((await db.query("select id from links_download")).rows).toHaveLength(0);
+    expect(ids).toHaveLength(1);
+    expect((await issue(ids[0], reservation)).status).toBe("ready");
+    expect((await db.query("select id from links_download where source='certificate_update'")).rows).toHaveLength(1);
   });
   it("rejects forged/stale reservations and recipient opt-out", async () => {
     await queue();

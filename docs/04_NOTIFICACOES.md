@@ -113,7 +113,7 @@ Essa base continua separada de `notification_events` para leitura, visibilidade 
 
 ### Download em avisos de atualizacao (2026-10-06)
 
-- `snapshot_certificate_delivery` registra se havia mais de um destinatario ativo com `notify_certificate_updates` quando a notificacao foi criada. Um unico destinatario continua recebendo o aviso textual, sem link automatico.
+- `snapshot_certificate_delivery` registra se havia pelo menos um destinatario ativo com `notify_certificate_updates` quando a notificacao foi criada. Um unico destinatario tambem recebe seu link individual, apos aplicar `database/migrations/20261006172256_certificate_delivery_single_recipient.sql`.
 - A metadata inclui o hash da versao do PFX, nunca sua senha. Nao ha replay para avisos anteriores sem essa metadata.
 - `prepareCertificateDownloadMessage` e compartilhado por euAtendo e extensao. Emite um link por evento/destinatario imediatamente antes do despacho, reaproveitando a mesma credencial criptografada em retries. Nao muda a cadencia nem o limite de uma mensagem por execucao.
 - O corpo enviado informa cliente/titular, CNPJ, novo vencimento, URL, senha temporaria e uso unico. A senha real do PFX so aparece na pagina apos validacao. Respostas de provider para atualizacoes nao sao persistidas como payload bruto.

@@ -2938,7 +2938,10 @@ returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if new.type = 'certificate_updated' and new.metadata ? 'certificate_hash' then
     new.metadata := new.metadata || jsonb_build_object('certificate_delivery_enabled',
-      (select count(*) > 1 from public.notification_recipients where ativo and notify_certificate_updates));
+      exists (
+        select 1 from public.notification_recipients
+        where ativo and notify_certificate_updates
+      ));
   end if;
   return new;
 end;
