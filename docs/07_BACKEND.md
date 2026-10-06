@@ -49,6 +49,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 ## APIs publicas e cron
 
 - `POST /api/download/[token]/validar`
+- `POST /api/download/[token]/arquivo`: sessao opaca em corpo JSON; `action=download` reserva transferencia e retorna PFX por stream privado; `action=complete` confirma recebimento e fecha a janela de recuperacao. Nao retorna signed URL.
 - `GET/POST /api/cron/certificados-vencimentos`
 - `GET/POST /api/cron/euatendo-dispatch`
 

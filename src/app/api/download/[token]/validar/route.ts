@@ -1,146 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-
-import { jsonError } from "@/lib/api/errors";
+import { decryptSecret } from "@/lib/crypto/secrets";
+import { accessResultSchema, downloadError, hashDownloadSession, privateDownloadHeaders, unavailableDownload } from "@/lib/download/access";
 import { verifyDownloadPassword } from "@/lib/download/password";
-import { hashPublicDownloadToken } from "@/lib/download/token";
-import { CERTIFICATES_BUCKET } from "@/lib/storage/certificates";
+import { createPublicDownloadToken, hashPublicDownloadToken } from "@/lib/download/token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { publicDownloadPasswordSchema } from "@/lib/validations/certificados";
 
 export const runtime = "nodejs";
 
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
-const RATE_LIMIT_BLOCK_MS = 15 * 60 * 1000;
-
-type PublicDownloadRouteProps = {
-  params: Promise<{
-    token: string;
-  }>;
-};
-
-type LinkedCertificate = {
-  storage_path: string;
-  nome_arquivo_original: string;
-};
-
-function getClientIp(request: NextRequest) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || "unknown";
-}
-
-function getUserAgent(request: NextRequest) {
-  return request.headers.get("user-agent")?.slice(0, 512) ?? null;
-}
-
-function unavailable() {
-  return jsonError("Este link já foi utilizado ou está inválido.", 404, "link_indisponivel");
-}
-
-export async function POST(request: NextRequest, { params }: PublicDownloadRouteProps) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const body = await request.json().catch(() => null);
-  const parsed = publicDownloadPasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return jsonError("Senha incorreta ou link indisponivel.", 400, "senha_invalida");
-  }
-
-  const admin = createSupabaseAdminClient();
-  const tokenHash = hashPublicDownloadToken(token);
-  const { data: link } = await admin
-    .from("links_download")
-    .select(
-      "id, ativo, usado, senha_hash, certificado_id, tentativas_invalidas, bloqueado_ate, certificados(storage_path, nome_arquivo_original)",
-    )
-    .eq("token_hash", tokenHash)
-    .maybeSingle();
-
-  if (!link || !link.ativo || link.usado || !link.certificados) {
-    return unavailable();
-  }
-
-  const now = Date.now();
-
-  if (link.bloqueado_ate && new Date(link.bloqueado_ate).getTime() > now) {
-    return jsonError("Muitas tentativas. Aguarde alguns minutos e tente novamente.", 429, "rate_limit");
-  }
-
-  const passwordMatches = await verifyDownloadPassword(parsed.data.senha_liberacao, link.senha_hash);
-
-  if (!passwordMatches) {
-    const expiredBlock = link.bloqueado_ate && new Date(link.bloqueado_ate).getTime() <= now;
-    const nextAttempts = (expiredBlock ? 0 : link.tentativas_invalidas) + 1;
-    const blockedUntil =
-      nextAttempts >= RATE_LIMIT_MAX_ATTEMPTS ? new Date(now + RATE_LIMIT_BLOCK_MS).toISOString() : null;
-
-    await admin
-      .from("links_download")
-      .update({
-        tentativas_invalidas: nextAttempts,
-        bloqueado_ate: blockedUntil,
-      })
-      .eq("id", link.id)
-      .eq("usado", false);
-
-    return jsonError("Senha incorreta ou link indisponivel.", blockedUntil ? 429 : 400, "senha_incorreta");
-  }
-
-  const certificado = Array.isArray(link.certificados)
-    ? (link.certificados[0] as LinkedCertificate | undefined)
-    : (link.certificados as LinkedCertificate);
-
-  if (!certificado) {
-    return unavailable();
-  }
-
-  const { data: signedUrl, error: signedUrlError } = await admin.storage
-    .from(CERTIFICATES_BUCKET)
-    .createSignedUrl(certificado.storage_path, 60, {
-      download: certificado.nome_arquivo_original,
+  const parsed = publicDownloadPasswordSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return downloadError("Senha incorreta ou link indisponivel.", 400, "senha_invalida");
+  if (!/^[A-Za-z0-9_-]{40,128}$/.test(token)) return unavailableDownload();
+  try {
+    const admin = createSupabaseAdminClient();
+    const tokenHash = hashPublicDownloadToken(token);
+    const { data: link, error } = await admin.from("links_download")
+      .select("id, ativo, usado, senha_hash, tentativas_invalidas, bloqueado_ate")
+      .eq("token_hash", tokenHash).maybeSingle();
+    if (error) return downloadError("Nao foi possivel validar o acesso. Tente novamente.", 503);
+    if (!link?.ativo || link.usado) return unavailableDownload();
+    if (link.bloqueado_ate && Date.parse(link.bloqueado_ate) > Date.now()) {
+      return downloadError("Muitas tentativas. Aguarde 15 minutos e tente novamente.", 429, "rate_limit");
+    }
+    const matches = await verifyDownloadPassword(parsed.data.senha_liberacao, link.senha_hash);
+    const session = createPublicDownloadToken();
+    const { data, error: claimError } = await admin.rpc("access_certificate_download", {
+      p_token_hash: tokenHash, p_action: matches ? "authorize" : "failed_password",
+      p_session_hash: hashDownloadSession(session), p_expected_password_hash: link.senha_hash,
     });
-
-  if (signedUrlError || !signedUrl?.signedUrl) {
-    return jsonError("Falha ao gerar download temporario.", 502, "signed_url");
+    if (claimError) return downloadError("Nao foi possivel liberar o acesso. Tente novamente.", 503);
+    const result = accessResultSchema.parse(data);
+    if (result.status === "rate_limited") return downloadError("Muitas tentativas. Aguarde 15 minutos.", 429, "rate_limit");
+    if (result.status === "wrong_password") return downloadError("Senha incorreta ou link indisponivel.", 400, "senha_incorreta");
+    if (result.status !== "authorized" || !result.ciphertext || !result.iv || !result.authTag) return unavailableDownload();
+    const password = decryptSecret({ ciphertext: result.ciphertext, iv: result.iv, authTag: result.authTag });
+    await admin.from("audit_logs").insert({ user_id: null, acao: "liberar_download_publico",
+      certificado_id: result.certificate_id, metadata: { link_id: result.id } });
+    return NextResponse.json({ session, senha_certificado: password, filename: result.filename }, { headers: privateDownloadHeaders });
+  } catch {
+    return downloadError("Nao foi possivel liberar o certificado. Solicite um novo link a equipe.", 503);
   }
-
-  const usedAt = new Date(now).toISOString();
-  const ip = getClientIp(request);
-  const userAgent = getUserAgent(request);
-  const { data: claimedLink, error: claimError } = await admin
-    .from("links_download")
-    .update({
-      ativo: false,
-      usado: true,
-      usado_em: usedAt,
-      ip_uso: ip,
-      user_agent_uso: userAgent,
-      tentativas_invalidas: 0,
-      bloqueado_ate: null,
-    })
-    .eq("id", link.id)
-    .eq("ativo", true)
-    .eq("usado", false)
-    .select("id")
-    .maybeSingle();
-
-  if (claimError || !claimedLink) {
-    return unavailable();
-  }
-
-  await admin.from("audit_logs").insert({
-    user_id: null,
-    acao: "download_publico",
-    certificado_id: link.certificado_id,
-    ip,
-    metadata: {
-      link_id: link.id,
-      user_agent: userAgent,
-      usado_em: usedAt,
-    },
-  });
-
-  return NextResponse.json({
-    download_url: signedUrl.signedUrl,
-    expires_in: 60,
-  });
 }

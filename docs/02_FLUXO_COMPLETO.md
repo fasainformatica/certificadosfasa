@@ -31,11 +31,13 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 ## Link publico
 
 1. Admin gera link no detalhe do certificado.
-2. Sistema invalida link ativo anterior do certificado.
+2. Sistema invalida apenas links manuais anteriores do certificado, sem alterar links individuais enviados por WhatsApp.
 3. Sistema gera token publico forte e senha unica.
-4. Banco salva apenas `token_hash` e `senha_hash`.
+4. Banco salva `token_hash` e `senha_hash`, origem, validade e hash da versao do certificado. Para links automaticos, guarda tambem as credenciais criptografadas necessarias ao retry de envio.
 5. Usuario acessa `/download/[token]` e informa a senha.
-6. Backend valida hash, cria signed URL de 60 segundos e marca link como usado.
+6. Backend valida a senha e consome seu acesso, criando uma unica sessao em memoria e mostrando senha do PFX + botao de download.
+7. O arquivo e transferido por proxy privado. A confirmacao do navegador bloqueia novas transferencias; a senha continua na pagina aberta. Em caso de falha, retry por ate 2 minutos do primeiro pedido, sem renovar prazo. Recarregar torna o link indisponivel.
+8. Novas atualizacoes de certificados geram um link por destinatario no despacho somente se havia dois ou mais destinatarios ativos marcados para atualizacoes ao criar o aviso. Novos cadastros e comunicados gerais nao recebem link. Detalhes: `LINKS_ATUALIZACAO_CERTIFICADO.md`.
 
 ## Avisos
 

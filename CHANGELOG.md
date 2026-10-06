@@ -2,6 +2,14 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-10-06
+
+- Links individuais de uso unico para atualizacoes de certificados, somente quando ha mais de um destinatario ativo marcado para atualizacoes no momento do aviso. Emissao no despacho; mensagens gerais e novos cadastros nao recebem links.
+- Links manuais independentes dos automaticos. Validade de 7 dias para links novos; a senha temporaria abre uma unica sessao de 15 minutos com senha do PFX e botao de download.
+- Download via proxy privado, sem signed URL no navegador; confirmacao de recebimento bloqueia novas transferencias sem retirar a senha da pagina aberta. Recuperacao de falha limitada a 2 minutos desde a primeira tentativa, sem renovar prazo.
+- RPCs restritas a service_role serializam emissao, tentativas de senha e transferencias. Substituir o PFX invalida links/sessoes anteriores; credenciais para retries de WhatsApp ficam criptografadas, fora do texto persistido da fila e dos logs.
+- Migration `20261006152037_certificate_delivery_links.sql` e guia `docs/LINKS_ATUALIZACAO_CERTIFICADO.md`. Extensao e notificador Windows nao exigem nova instalacao.
+
 ## 2026-10-01
 
 - Adicionadas preferencias independentes `notify_general` e `notify_certificate_updates` aos destinatarios internos, com edicao exclusiva de administradores. Destinatarios existentes mantem apenas avisos gerais por padrao.

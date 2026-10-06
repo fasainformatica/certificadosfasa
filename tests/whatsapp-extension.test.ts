@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/download/delivery", () => ({
+  prepareCertificateDownloadMessage: vi.fn(async (_admin: unknown, event: { type: string; mensagem_renderizada: string }) =>
+    event.type === "certificate_updated" ? "Prepared one-time download fixture" : event.mensagem_renderizada),
+}));
+
 import { authenticateWhatsAppExtension } from "@/lib/whatsapp/extension/config";
 import {
   processWhatsAppExtensionAcks,
@@ -120,11 +125,12 @@ describe("WhatsApp extension provider", () => {
       {
         uuid: "event-1",
         destino: "+5511999999999",
-        texto: "Mensagem de aviso",
+        texto: type === "certificate_updated" ? "Prepared one-time download fixture" : "Mensagem de aviso",
         send_interval_seconds: 180,
       },
     ]);
     expect(inserts).toHaveLength(1);
+    expect(JSON.stringify(inserts)).not.toContain("Prepared one-time download fixture");
   });
 
   it("transforma ack de envio confirmado em status sent", async () => {

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/download/delivery", () => ({
+  prepareCertificateDownloadMessage: vi.fn(async (_admin: unknown, event: { type: string; mensagem_renderizada: string }) =>
+    event.type === "certificate_updated" ? "Prepared one-time download fixture" : event.mensagem_renderizada),
+}));
+
 const rpcCalls: unknown[] = [];
 const rpcQueue: Array<{ data: unknown; error: null }> = [];
 const sentMessages: unknown[] = [];
@@ -128,6 +133,7 @@ describe("dispatcher euAtendo", () => {
     expect(result.sent).toBe(1);
     expect(result.status).toBe("completed");
     expect(sentMessages).toHaveLength(1);
+    if (type === "certificate_updated") expect(sentMessages[0]).toMatchObject({ renderedMessage: "Prepared one-time download fixture" });
     expect(rpcCalls).toMatchObject([
       { p_ignore_next_allowed: false },
     ]);

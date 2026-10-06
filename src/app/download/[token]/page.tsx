@@ -7,23 +7,31 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { PublicDownloadForm } from "./download-form";
 
+export const dynamic = "force-dynamic";
+export const metadata = { referrer: "no-referrer", robots: { index: false, follow: false } };
+
 type PublicDownloadPageProps = {
   params: Promise<{
     token: string;
   }>;
 };
 
-export default async function PublicDownloadPage({ params }: PublicDownloadPageProps) {
-  const { token } = await params;
+async function isLinkAvailable(token: string) {
   const admin = createSupabaseAdminClient();
   const tokenHash = hashPublicDownloadToken(token);
   const { data: link } = await admin
     .from("links_download")
-    .select("id, ativo, usado")
+    .select("id, ativo, usado, expires_at, invalidado_em")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
-  const available = Boolean(link?.ativo && !link.usado);
+  return Boolean(link?.ativo && !link.usado && !link.invalidado_em &&
+    (!link.expires_at || Date.parse(link.expires_at) > Date.now()));
+}
+
+export default async function PublicDownloadPage({ params }: PublicDownloadPageProps) {
+  const { token } = await params;
+  const available = await isLinkAvailable(token);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
@@ -45,7 +53,7 @@ export default async function PublicDownloadPage({ params }: PublicDownloadPageP
             <div className="mt-4 grid gap-2 rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-slate-700">
               <div className="flex gap-2">
                 <Clock3 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
-                <p>Depois da liberação, o acesso ao arquivo expira em 60 segundos.</p>
+                <p>Após liberar, baixe em até 15 minutos. Se a transferência falhar, tente novamente na mesma página em até 2 minutos após o primeiro clique em baixar.</p>
               </div>
               <div className="flex gap-2">
                 <ShieldCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />

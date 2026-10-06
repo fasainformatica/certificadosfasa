@@ -61,7 +61,7 @@ export function buildCertificateUploadInternalNotificationPayload(
   const dataVencimento = formatDatePtBr(input.dataVencimento);
   const title = isUpdate ? "Certificado atualizado" : "Novo certificado cadastrado";
   const body = isUpdate
-    ? `${input.nomeTitular} foi atualizado no sistema. Novo vencimento: ${dataVencimento}.`
+    ? `${input.nomeTitular} foi atualizado no sistema. CNPJ: ${input.cnpj}. Novo vencimento: ${dataVencimento}.`
     : `${input.nomeTitular} foi cadastrado no sistema. Vencimento: ${dataVencimento}.`;
 
   return {
@@ -80,6 +80,7 @@ export function buildCertificateUploadInternalNotificationPayload(
       source: input.source ?? "certificate_upload_service",
       operation: input.operation,
       cnpj: input.cnpj,
+      certificate_hash: input.hashArquivo,
       certificate_download_available: true,
       certificate_download_requires_login: true,
     },

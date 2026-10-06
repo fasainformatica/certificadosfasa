@@ -16,6 +16,7 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 - `/configuracoes`: configuracoes de avisos, templates, destinatarios, seguranca e usuarios.
 - `/whatsapp`: homologacao e monitoramento euAtendo.
 - `/download/[token]`: download publico.
+- Desde 2026-10-06, a senha temporaria nessa pagina abre uma unica sessao em memoria: senha do PFX selecionavel/copiavel, botao Baixar certificado, processamento, erro recuperavel e confirmacao de recebimento. A pagina nao navega para o Storage nem se atualiza apos baixar. Reload/reabertura invalidam o acesso; retorno pelo cache do navegador forca revalidacao. Nao ha persistencia de senha ou sessao em localStorage/cookies. Foco segue para o resultado; labels, aria-live, prevencao de clique duplo e reduced-motion foram preservados.
 
 ## Componentes
 

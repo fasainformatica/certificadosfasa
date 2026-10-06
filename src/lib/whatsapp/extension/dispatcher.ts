@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import { prepareCertificateDownloadMessage } from "@/lib/download/delivery";
 
 import {
   calculateReservationTtlSeconds,
@@ -518,6 +519,19 @@ export async function reserveNextWhatsAppExtensionMessage({
   }
 
   const delaySeconds = computeDispatchDelaySeconds(settings);
+  let message: string;
+  try {
+    message = await prepareCertificateDownloadMessage(admin, reserved.event);
+  } catch {
+    await admin.from("notification_events").update({
+      status: reserved.event.attempt_count < reserved.event.max_attempts ? "retry" : "failed",
+      next_retry_at: reserved.event.attempt_count < reserved.event.max_attempts ? addSeconds(300) : null,
+      error_message: "Nao foi possivel preparar o acesso ao certificado. Verifique a versao e as configuracoes.",
+      reservation_id: null, reserved_at: null, reservation_expires_at: null,
+    }).eq("id", reserved.event.id).eq("reservation_id", reserved.event.reservation_id);
+    await completeReservationCadence({ admin, lockId: reserved.lock_id, nextAllowedSendAt: addSeconds(delaySeconds) });
+    return { messages: [], reservation: { status: "skipped", reason: "certificate_delivery_unavailable" } };
+  }
   const nextAllowedSendAt = addSeconds(delaySeconds);
   await completeReservationCadence({
     admin,
@@ -538,7 +552,7 @@ export async function reserveNextWhatsAppExtensionMessage({
   });
 
   return {
-    messages: [toExtensionMessage(reserved.event, delaySeconds)],
+    messages: [toExtensionMessage({ ...reserved.event, mensagem_renderizada: message }, delaySeconds)],
     reservation: {
       status: "reserved",
       next_allowed_send_at: nextAllowedSendAt,

@@ -404,7 +404,7 @@ Templates nao podem conter senha, link publico, download, `storage_path`, `CERT_
 ### Avisos de atualizacao e comunicados (2026-10-01)
 
 - Migration obrigatoria: `database/migrations/20261001133454_recipient_notification_preferences.sql`, antes do deploy. Nao presumir aplicacao remota. Guia: `docs/DESTINATARIOS_TIPOS_DE_AVISO.md`.
-- `createInternalNotification` informa apenas o provider ativo do servidor em metadata. Trigger `queue_internal_notification_whatsapp` grava o aviso interno e seu fanout na mesma transacao para destinatarios ativos com `notify_certificate_updates = true`.
+- `createInternalNotification` informa o provider ativo do servidor em metadata. Trigger `queue_internal_notification_whatsapp` grava o aviso interno e seu fanout na mesma transacao para destinatarios ativos com `notify_certificate_updates = true`.
 - Eventos novos: `certificate_updated` e `internal_notice`, com FK `internal_notification_id` e idempotencia `internal_notification:{id}:recipient:{recipient_id}`. Conteudo: titulo e corpo da notificacao, sem credenciais PFX ou link de arquivo. Upload/importacao usam o mesmo servico; novos cadastros (`certificate_created`) nao entram nesse fanout.
 - Ambos os dispatchers preservam bloqueio, pausa, janela, limites e cadencia existentes. Criacao apenas enfileira, inclusive quando pausado; nao envia diretamente. Preferencias sao revalidadas na reserva e em retries; comunicados expirados/privados/removidos nao sao despachados.
 - Alterar preferencias cancela apenas `pending/retry` da categoria desmarcada. Nao interrompe mensagens ja reservadas/em processamento. Alterar o telefone atualiza eventos internos ainda na fila. Nenhum replay automatico de comunicados anteriores.
@@ -425,6 +425,19 @@ O Canal WhatsApp em `/whatsapp` permite testar conexao, verificar numero e envia
 Crons usam `Authorization: Bearer {CRON_SECRET}` ou header `x-cron-secret`.
 
 ## Integracao euAtendo
+
+### Entrega de certificado por link individual (2026-10-06)
+
+Esta secao substitui a descricao historica de download publico por signed URL de 60 segundos. Migration obrigatoria: `database/migrations/20261006152037_certificate_delivery_links.sql`, depois da migration de preferencias. Guia operacional: `docs/LINKS_ATUALIZACAO_CERTIFICADO.md`. Aplicacao remota nao foi executada pelo agente.
+
+- Nova notificacao `certificate_updated` registra `certificate_hash` e snapshot de `certificate_delivery_enabled`: true somente com mais de um destinatario ativo que marcou atualizacoes. Um destinatario recebe texto sem link. Cadastros novos e comunicados gerais nao geram link automatico.
+- Os dispatchers chamam `prepareCertificateDownloadMessage` antes do envio/resposta a extensao. Uma credencial por evento/destinatario, criptografada em `links_download.delivery_credentials` para retries, sem texto sensivel persistido na fila. Envio continua cadenciado. Dados do titular, CNPJ, vencimento, URL e senha temporaria compoem a mensagem; a senha real do PFX nao vai no WhatsApp.
+- `source=manual` permanece independente. `issue_certificate_download` serializa emissao e invalida somente manuais anteriores. Links automaticos tem indice unico por evento; todos os links ficam vinculados ao hash da versao e sao invalidados ao substituir PFX.
+- Links novos valem 7 dias. `POST /api/download/[token]/validar` verifica scrypt e usa `access_certificate_download` para uma unica sessao em memoria de 15 minutos, devolvendo a senha PFX apenas ao acesso autorizado. Cinco erros bloqueiam 15 minutos.
+- `POST /api/download/[token]/arquivo` valida token+sessao e reserva a transferencia por 30 segundos, retorna stream privado (nao signed URL) e aceita confirmacao de recebimento. Retry permitido por 2 minutos desde a primeira transferencia, sem estender prazo; confirmacao fecha essa janela imediatamente. Sem confirmacao, expira sozinho.
+- O frontend mantem a senha visivel depois do arquivo recebido, sem navegacao nem refresh automatico. Reload/reabertura e outra aba nao conseguem reutilizar a senha temporaria. Secrets nao ficam em localStorage/cookies, headers/logs ou metadados da notificacao. O texto enviado pelo canal necessariamente contem URL/senha temporaria.
+- RPCs novas so podem ser executadas por service_role; APIs manuais mantem RBAC. Audit logs contem IDs, nunca credenciais. Janela de retry nao impede copia ou repeticao por cliente modificado antes da confirmacao; arquivo ja salvo nao pode ser revogado. Download no navegador nao comprova gravacao em disco.
+- Extensao e notificador Windows nao foram modificados. Fluxos de download autenticado do painel/Windows e crons permanecem os mesmos.
 
 ### Arquitetura
 
@@ -540,7 +553,7 @@ O aviso manual usa o provider ativo em `WHATSAPP_PROVIDER`: euAtendo envia diret
 ## Historico tecnico
 
 - Schema inicial criado com Supabase Auth, Storage privado e tabelas de certificados.
-- Download publico endurecido com token hash, senha hash, uso unico e signed URL curta.
+- Download publico endurecido com token hash, senha hash, sessao unica, proxy privado e janela limitada de recuperacao, conforme a entrega individual de 2026-10-06.
 - Auditoria profunda identificou riscos de duplicidade, performance e vazamento de segredos.
 - Correcoes pos-auditoria endureceram templates, reservas e Storage.
 - Performance foi melhorada com indices, RPC de dashboard e ajustes de listagens.

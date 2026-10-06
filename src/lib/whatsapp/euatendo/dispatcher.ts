@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import { prepareCertificateDownloadMessage } from "@/lib/download/delivery";
 
 import {
   DEFAULT_DELAY_MIN_SECONDS,
@@ -584,6 +585,7 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
   const startedAt = Date.now();
 
   try {
+    const message = await prepareCertificateDownloadMessage(admin, event);
     await markProcessing(admin, event);
     await logProviderAttempt(admin, { event, operation: "send_text", status: "started" });
 
@@ -592,8 +594,13 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       eventId: event.id,
       idempotencyKey: event.idempotency_key,
       destinationNumber: event.telefone_destino,
-      renderedMessage: event.mensagem_renderizada,
+      renderedMessage: message,
     });
+    // Provider responses must never persist an echoed link or temporary password.
+    if (event.type === "certificate_updated") {
+      result.sanitizedResponse = {};
+      if (!result.accepted) result.errorMessage = "Nao foi possivel enviar o aviso de atualizacao.";
+    }
     const durationMs = Date.now() - startedAt;
     const delaySeconds = computeNextAllowedDispatchSeconds(settings, result.retryAfterSeconds);
     const nextAllowedSendAt = addSeconds(delaySeconds);
@@ -657,6 +664,12 @@ export async function dispatchNextEuAtendoNotification(): Promise<EuAtendoDispat
       error_message: safeResult.errorMessage,
     };
   } catch (error) {
+    await admin.from("notification_events").update({
+      status: event.attempt_count < event.max_attempts ? "retry" : "failed",
+      next_retry_at: event.attempt_count < event.max_attempts ? addSeconds(300) : null,
+      error_message: "Nao foi possivel preparar o aviso. Verifique a versao do certificado e as configuracoes.",
+      reservation_id: null, reserved_at: null, reservation_expires_at: null,
+    }).eq("id", event.id).eq("reservation_id", event.reservation_id).eq("status", "reserved");
     const message = getSafeOperationalErrorMessage(error, "Falha inesperada no dispatcher euAtendo.");
     await clearDispatcherLock(admin, addSeconds(computeNextAllowedDispatchSeconds(settings)));
     await logProviderAttempt(admin, {

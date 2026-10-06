@@ -4,14 +4,15 @@ import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { createOneTimeDownloadPassword, hashDownloadPassword } from "@/lib/download/password";
-import { createPublicDownloadToken, hashPublicDownloadToken } from "@/lib/download/token";
+import { issueDownloadLink } from "@/lib/download/delivery";
+import { privateDownloadHeaders } from "@/lib/download/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { downloadLinkActionSchema } from "@/lib/validations/certificados";
 
 export const runtime = "nodejs";
 
 const LINK_SELECT =
-  "id, ativo, usado, usado_em, invalidado_em, criado_em, atualizado_em, ip_uso, user_agent_uso, tentativas_invalidas, bloqueado_ate";
+  "id, ativo, usado, usado_em, invalidado_em, criado_em, atualizado_em, ip_uso, user_agent_uso, tentativas_invalidas, bloqueado_ate, expires_at";
 
 type LinkRouteProps = {
   params: Promise<{
@@ -22,11 +23,6 @@ type LinkRouteProps = {
 function getClientIp(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwardedFor || request.headers.get("x-real-ip") || null;
-}
-
-function buildPublicDownloadUrl(request: NextRequest, token: string) {
-  const origin = request.headers.get("origin") || new URL(request.url).origin;
-  return `${origin}/download/${token}`;
 }
 
 async function assertCertificateExists(certificadoId: string) {
@@ -40,7 +36,7 @@ async function assertCertificateExists(certificadoId: string) {
   return !error && Boolean(certificado);
 }
 
-async function createLink(certificadoId: string, userId: string, ip: string | null, request: NextRequest) {
+async function createLink(certificadoId: string, userId: string, ip: string | null) {
   const admin = createSupabaseAdminClient();
   const exists = await assertCertificateExists(certificadoId);
 
@@ -48,27 +44,17 @@ async function createLink(certificadoId: string, userId: string, ip: string | nu
     return { response: jsonError("Certificado nao encontrado.", 404, "certificado_nao_encontrado") };
   }
 
-  await admin
-    .from("links_download")
-    .update({ ativo: false, invalidado_em: new Date().toISOString() })
-    .eq("certificado_id", certificadoId)
-    .eq("ativo", true)
-    .eq("usado", false);
-
-  const token = createPublicDownloadToken();
-  const tokenHash = hashPublicDownloadToken(token);
-  const generatedPassword = createOneTimeDownloadPassword();
-  const passwordHash = await hashDownloadPassword(generatedPassword);
+  let issued;
+  try {
+    issued = await issueDownloadLink(admin, certificadoId);
+  } catch {
+    return { response: jsonError("Nao foi possivel criar o link. Verifique a configuracao do sistema.", 503, "link_erro") };
+  }
+  if (!issued) return { response: jsonError("Nao foi possivel criar o link.", 503, "link_erro") };
   const { data: link, error } = await admin
     .from("links_download")
-    .insert({
-      certificado_id: certificadoId,
-      token_hash: tokenHash,
-      senha_hash: passwordHash,
-      ativo: true,
-      usado: false,
-    })
     .select(LINK_SELECT)
+    .eq("id", issued.id)
     .single();
 
   if (error || !link) {
@@ -83,7 +69,7 @@ async function createLink(certificadoId: string, userId: string, ip: string | nu
     metadata: {},
   });
 
-  return { link: { ...link, public_url: buildPublicDownloadUrl(request, token) }, generatedPassword };
+  return { link: { ...link, public_url: issued.url }, generatedPassword: issued.password };
 }
 
 async function updateLinkPassword(certificadoId: string, userId: string, ip: string | null) {
@@ -98,6 +84,7 @@ async function updateLinkPassword(certificadoId: string, userId: string, ip: str
       bloqueado_ate: null,
     })
     .eq("certificado_id", certificadoId)
+    .eq("source", "manual")
     .eq("ativo", true)
     .eq("usado", false)
     .select(LINK_SELECT)
@@ -128,7 +115,7 @@ export async function POST(request: NextRequest, { params }: LinkRouteProps) {
   }
 
   const { id } = await params;
-  const result = await createLink(id, auth.user.id, getClientIp(request), request);
+  const result = await createLink(id, auth.user.id, getClientIp(request));
 
   if ("response" in result) {
     return result.response;
@@ -139,7 +126,7 @@ export async function POST(request: NextRequest, { params }: LinkRouteProps) {
       link: result.link,
       senha_gerada: result.generatedPassword,
     },
-    { status: 201 },
+    { status: 201, headers: privateDownloadHeaders },
   );
 }
 
@@ -170,16 +157,21 @@ export async function PATCH(request: NextRequest, { params }: LinkRouteProps) {
     return NextResponse.json({
       link: result.link,
       senha_gerada: result.generatedPassword,
-    });
+    }, { headers: privateDownloadHeaders });
   }
 
   const admin = createSupabaseAdminClient();
+  const { data: latestLink, error: latestError } = await admin.from("links_download")
+    .select("id").eq("certificado_id", id).eq("source", "manual")
+    .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+  if (latestError || !latestLink) return jsonError("Link manual nao encontrado.", 404, "link_nao_encontrado");
   const { data: link, error } = await admin
     .from("links_download")
     .update({ ativo: false, invalidado_em: new Date().toISOString() })
+    .eq("id", latestLink.id)
     .eq("certificado_id", id)
-    .eq("ativo", true)
-    .eq("usado", false)
+    .eq("source", "manual")
+    .is("invalidado_em", null)
     .select(LINK_SELECT)
     .maybeSingle();
 

@@ -169,6 +169,17 @@ export type Database = {
       };
       links_download: {
         Row: {
+          source: "manual" | "certificate_update";
+          expires_at: string | null;
+          session_hash: string | null;
+          certificate_hash: string | null;
+          notification_event_id: string | null;
+          download_completed_at: string | null;
+          delivery_credentials: Json | null;
+          session_expires_at: string | null;
+          retry_until: string | null;
+          transfer_id: string | null;
+          transfer_locked_until: string | null;
           id: string;
           certificado_id: string;
           token_hash: string;
@@ -188,6 +199,17 @@ export type Database = {
           id?: string;
           certificado_id: string;
           token_hash: string;
+          source?: "manual" | "certificate_update";
+          expires_at?: string | null;
+          session_hash?: string | null;
+          certificate_hash?: string | null;
+          notification_event_id?: string | null;
+          download_completed_at?: string | null;
+          delivery_credentials?: Json | null;
+          session_expires_at?: string | null;
+          retry_until?: string | null;
+          transfer_id?: string | null;
+          transfer_locked_until?: string | null;
           senha_hash: string;
           ativo?: boolean;
           usado?: boolean;
@@ -646,6 +668,16 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      issue_certificate_download: {
+        Args: { p_certificate_id: string; p_token_hash: string; p_password_hash: string;
+          p_credentials?: Json; p_event_id?: string; p_reservation_id?: string };
+        Returns: Json;
+      };
+      access_certificate_download: {
+        Args: { p_token_hash: string; p_action: string; p_session_hash?: string;
+          p_expected_password_hash?: string; p_transfer_id?: string };
+        Returns: Json;
+      };
       can_read_internal: { Args: Record<string, never>; Returns: boolean };
       current_user_role: { Args: Record<string, never>; Returns: UserRole | null };
       is_admin: { Args: Record<string, never>; Returns: boolean };

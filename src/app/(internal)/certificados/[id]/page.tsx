@@ -86,8 +86,9 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
   const { data: activeLink } = admin
     ? await admin
       .from("links_download")
-      .select("id, ativo, usado, usado_em, invalidado_em, criado_em, atualizado_em, ip_uso, user_agent_uso, tentativas_invalidas, bloqueado_ate")
+      .select("id, ativo, usado, usado_em, invalidado_em, criado_em, atualizado_em, ip_uso, user_agent_uso, tentativas_invalidas, bloqueado_ate, expires_at")
       .eq("certificado_id", id)
+      .eq("source", "manual")
       .order("criado_em", { ascending: false })
       .limit(1)
       .maybeSingle()

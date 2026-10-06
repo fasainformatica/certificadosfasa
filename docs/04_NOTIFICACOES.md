@@ -109,7 +109,16 @@ Essa base continua separada de `notification_events` para leitura, visibilidade 
 - `notify_certificate_updates`: certificados atualizados e comunicados manuais da central interna; padrao `false`.
 - As duas opcoes sao independentes. `ativo = false` impede novos avisos de ambas as categorias.
 - O servidor inclui o canal ativo em `metadata.whatsapp_provider`. O trigger `queue_internal_notification_whatsapp` grava os eventos junto com a notificacao interna, na mesma transacao.
-- Cada novo evento tem `internal_notification_id` e chave `internal_notification:{id}:recipient:{recipient_id}`. Nao inclui senha PFX, arquivo, token ou link de download.
+- Cada novo evento tem `internal_notification_id` e chave `internal_notification:{id}:recipient:{recipient_id}`. O texto persistido nao inclui senha PFX, arquivo, token ou link de download. Desde 2026-10-06, o dispatcher pode acrescentar link e senha temporaria apenas ao texto enviado, conforme a regra descrita abaixo.
+
+### Download em avisos de atualizacao (2026-10-06)
+
+- `snapshot_certificate_delivery` registra se havia mais de um destinatario ativo com `notify_certificate_updates` quando a notificacao foi criada. Um unico destinatario continua recebendo o aviso textual, sem link automatico.
+- A metadata inclui o hash da versao do PFX, nunca sua senha. Nao ha replay para avisos anteriores sem essa metadata.
+- `prepareCertificateDownloadMessage` e compartilhado por euAtendo e extensao. Emite um link por evento/destinatario imediatamente antes do despacho, reaproveitando a mesma credencial criptografada em retries. Nao muda a cadencia nem o limite de uma mensagem por execucao.
+- O corpo enviado informa cliente/titular, CNPJ, novo vencimento, URL, senha temporaria e uso unico. A senha real do PFX so aparece na pagina apos validacao. Respostas de provider para atualizacoes nao sao persistidas como payload bruto.
+- Opt-out/inativacao e versao do certificado sao revalidados na emissao e no acesso. Link manual nao invalida automaticos e vice-versa. Comunicados gerais permanecem textuais.
+- Aplicacao e limites em [`LINKS_ATUALIZACAO_CERTIFICADO.md`](LINKS_ATUALIZACAO_CERTIFICADO.md).
 - Eventos `certificate_updated` e `internal_notice` usam titulo e corpo da notificacao; nao dependem dos templates de vencimento. `dias_restantes = 0` e apenas compatibilidade com a coluna obrigatoria, nunca apresentado como "vence hoje".
 - O rebuild nao remove nem recria esses dois novos tipos. Selecionar a opcao nao reproduz notificacoes antigas; `certificate_created` continua apenas no painel/Windows.
 - Desmarcar uma categoria cancela seus eventos `pending/retry`. Reservados, em processamento e enviados nao sao alterados. Telefone de eventos ainda na fila acompanha a alteracao do destinatario.

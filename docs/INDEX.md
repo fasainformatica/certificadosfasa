@@ -11,6 +11,7 @@
 - [`03_BANCO_DE_DADOS.md`](03_BANCO_DE_DADOS.md): schema, tabelas, relacoes e SQL.
 - [`04_NOTIFICACOES.md`](04_NOTIFICACOES.md): notification engine, outbox, retries e idempotencia.
 - [`DESTINATARIOS_TIPOS_DE_AVISO.md`](DESTINATARIOS_TIPOS_DE_AVISO.md): migration e configuracao de avisos gerais ou certificados atualizados por destinatario.
+- [`LINKS_ATUALIZACAO_CERTIFICADO.md`](LINKS_ATUALIZACAO_CERTIFICADO.md): aplicar a migration, publicar e testar links individuais com senha temporaria e recuperacao de download.
 - [`05_WHATSAPP_EUATENDO.md`](05_WHATSAPP_EUATENDO.md): integracao euAtendo, dispatcher e homologacao.
 - [`06_FRONTEND.md`](06_FRONTEND.md): telas e componentes.
 - [`PERFORMANCE_NAVEGACAO.md`](PERFORMANCE_NAVEGACAO.md): otimizacao de consultas, prefetch, medicao e limites de validacao.

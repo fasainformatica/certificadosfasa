@@ -19,6 +19,7 @@ type LinkRecord = {
   user_agent_uso: string | null;
   tentativas_invalidas: number;
   bloqueado_ate: string | null;
+  expires_at?: string | null;
 } | null;
 
 type DownloadLinkManagerProps = {
@@ -36,8 +37,10 @@ function getLinkStatus(link: LinkRecord) {
   }
 
   if (!link.ativo) {
-    return { label: "Invalidado", tone: "red" as const };
+    return { label: link.invalidado_em ? "Invalidado" : "Acesso liberado", tone: "slate" as const };
   }
+
+  if (link.expires_at && Date.parse(link.expires_at) <= Date.now()) return { label: "Expirado", tone: "slate" as const };
 
   if (link.bloqueado_ate && new Date(link.bloqueado_ate).getTime() > Date.now()) {
     return { label: "Bloqueado", tone: "amber" as const };
@@ -56,7 +59,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
     return link?.public_url ?? "";
   }, [link]);
   const status = getLinkStatus(link);
-  const canUseLink = Boolean(link?.ativo && !link.usado);
+  const canUseLink = Boolean(link?.ativo && !link.usado && status.label !== "Expirado");
 
   async function createLink() {
     if (pendingAction !== null) {
@@ -192,7 +195,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
         <div>
           <h3 className="text-base font-semibold text-slate-950">Link de download</h3>
           <p className="mt-1 text-sm text-slate-600">
-            O link é de uso único e exige uma senha forte gerada automaticamente. A senha aparece somente uma vez.
+            Link manual independente dos avisos automáticos, válido por 7 dias. A senha temporária libera o arquivo e a senha do PFX para um único acesso.
           </p>
           <div className="mt-3">
             <Badge tone={status.tone}>{status.label}</Badge>
@@ -222,7 +225,7 @@ export function DownloadLinkManager({ certificadoId, initialLink }: DownloadLink
               <button
                 type="button"
                 onClick={invalidateLink}
-                disabled={!canUseLink || pendingAction !== null}
+                disabled={Boolean(link.invalidado_em) || pendingAction !== null}
                 className={buttonClass("danger")}
               >
                 {pendingAction === "invalidate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
