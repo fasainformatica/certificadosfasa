@@ -2,19 +2,19 @@ import { cn } from "@/lib/utils/cn";
 
 export function buttonClass(variant: "primary" | "secondary" | "danger" | "ghost" = "primary", className?: string) {
   return cn(
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold outline-none transition duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:scale-100 disabled:opacity-60",
-    variant === "primary" && "bg-blue-600 text-white shadow-sm shadow-blue-600/15 hover:bg-blue-700",
-    variant === "secondary" && "border border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-950/5 hover:border-blue-200 hover:bg-blue-50/70 hover:text-blue-700",
-    variant === "danger" && "bg-red-600 text-white shadow-sm shadow-red-600/15 hover:bg-red-700",
+    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60",
+    variant === "primary" && "bg-[#1856d6] text-white hover:bg-[#1746a4]",
+    variant === "secondary" && "border border-slate-300 bg-white text-slate-800 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-800",
+    variant === "danger" && "bg-red-700 text-white hover:bg-red-800",
     variant === "ghost" && "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
     className,
   );
 }
 
 export const inputClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 shadow-sm shadow-slate-950/5 outline-none transition duration-150 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
+  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
 
 export const selectClass = cn(inputClass, "fasa-select");
 
 export const textAreaClass =
-  "min-h-28 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm leading-6 text-slate-950 shadow-sm shadow-slate-950/5 outline-none transition duration-150 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";
+  "min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-950 outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500";

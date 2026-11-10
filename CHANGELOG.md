@@ -2,6 +2,13 @@
 
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
+## 2026-11-10 (branch de avaliacao visual)
+
+- Redesenhado o shell e os componentes visuais compartilhados para uma interface operacional mais limpa, preservando a identidade Fasa e os mesmos contratos e fluxos.
+- Dashboard passou a destacar pendencias antes dos graficos; listagens, avisos, WhatsApp e configuracoes reduziram caixas aninhadas e melhoraram a leitura.
+- Login e download publico receberam a mesma linguagem visual. Drawer mobile ganhou foco controlado, Escape e retorno de foco.
+- Sem migration, alteracao de API ou publicacao. Revisao local: 208 testes, TypeScript, lint e build passaram; Playwright CLI conferiu preview do shell em 360/390/768/1024/1440 px, login e download indisponivel. As telas internas com dados reais ainda dependem de sessao autenticada para QA visual.
+
 ## 2026-10-06
 
 - Corrigida a regra de link automatico: um unico destinatario ativo selecionado para certificados atualizados recebe seu link individual. Migration incremental `20261006172256_certificate_delivery_single_recipient.sql`; avisos ja enviados permanecem no historico sem reenvio.

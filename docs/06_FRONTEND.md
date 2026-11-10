@@ -71,14 +71,14 @@ Atualizacao de 2026-07-15:
 
 ## Tokens visuais
 
-- Background geral: neutro frio (`--color-background`).
-- Superficie: branco ou `--color-surface-muted`.
-- Texto principal: `--color-text-primary`; texto auxiliar: `--color-text-secondary`.
-- Borda: `--color-border-subtle`.
-- Acao principal: azul institucional existente.
-- Status: verde para sucesso, ambar para atencao, vermelho para falha e cinza para neutro.
-- Raios: `rounded-xl`/`rounded-2xl` para controles e cards; evitar `rounded-3xl` em novas superficies.
-- Sombras: discretas, preferindo borda e contraste de superficie.
+- Background geral: neutro frio (`--background`); superficies brancas (`--surface`) e apoio (`--surface-muted`).
+- Texto principal (`--foreground`), auxiliar (`--muted`) e divisorias (`--border-subtle`).
+- Azul `--primary` para acao e foco; verde, ambar e vermelho reservados para significado operacional.
+- Controles, badges e paineis usam raios pequenos (4 a 8 px); bordas finas e `--shadow-subtle` evitam caixas flutuantes.
+- A area interna do dashboard prioriza pendencias antes dos graficos. KPIs compactos usam duas colunas no celular; tabelas viram cards antes de ficarem estreitas.
+- O drawer mobile fica fora da navegacao por teclado quando fechado, prende o foco quando aberto, fecha com Escape e devolve o foco ao botao Menu.
+- Login e download publico compartilham a mesma geometria e os mesmos tons neutros do painel sem alterar seus fluxos.
+- Revisao visual local de 2026-11-10: Playwright CLI em 360, 390, 768, 1024 e 1440 px para shell ficticio; login e download indisponivel foram vistos em mobile. Telas internas reais exigem sessao autenticada e nao foram verificadas visualmente com dados reais.
 
 ## Vocabulário de interface
 

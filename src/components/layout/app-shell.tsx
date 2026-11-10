@@ -34,16 +34,17 @@ export function AppShell({ user, children }: AppShellProps) {
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-950/5 backdrop-blur-xl">
-        <div className="flex w-full items-center justify-between gap-2 px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
+    <div className="fasa-app min-h-screen overflow-x-hidden">
+      <a href="#main-content" className="sr-only rounded-md bg-white px-4 py-2 font-semibold text-blue-700 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70]">Ir para o conteúdo principal</a>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/96 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <FasaLogo className="h-10 w-10 sm:h-11 sm:w-11" priority />
+            <FasaLogo className="h-9 w-9 sm:h-10 sm:w-10" priority />
             <div className="min-w-0">
-              <p className="text-xs font-semibold leading-4 text-blue-700 sm:text-sm">Fasa Informática</p>
-              <h1 className="truncate text-base font-semibold tracking-normal text-slate-950 sm:text-lg">
+              <p className="text-[11px] font-semibold leading-4 text-blue-700 sm:text-xs">Fasa Informática</p>
+              <p className="truncate text-sm font-semibold text-slate-950 sm:text-base">
                 Certificados Digitais
-              </h1>
+              </p>
             </div>
           </div>
 
@@ -52,7 +53,7 @@ export function AppShell({ user, children }: AppShellProps) {
             {isAdmin ? (
               <Link
                 href="/configuracoes"
-                className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex"
+                className="hidden h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 sm:flex"
                 aria-label="Abrir configurações"
                 title="Configurações"
               >
@@ -64,9 +65,9 @@ export function AppShell({ user, children }: AppShellProps) {
         </div>
       </header>
 
-      <div className="grid w-full gap-4 px-3 py-4 pb-24 sm:px-4 lg:grid-cols-[248px_minmax(0,1fr)] lg:px-5 lg:pb-6 xl:px-6">
+      <div className="mx-auto grid w-full max-w-[1920px] gap-5 px-4 py-6 pb-24 sm:px-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:pb-10">
         <AppNavigation items={visibleNavigation} />
-        <main className="min-w-0 pb-6 lg:max-w-[1680px]">
+        <main id="main-content" className="min-w-0 pb-6">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

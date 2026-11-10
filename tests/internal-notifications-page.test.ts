@@ -46,8 +46,8 @@ describe("internal notifications page", () => {
   });
 
   it("usa tabela no desktop e cards no mobile para manter escaneabilidade", () => {
-    expect(pageSource).toContain('className="grid gap-3 md:hidden"');
-    expect(pageSource).toContain('className="hidden md:block"');
+    expect(pageSource).toContain('className="grid gap-3 2xl:hidden"');
+    expect(pageSource).toContain('className="hidden 2xl:block"');
     expect(pageSource).toContain("<TableShell");
     expect(pageSource).toContain("<NotificationCard");
     expect(pageSource).toContain("Ver certificado");

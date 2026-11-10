@@ -308,7 +308,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
         description="Acompanhe mensagens planejadas, enviadas e que precisam de atenção."
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-6">
         <StatCard
           title="Na fila"
           value={summary.queue + summary.retry}
@@ -323,7 +323,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
         <StatCard title="Próximos" value={summary.expiring} description="Avisos de vencimento" icon={CalendarClock} tone="amber" />
       </div>
 
-      <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+      <section className="mb-5 border-b border-slate-200 pb-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950">Prioridade agora</h2>
@@ -331,9 +331,9 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
           </div>
           <p className="text-xs font-medium text-slate-500">Data operacional: {formatDate(today)}</p>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+        <div className="mt-4 grid gap-0 divide-y divide-slate-200 border-y border-slate-200 lg:grid-cols-2 lg:divide-y-0 2xl:grid-cols-4">
           {operationalFocus.map((item) => (
-            <article key={item.title} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <article key={item.title} className="min-w-0 px-3 py-3.5 lg:border-r lg:border-slate-200 lg:last:border-r-0">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <Badge tone={item.tone}>{item.title}</Badge>
@@ -363,10 +363,10 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-sm font-semibold ring-1 ring-inset transition duration-150",
+                  "inline-flex h-9 shrink-0 items-center rounded-md px-3 text-sm font-medium transition-colors duration-150",
                   active
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/15 ring-blue-600"
-                    : "bg-white text-slate-700 ring-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200",
+                    ? "bg-blue-700 text-white"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-800",
                 )}
               >
                 {item.label}
@@ -435,7 +435,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
         />
       ) : (
         <div className="grid gap-4">
-          <div className="grid gap-3 xl:hidden">
+          <div className="grid gap-3 2xl:hidden">
             {events.map((event) => {
               const cliente = Array.isArray(event.clientes) ? event.clientes[0] : event.clientes;
               const certificado = Array.isArray(event.certificados) ? event.certificados[0] : event.certificados;
@@ -455,7 +455,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                   : "-";
 
               return (
-                <article key={event.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+                <article key={event.id} className="rounded-lg border border-slate-200 bg-white p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-950">
@@ -492,7 +492,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
             })}
           </div>
 
-          <div className="hidden xl:block">
+          <div className="hidden 2xl:block">
             <TableShell minWidth="1120px">
               <TableHead>
                 <tr>

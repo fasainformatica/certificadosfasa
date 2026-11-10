@@ -93,7 +93,7 @@ const tabs = [
   { key: "seguranca", label: "Segurança", icon: ShieldCheck },
 ] satisfies { key: SettingsTab; label: string; icon: typeof Bell }[];
 
-const panelClass = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5";
+const panelClass = "rounded-lg border border-slate-200 bg-white p-4 sm:p-5";
 const networkErrorMessage = "Não foi possível conversar com o servidor. Verifique sua conexão e tente novamente.";
 
 const summaryIcons = {
@@ -175,10 +175,10 @@ function SummaryCard({ item }: { item: ConfiguracoesSummaryItem }) {
   const Icon = summaryIcons[item.key];
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+    <article className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{item.label}</p>
+          <p className="text-xs font-medium text-slate-600">{item.label}</p>
           <p className="mt-2 text-lg font-semibold leading-7 text-slate-950">{item.value}</p>
         </div>
         <span
@@ -594,7 +594,7 @@ export function ConfiguracoesForm({
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+      <section className="rounded-lg border border-slate-200 bg-white px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950">Conta e acesso</h2>
@@ -620,7 +620,7 @@ export function ConfiguracoesForm({
         </div>
       </section>
 
-      <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-950/5" role="tablist" aria-label="Seções de configuração">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Seções de configuração">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.key;
@@ -633,10 +633,10 @@ export function ConfiguracoesForm({
               aria-selected={active}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+                "inline-flex h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
                 active
-                  ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
+                  ? "border-blue-700 text-blue-800"
+                  : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -943,9 +943,9 @@ export function ConfiguracoesForm({
               title="Planejamento de avisos"
               description="Defina quando os avisos devem ser criados e enviados."
             >
-              <div className="grid gap-3 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
-                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <label className="inline-flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800">
+              <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
+                <div className="grid gap-0 divide-y divide-slate-200 rounded-md border border-slate-200 px-3">
+                  <label className="inline-flex min-h-14 items-center justify-between gap-3 py-2 text-sm font-medium text-slate-800">
                     <span>Envio automático</span>
                     <input
                       type="checkbox"
@@ -955,7 +955,7 @@ export function ConfiguracoesForm({
                       className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                     />
                   </label>
-                  <label className="inline-flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800">
+                  <label className="inline-flex min-h-14 items-center justify-between gap-3 py-2 text-sm font-medium text-slate-800">
                     <span>Avisos de certificados vencidos</span>
                     <input
                       type="checkbox"
@@ -1000,7 +1000,7 @@ export function ConfiguracoesForm({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {settings.dias_aviso_vencimento.map((day) => (
-                      <span key={day} className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
+                      <span key={day} className="inline-flex items-center gap-2 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800">
                         {formatDaysLabel(day)}
                         <button
                           type="button"

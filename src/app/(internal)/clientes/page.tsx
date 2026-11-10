@@ -142,7 +142,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         />
       ) : (
         <div className="grid gap-3">
-          <div className="grid gap-3 md:hidden">
+          <div className="grid gap-3 xl:hidden">
             {clientes.map((cliente) => {
               const notice = getClientNoticePresentation(cliente);
               const contact = getClientContactSummary(cliente);
@@ -150,7 +150,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
               return (
                 <article
                   key={cliente.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5"
+                  className="rounded-lg border border-slate-200 bg-white p-4"
                 >
                   <div className="flex flex-col gap-2">
                     <div>
@@ -164,18 +164,18 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                   </div>
 
                   <dl className="mt-3 grid gap-2 text-sm">
-                    <div className="rounded-xl bg-slate-50 p-3">
+                    <div className="border-t border-slate-200 py-2">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contato</dt>
                       <dd className="mt-1 break-words text-slate-800">{optionalText(cliente.email)}</dd>
                       <dd className="mt-1 text-slate-800">{formatPhone(cliente.whatsapp ?? cliente.telefone)}</dd>
                       <dd className="mt-1 text-xs text-slate-500">{notice.description}</dd>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="border-t border-slate-200 py-2">
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Responsável</dt>
                         <dd className="mt-1 text-slate-800">{optionalText(cliente.responsavel)}</dd>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-3">
+                      <div className="border-t border-slate-200 py-2">
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Atualizado em</dt>
                         <dd className="mt-1 text-slate-800">{formatDateTimeShort(cliente.updated_at)}</dd>
                       </div>
@@ -186,7 +186,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             })}
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <TableShell>
               <TableHead>
                 <tr>

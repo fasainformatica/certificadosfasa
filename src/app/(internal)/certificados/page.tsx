@@ -207,20 +207,20 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         actions={
           canManageCertificates ? (
             <>
-              <Link href="/certificados/novo" className={buttonClass("primary", "w-full sm:w-auto")}>
-                <Upload aria-hidden="true" className="h-4 w-4" />
-                Novo certificado
-              </Link>
               <Link href="/certificados/importar" className={buttonClass("secondary", "w-full sm:w-auto")}>
                 <FolderUp aria-hidden="true" className="h-4 w-4" />
                 Importar certificados
+              </Link>
+              <Link href="/certificados/novo" className={buttonClass("primary", "w-full sm:w-auto")}>
+                <Upload aria-hidden="true" className="h-4 w-4" />
+                Novo certificado
               </Link>
             </>
           ) : null
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
         <StatCard
           title="Em operação"
           value={renewalSummary.operational}
@@ -312,11 +312,11 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         />
       ) : (
         <div className="grid gap-3">
-          <div className="grid gap-3 md:hidden">
+          <div className="grid gap-3 2xl:hidden">
             {certificadosWithStatus.map((certificado) => (
               <article
                 key={certificado.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5"
+                className="rounded-lg border border-slate-200 bg-white p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -336,16 +336,16 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
                 </div>
 
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="border-t border-slate-200 py-2">
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Vencimento</dt>
                     <dd className="mt-1 font-semibold text-slate-950">{formatDate(certificado.data_vencimento)}</dd>
                     <dd className="text-xs text-slate-500">{formatRelativeExpiration(certificado.dias_restantes)}</dd>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="border-t border-slate-200 py-2">
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Atualizado em</dt>
                     <dd className="mt-1 text-slate-800">{formatDateTimeShort(certificado.ultimo_upload_em)}</dd>
                   </div>
-                  <div className="col-span-2 rounded-xl bg-slate-50 p-3">
+                  <div className="col-span-2 border-t border-slate-200 py-2">
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Renovação</dt>
                     <dd className="mt-1 font-semibold text-slate-950">{certificado.renovacao.nextAction}</dd>
                     <dd className="mt-1 text-xs text-slate-500">{certificado.renovacao.planningImpact}</dd>
@@ -367,7 +367,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
             ))}
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden 2xl:block">
             <TableShell minWidth="1120px">
               <TableHead>
                 <tr>

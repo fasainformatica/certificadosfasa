@@ -11,7 +11,7 @@ export function SectionCard({ children, className }: SectionCardProps) {
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5",
+        "relative min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-[var(--shadow-subtle)] sm:p-5",
         className,
       )}
     >

@@ -377,11 +377,11 @@ export function BulkImportCertificatesForm() {
         onSubmit={handleSubmit}
         aria-busy={pending}
         aria-describedby={error ? "bulk-import-error" : undefined}
-        className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5"
+        className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5"
       >
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="border-b border-slate-200 pb-4">
           <div className="flex gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-700 text-white">
               <Info aria-hidden="true" className="h-5 w-5" />
             </span>
             <div className="text-sm leading-6 text-slate-700">
@@ -405,7 +405,7 @@ export function BulkImportCertificatesForm() {
           <label htmlFor="pasta-certificados" className="text-sm font-medium text-slate-800">
             Pasta de certificados
           </label>
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 transition duration-200 hover:border-blue-300 hover:bg-blue-50/50">
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/50 p-5 transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50/50">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <p id="pasta-certificados-summary" className="text-sm font-semibold text-slate-950">
@@ -433,7 +433,7 @@ export function BulkImportCertificatesForm() {
         </div>
 
         {files.length > 0 ? (
-          <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm shadow-slate-950/5 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 border-y border-slate-200 py-3 text-sm sm:grid-cols-5">
             <div>
               <p className="text-xs text-slate-500">Pastas detectadas</p>
               <p className="text-lg font-semibold text-slate-950">{fileSummary.folders}</p>
@@ -508,7 +508,7 @@ export function BulkImportCertificatesForm() {
 
       {result ? (
         <div className="grid gap-4">
-          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 border-y border-slate-200 py-3 sm:grid-cols-4">
             <div>
               <p className="text-xs text-slate-500">Encontrados</p>
               <p className="text-2xl font-semibold text-slate-950">{result.resumo.certificados_encontrados}</p>

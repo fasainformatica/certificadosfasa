@@ -215,7 +215,7 @@ function NotificationCard({
         : notification.title;
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+    <article className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={SEVERITY_TONE[notification.severity]}>{SEVERITY_LABELS[notification.severity]}</Badge>
         <Badge tone={state.tone}>{state.label}</Badge>
@@ -350,7 +350,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
 
       <BroadcastNotificationForm />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <StatCard
           title="Ativas"
           value={activeCount}
@@ -391,7 +391,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
               href={getQuickFilterHref(filter.value, currentSearchParams)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "inline-flex min-h-9 items-center rounded-full border px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+                "inline-flex min-h-9 items-center rounded-md border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
                 active
                   ? "border-blue-600 bg-blue-600 text-white"
                   : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700",
@@ -458,7 +458,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
         />
       ) : (
         <>
-          <div className="grid gap-3 md:hidden">
+          <div className="grid gap-3 2xl:hidden">
             {notifications.map(({ notification, cliente, certificado }) => (
               <NotificationCard
                 key={notification.id}
@@ -469,7 +469,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
             ))}
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden 2xl:block">
             <TableShell minWidth="980px">
               <TableHead>
                 <tr>

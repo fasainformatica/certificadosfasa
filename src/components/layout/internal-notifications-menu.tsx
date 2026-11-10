@@ -325,7 +325,7 @@ export function InternalNotificationsMenu() {
       <button
         type="button"
         className={cn(
-          "relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 outline-none transition hover:border-blue-200 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+          "relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 outline-none transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
           open && "border-blue-200 text-blue-700 ring-1 ring-blue-100",
         )}
         aria-label={getUnreadLabel(unreadCount)}
@@ -350,7 +350,7 @@ export function InternalNotificationsMenu() {
           id={panelId}
           role="dialog"
           aria-label="Notificações internas"
-          className="absolute right-0 top-12 z-50 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/15"
+          className="absolute right-0 top-12 z-50 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_16px_48px_rgb(15_23_42/0.14)]"
         >
           <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
             <div className="min-w-0">
@@ -415,7 +415,7 @@ export function InternalNotificationsMenu() {
                 </p>
               </div>
             ) : (
-              <ul className="grid gap-2">
+              <ul className="divide-y divide-slate-200">
                 {notifications.map((notification) => {
                   const actionSuffix = notification.id;
                   const reading = actionId === `read:${actionSuffix}`;
@@ -426,15 +426,15 @@ export function InternalNotificationsMenu() {
                     <li
                       key={notification.id}
                       className={cn(
-                        "rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-200 hover:bg-blue-50/30",
-                        !notification.isRead && "border-blue-200 bg-blue-50/40",
+                        "bg-white px-2 py-3 transition-colors hover:bg-slate-50",
+                        !notification.isRead && "bg-blue-50/45",
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <span
                             className={cn(
-                              "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                              "inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium",
                               severityTone[notification.severity],
                             )}
                           >

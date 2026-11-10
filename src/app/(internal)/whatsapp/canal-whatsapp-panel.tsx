@@ -148,21 +148,21 @@ function MetricCard({
   tone?: Tone;
 }) {
   const toneClasses: Record<Tone, string> = {
-    blue: "bg-blue-50 text-blue-700 ring-blue-200",
-    green: "bg-green-50 text-green-700 ring-green-200",
-    amber: "bg-amber-50 text-amber-800 ring-amber-200",
-    red: "bg-red-50 text-red-700 ring-red-200",
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    blue: "bg-blue-50 text-blue-700",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-800",
+    red: "bg-red-50 text-red-700",
+    slate: "bg-slate-100 text-slate-700",
   };
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${toneClasses[tone]}`}>{icon}</span>
+        <p className="text-xs font-medium text-slate-600">{title}</p>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneClasses[tone]}`}>{icon}</span>
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-normal text-slate-950">{value}</div>
-      {description ? <p className="mt-1 text-sm leading-5 text-slate-600" title={description}>{description}</p> : null}
+      <div className="mt-2 break-words text-[1.6rem] font-semibold leading-tight tabular-nums text-slate-950">{value}</div>
+      {description ? <p className="mt-1 text-xs leading-5 text-slate-600" title={description}>{description}</p> : null}
     </article>
   );
 }
@@ -231,7 +231,7 @@ function PhoneQualityPanel({ quality }: { quality: WhatsAppPhoneQualitySummary }
   const hasDuplicateGroups = quality.duplicateGroups.length > 0;
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+    <div className="grid gap-3 border-t border-slate-200 pt-4">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -494,7 +494,7 @@ export function CanalWhatsAppPanel({
 
   return (
     <div className="grid gap-4">
-      <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <section className="grid gap-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -568,7 +568,7 @@ export function CanalWhatsAppPanel({
 
         <PhoneQualityPanel quality={euAtendo.phoneQuality} />
 
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-950">Segurança operacional</h3>
@@ -580,19 +580,19 @@ export function CanalWhatsAppPanel({
               </Badge>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="border-r border-slate-200 pr-3">
                 <p className="text-xs font-semibold text-slate-500">Limite diário</p>
                 <p className="mt-1 text-sm font-semibold text-slate-950">
                   {euAtendo.safety.sentToday} de {euAtendo.safety.dailyLimit}
                 </p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="border-r border-slate-200 pr-3">
                 <p className="text-xs font-semibold text-slate-500">Limite por hora</p>
                 <p className="mt-1 text-sm font-semibold text-slate-950">
                   {euAtendo.safety.sentLastHour} de {euAtendo.safety.hourlyLimit}
                 </p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="pr-3">
                 <p className="text-xs font-semibold text-slate-500">Falhas recentes</p>
                 <p className="mt-1 text-sm font-semibold text-slate-950">
                   {euAtendo.safety.failuresInWindow} de {euAtendo.safety.failurePauseThreshold}
@@ -631,7 +631,7 @@ export function CanalWhatsAppPanel({
         </div>
 
         {health ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700" aria-live="polite">
+          <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700" aria-live="polite">
             <p className="font-semibold text-slate-950">
               Resultado da conexão: {health.ok ? "instância pronta para envio" : "precisa de atenção"}
             </p>
@@ -646,7 +646,7 @@ export function CanalWhatsAppPanel({
         ) : null}
 
         <div className="grid gap-3 xl:grid-cols-2">
-          <form onSubmit={checkNumber} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <form onSubmit={checkNumber} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-950">Verificar número</h3>
               <p className="mt-1 text-xs text-slate-500">Use números controlados para homologação.</p>
@@ -669,7 +669,7 @@ export function CanalWhatsAppPanel({
             ) : null}
           </form>
 
-          <form onSubmit={sendTestMessage} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <form onSubmit={sendTestMessage} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-950">Mensagem de teste</h3>
               <p className="mt-1 text-xs text-slate-500">
@@ -712,7 +712,7 @@ export function CanalWhatsAppPanel({
         {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p> : null}
       </section>
 
-      <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <section className="grid gap-4 border-t border-slate-200 pt-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">Fila automática</h2>
@@ -723,20 +723,20 @@ export function CanalWhatsAppPanel({
           </Badge>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+        <div className="grid gap-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white px-4 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+          <div className="py-3 sm:pr-4">
             <p className="text-xs font-semibold text-blue-700">Próximo envio permitido</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {euAtendo.state?.next_allowed_send_at ? formatDateTimeShort(euAtendo.state.next_allowed_send_at) : "-"}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="py-3 sm:px-4">
             <p className="text-xs font-semibold text-slate-600">Último envio automático</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {euAtendo.state?.last_dispatch_at ? formatDateTimeShort(euAtendo.state.last_dispatch_at) : "-"}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="py-3 sm:pl-4">
             <p className="text-xs font-semibold text-slate-600">Reserva atual</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {euAtendo.state?.locked_until ? `Reservado até ${formatDateTimeShort(euAtendo.state.locked_until)}` : "Livre"}
@@ -757,7 +757,7 @@ export function CanalWhatsAppPanel({
               const safeMessage = getSafeLogMessage(log);
 
               return (
-                <article key={log.id} className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto] md:items-center">
+                <article key={log.id} className="grid gap-2 border-b border-slate-200 px-1 py-3 last:border-b-0 md:grid-cols-[1fr_auto] md:items-center">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={meta.tone}>{meta.label}</Badge>

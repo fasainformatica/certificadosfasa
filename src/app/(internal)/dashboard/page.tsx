@@ -398,7 +398,7 @@ export default async function DashboardPage() {
         description="Acompanhe certificados, vencimentos e o funcionamento dos avisos."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         <StatCard title="Cadastrados" value={metrics.total_certificados} description="Certificados no sistema" icon={FileKey2} tone="blue" />
         <StatCard title="Válidos" value={metrics.certificados_validos} description="Fora da janela de aviso" icon={FileCheck2} tone="green" />
         <StatCard title="Próximos" value={metrics.certificados_vencendo} description="Dentro da janela configurada" icon={CalendarClock} tone="amber" />
@@ -407,8 +407,9 @@ export default async function DashboardPage() {
         <StatCard title="Com falha" value={metrics.falhas_envio} description="Envios que precisam de revisão" icon={AlertTriangle} tone="red" />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <SectionCard>
+      <div className="mt-6 flex flex-col gap-7">
+      <div className="order-2 grid gap-4 xl:grid-cols-2">
+        <SectionCard className="shadow-none">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-slate-950">Certificados por status</h2>
@@ -423,7 +424,7 @@ export default async function DashboardPage() {
           </div>
         </SectionCard>
 
-        <SectionCard>
+        <SectionCard className="shadow-none">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-slate-950">Vencimentos por período</h2>
@@ -439,8 +440,8 @@ export default async function DashboardPage() {
         </SectionCard>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <SectionCard>
+      <div className="order-1 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
+        <SectionCard className="border-0 bg-transparent p-0 shadow-none">
           <div className="mb-3 flex items-center gap-2">
             <MessageCircleWarning className="h-4 w-4 text-red-500" />
             <h2 className="text-base font-semibold text-slate-950">Precisa de atenção</h2>
@@ -448,12 +449,12 @@ export default async function DashboardPage() {
           {attentionItems.length === 0 ? (
             <EmptyState title="Nada urgente no momento" description="Nenhum certificado ou aviso crítico para revisar agora." />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
               {attentionItems.map((item) => (
                 <Link
                   key={item.key}
                   href={item.href}
-                  className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 outline-none transition duration-150 last:border-b-0 hover:bg-slate-50 focus-visible:bg-blue-50 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-100 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3.5 outline-none transition-colors duration-150 last:border-b-0 hover:bg-slate-50 focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-950" title={item.title}>{item.title}</p>
@@ -471,7 +472,7 @@ export default async function DashboardPage() {
           )}
         </SectionCard>
 
-        <SectionCard>
+        <SectionCard className="border-0 bg-transparent p-0 shadow-none">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-slate-950">Avisos e WhatsApp</h2>
@@ -479,35 +480,35 @@ export default async function DashboardPage() {
             </div>
             {!automationEnabled ? <Badge tone="red">Envio pausado</Badge> : <Badge tone="green">Envio ativo</Badge>}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-700">Mensagens na fila</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.avisos_para_hoje}</p>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 rounded-lg border border-slate-200 bg-white px-4">
+            <div className="border-b border-slate-200 py-3">
+              <p className="text-xs text-slate-600">Mensagens na fila</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{metrics.avisos_para_hoje}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs font-semibold text-slate-600">Planejadas</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.avisos_planejados}</p>
+            <div className="border-b border-slate-200 py-3">
+              <p className="text-xs text-slate-600">Planejadas</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{metrics.avisos_planejados}</p>
             </div>
-            <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-              <p className="text-xs font-semibold text-green-700">Enviadas hoje</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.enviadas_hoje}</p>
+            <div className="border-b border-slate-200 py-3">
+              <p className="text-xs text-slate-600">Enviadas hoje</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-800">{metrics.enviadas_hoje}</p>
             </div>
-            <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-              <p className="text-xs font-semibold text-red-700">Envios com falha</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{falhasHoje}</p>
+            <div className="border-b border-slate-200 py-3">
+              <p className="text-xs text-slate-600">Envios com falha</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-red-800">{falhasHoje}</p>
             </div>
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-700">Fila WhatsApp</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{whatsappPendingResult.count ?? 0}</p>
+            <div className="py-3">
+              <p className="text-xs text-slate-600">Fila WhatsApp</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{whatsappPendingResult.count ?? 0}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs font-semibold text-slate-600">Integração</p>
+            <div className="py-3">
+              <p className="text-xs text-slate-600">Integração</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">
                 {automationEnabled ? whatsappAutomation.label : "Pausada"}
               </p>
             </div>
           </div>
-          <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+          <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 text-sm text-slate-600">
             <div className="flex items-center justify-between gap-3">
               <span>Último envio</span>
               <span className="text-right font-semibold text-slate-950">
@@ -522,6 +523,7 @@ export default async function DashboardPage() {
             </div>
           </div>
         </SectionCard>
+      </div>
       </div>
     </section>
   );

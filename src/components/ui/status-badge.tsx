@@ -7,18 +7,18 @@ import { cn } from "@/lib/utils/cn";
 export type Tone = "blue" | "green" | "amber" | "red" | "slate";
 
 const toneClasses: Record<Tone, string> = {
-  blue: "bg-blue-50 text-blue-700 ring-blue-200",
-  green: "bg-green-50 text-green-700 ring-green-200",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200",
-  red: "bg-red-50 text-red-700 ring-red-200",
-  slate: "bg-slate-100 text-slate-700 ring-slate-200",
+  blue: "bg-blue-50 text-blue-800",
+  green: "bg-emerald-50 text-emerald-800",
+  amber: "bg-amber-50 text-amber-900",
+  red: "bg-red-50 text-red-800",
+  slate: "bg-slate-100 text-slate-700",
 };
 
 export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: Tone }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition duration-200",
+        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors duration-150",
         toneClasses[tone],
       )}
     >
@@ -31,7 +31,7 @@ export function StatusBadge({ status }: { status: CertificadoStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition duration-200",
+        "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium transition-colors duration-150",
         CERTIFICATE_STATUS_CLASS[status],
       )}
     >
