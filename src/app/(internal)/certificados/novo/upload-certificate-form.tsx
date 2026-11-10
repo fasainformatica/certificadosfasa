@@ -141,7 +141,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
       onSubmit={handleSubmit}
       aria-busy={pending}
       aria-describedby={error ? "upload-error" : undefined}
-      className="grid gap-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5"
+      className="grid max-w-5xl gap-6 border-t border-slate-200 bg-white py-6"
     >
       <div className="grid gap-3 border-l-2 border-blue-500 bg-blue-50/50 px-4 py-3 text-sm text-blue-950 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div>

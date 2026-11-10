@@ -259,7 +259,7 @@ function ImportResultList({ title, items, tone }: { title: string; items: Import
   }[tone];
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+    <div className="border-y border-slate-200 bg-white py-4">
       <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
         {items.map((item, index) => (
@@ -377,7 +377,7 @@ export function BulkImportCertificatesForm() {
         onSubmit={handleSubmit}
         aria-busy={pending}
         aria-describedby={error ? "bulk-import-error" : undefined}
-        className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5"
+        className="grid gap-5 border-t border-slate-200 bg-white py-6"
       >
         <div className="border-b border-slate-200 pb-4">
           <div className="flex gap-3">

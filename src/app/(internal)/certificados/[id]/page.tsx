@@ -193,7 +193,7 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
               {clientName || "Cliente não informado"} · {formatCnpj(certificado.cnpj)}
             </p>
           </div>
-          <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:min-w-96">
+          <div className="grid gap-x-6 gap-y-3 border-l border-slate-200 pl-4 sm:grid-cols-2 lg:min-w-96">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próxima ação</p>
               <p className="mt-2 text-sm font-semibold text-slate-950">{expirationPresentation.action}</p>
@@ -248,19 +248,19 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
           <Badge tone={renewalPresentation.tone}>{renewalPresentation.label}</Badge>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="mt-4 grid gap-4 border-y border-slate-200 py-4 md:grid-cols-3">
+          <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Planejamento</p>
             <p className="mt-2 text-sm font-semibold text-slate-950">
               {renewalPresentation.plannable ? "Incluído nos avisos" : "Fora dos avisos"}
             </p>
             <p className="mt-1 text-xs leading-5 text-slate-600">{renewalPresentation.planningImpact}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próxima ação</p>
             <p className="mt-2 text-sm font-semibold text-slate-950">{renewalPresentation.nextAction}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Última revisão</p>
             <p className="mt-2 text-sm font-semibold text-slate-950">
               {certificado.renovacao_atualizado_em ? formatDateTime(certificado.renovacao_atualizado_em) : "Ainda não revisado"}

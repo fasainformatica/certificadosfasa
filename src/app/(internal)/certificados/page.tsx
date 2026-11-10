@@ -220,7 +220,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
+      <div className="fasa-metrics mb-7 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-5">
         <StatCard
           title="Em operação"
           value={renewalSummary.operational}
@@ -311,8 +311,8 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
           }
         />
       ) : (
-        <div className="grid gap-3">
-          <div className="grid gap-3 2xl:hidden">
+        <div className="grid gap-4">
+          <div className="grid gap-3 xl:hidden">
             {certificadosWithStatus.map((certificado) => (
               <article
                 key={certificado.id}
@@ -367,7 +367,7 @@ export default async function CertificadosPage({ searchParams }: CertificadosPag
             ))}
           </div>
 
-          <div className="hidden 2xl:block">
+          <div className="hidden xl:block">
             <TableShell minWidth="1120px">
               <TableHead>
                 <tr>

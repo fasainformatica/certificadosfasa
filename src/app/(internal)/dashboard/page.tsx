@@ -1,19 +1,16 @@
 import {
-  AlertTriangle,
   ArrowRight,
   CalendarClock,
   Clock3,
   FileCheck2,
   FileKey2,
   MessageCircleWarning,
-  RefreshCw,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { LazyDonutChart, LazyExpirationBarChart } from "@/components/ui/lazy-dashboard-charts";
-import { SectionCard } from "@/components/ui/section-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge, StatusBadge } from "@/components/ui/status-badge";
@@ -354,8 +351,7 @@ export default async function DashboardPage() {
   const automationEnabled = whatsappAutomation.enabled && notificationSettingsResult.data?.enabled === true;
   const falhasHoje = metrics.falhas_hoje || metrics.falhas_envio;
 
-  const attentionItems = [
-    ...metrics.attention_certificates
+  const attentionItems = metrics.attention_certificates
       .sort((left, right) => left.dias_restantes - right.dias_restantes)
       .map((certificado) => ({
         key: certificado.id,
@@ -364,32 +360,8 @@ export default async function DashboardPage() {
         meta: `${formatCnpj(certificado.cnpj)} - ${formatDate(certificado.data_vencimento)}`,
         status: certificado.status,
         href: `/certificados/${certificado.id}`,
-      })),
-    ...(metrics.falhas_envio
-      ? [
-          {
-            key: "failed-messages",
-            title: "Envios com falha",
-            description: `${metrics.falhas_envio} ${metrics.falhas_envio === 1 ? "aviso precisa" : "avisos precisam"} de atenção`,
-            meta: "Abra a Central de avisos para revisar",
-            status: "vencido" as const,
-            href: "/notificacoes?status=failed",
-          },
-        ]
-      : []),
-    ...(!automationEnabled && canAccessWhatsapp
-      ? [
-          {
-            key: "canal-whatsapp-pausado",
-            title: "Envio automático pausado",
-            description: `O envio pelo ${whatsappAutomation.label} esta desativado`,
-            meta: "Valide a integracao na tela de WhatsApp",
-            status: "vencido" as const,
-            href: "/whatsapp",
-          },
-        ]
-      : []),
-  ].slice(0, 8);
+      }))
+      .slice(0, 6);
 
   return (
     <section>
@@ -398,132 +370,86 @@ export default async function DashboardPage() {
         description="Acompanhe certificados, vencimentos e o funcionamento dos avisos."
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-        <StatCard title="Cadastrados" value={metrics.total_certificados} description="Certificados no sistema" icon={FileKey2} tone="blue" />
-        <StatCard title="Válidos" value={metrics.certificados_validos} description="Fora da janela de aviso" icon={FileCheck2} tone="green" />
-        <StatCard title="Próximos" value={metrics.certificados_vencendo} description="Dentro da janela configurada" icon={CalendarClock} tone="amber" />
-        <StatCard title="Vencidos" value={metrics.certificados_vencidos} description="Exigem ação" icon={XCircle} tone="red" />
-        <StatCard title="Na fila" value={metrics.avisos_para_hoje} description="Avisos prontos para envio" icon={Clock3} tone="blue" />
-        <StatCard title="Com falha" value={metrics.falhas_envio} description="Envios que precisam de revisão" icon={AlertTriangle} tone="red" />
-      </div>
+      {(metrics.falhas_envio > 0 || (!automationEnabled && canAccessWhatsapp)) ? (
+        <div className="mb-8 border-l-2 border-amber-500 bg-amber-50/60 px-4 py-3 text-sm text-slate-800">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <MessageCircleWarning aria-hidden="true" className="h-4 w-4 text-amber-700" />
+            {metrics.falhas_envio > 0 ? <Link href="/notificacoes?status=failed" className="font-medium underline hover:text-blue-700">{metrics.falhas_envio} {metrics.falhas_envio === 1 ? "envio com falha" : "envios com falha"}. Revisar avisos</Link> : null}
+            {!automationEnabled && canAccessWhatsapp ? <Link href="/whatsapp" className="font-medium underline hover:text-blue-700">Envio automático pausado. Ver WhatsApp</Link> : null}
+          </div>
+        </div>
+      ) : null}
 
-      <div className="mt-6 flex flex-col gap-7">
-      <div className="order-2 grid gap-4 xl:grid-cols-2">
-        <SectionCard className="shadow-none">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Certificados por status</h2>
-              <p className="text-sm text-slate-500">Distribuição calculada pela data de vencimento.</p>
-            </div>
-            <Badge tone="blue">Atualizado agora</Badge>
-          </div>
-          <LazyDonutChart data={metrics.status_chart} total={metrics.total_certificados} />
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualização automática
-          </div>
-        </SectionCard>
-
-        <SectionCard className="shadow-none">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Vencimentos por período</h2>
-              <p className="text-sm text-slate-500">Volume de certificados por janela de vencimento.</p>
-            </div>
-            <Badge tone="slate">Próximos 30 dias</Badge>
-          </div>
-          <LazyExpirationBarChart data={metrics.expiration_chart} />
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualização automática
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="order-1 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
-        <SectionCard className="border-0 bg-transparent p-0 shadow-none">
-          <div className="mb-3 flex items-center gap-2">
-            <MessageCircleWarning className="h-4 w-4 text-red-500" />
-            <h2 className="text-base font-semibold text-slate-950">Precisa de atenção</h2>
+      <div className="grid gap-10 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]">
+        <section className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">Vencimentos para acompanhar</h2>
+            <Link href="/certificados?renovacao=acompanhamento" className="text-sm font-medium text-blue-700 hover:underline">Ver certificados</Link>
           </div>
           {attentionItems.length === 0 ? (
-            <EmptyState title="Nada urgente no momento" description="Nenhum certificado ou aviso crítico para revisar agora." />
+            <EmptyState title="Nenhum vencimento para revisar" description="Não há certificados que precisem de acompanhamento nesta janela." />
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="border-y border-slate-200 bg-white">
               {attentionItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3.5 outline-none transition-colors duration-150 last:border-b-0 hover:bg-slate-50 focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <Link key={item.key} href={item.href} className="flex min-w-0 flex-col gap-2 border-b border-slate-100 px-1 py-4 last:border-b-0 hover:bg-slate-50 focus-visible:bg-blue-50 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-950" title={item.title}>{item.title}</p>
-                    <p className="text-sm text-slate-700">{item.description}</p>
-                    <p className="text-xs text-slate-500">{item.meta}</p>
+                    <p className="truncate text-sm font-semibold text-slate-950" title={item.title}>{item.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.meta}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-sm text-slate-700">{item.description}</span>
                     <StatusBadge status={item.status} />
-                    <span className="sr-only">Ver detalhes</span>
-                    <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                    <ArrowRight aria-hidden="true" className="h-4 w-4 text-slate-400" />
                   </div>
                 </Link>
               ))}
             </div>
           )}
-        </SectionCard>
+        </section>
 
-        <SectionCard className="border-0 bg-transparent p-0 shadow-none">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Avisos e WhatsApp</h2>
-              <p className="text-sm text-slate-500">Resumo da operação de hoje.</p>
-            </div>
-            {!automationEnabled ? <Badge tone="red">Envio pausado</Badge> : <Badge tone="green">Envio ativo</Badge>}
+        <section className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">Avisos e WhatsApp</h2>
+            <Badge tone={automationEnabled ? "green" : "red"}>{automationEnabled ? "Envio ativo" : "Envio pausado"}</Badge>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 rounded-lg border border-slate-200 bg-white px-4">
-            <div className="border-b border-slate-200 py-3">
-              <p className="text-xs text-slate-600">Mensagens na fila</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{metrics.avisos_para_hoje}</p>
-            </div>
-            <div className="border-b border-slate-200 py-3">
-              <p className="text-xs text-slate-600">Planejadas</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{metrics.avisos_planejados}</p>
-            </div>
-            <div className="border-b border-slate-200 py-3">
-              <p className="text-xs text-slate-600">Enviadas hoje</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-800">{metrics.enviadas_hoje}</p>
-            </div>
-            <div className="border-b border-slate-200 py-3">
-              <p className="text-xs text-slate-600">Envios com falha</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-red-800">{falhasHoje}</p>
-            </div>
-            <div className="py-3">
-              <p className="text-xs text-slate-600">Fila WhatsApp</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{whatsappPendingResult.count ?? 0}</p>
-            </div>
-            <div className="py-3">
-              <p className="text-xs text-slate-600">Integração</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">
-                {automationEnabled ? whatsappAutomation.label : "Pausada"}
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 text-sm text-slate-600">
-            <div className="flex items-center justify-between gap-3">
-              <span>Último envio</span>
-              <span className="text-right font-semibold text-slate-950">
-                {metrics.ultimo_envio ? formatDateTimeShort(metrics.ultimo_envio) : "Ainda não houve envio"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>Última sincronização</span>
-              <span className="text-right font-semibold text-slate-950">
-                {whatsappStateResult.data?.last_dispatch_at ? formatDateTimeShort(whatsappStateResult.data.last_dispatch_at) : "-"}
-              </span>
-            </div>
-          </div>
-        </SectionCard>
+          <dl className="border-y border-slate-200 text-sm">
+            {[
+              ["Fila do WhatsApp", whatsappPendingResult.count ?? 0],
+              ["Planejadas", metrics.avisos_planejados],
+              ["Enviadas hoje", metrics.enviadas_hoje],
+              ["Com falha", falhasHoje],
+              ["Integração", whatsappAutomation.label],
+              ["Último envio", metrics.ultimo_envio ? formatDateTimeShort(metrics.ultimo_envio) : "Ainda não houve envio"],
+              ["Última sincronização", whatsappStateResult.data?.last_dispatch_at ? formatDateTimeShort(whatsappStateResult.data.last_dispatch_at) : "-"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-start justify-between gap-3 border-b border-slate-100 py-3 last:border-b-0">
+                <dt className="text-slate-500">{label}</dt><dd className="text-right font-semibold text-slate-900">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </div>
+
+      <div className="fasa-metrics mt-10 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-3 2xl:grid-cols-6">
+        <StatCard title="Cadastrados" value={metrics.total_certificados} icon={FileKey2} />
+        <StatCard title="Válidos" value={metrics.certificados_validos} icon={FileCheck2} tone="green" />
+        <StatCard title="Próximos" value={metrics.certificados_vencendo} icon={CalendarClock} tone="amber" />
+        <StatCard title="Vencidos" value={metrics.certificados_vencidos} icon={XCircle} tone="red" />
+        <StatCard title="Avisos para hoje" value={metrics.avisos_para_hoje} icon={Clock3} />
+        <StatCard title="Com falha" value={metrics.falhas_envio} tone="red" />
+      </div>
+
+      <div className="mt-10 grid gap-10 border-t border-slate-200 pt-8 xl:grid-cols-2">
+        <section className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-950">Certificados por status</h2>
+          <p className="mt-1 text-sm text-slate-500">Distribuição pela data de vencimento.</p>
+          <LazyDonutChart data={metrics.status_chart} total={metrics.total_certificados} />
+        </section>
+        <section className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-950">Vencimentos por período</h2>
+          <p className="mt-1 text-sm text-slate-500">Certificados por janela de vencimento.</p>
+          <LazyExpirationBarChart data={metrics.expiration_chart} />
+        </section>
       </div>
     </section>
   );

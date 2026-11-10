@@ -308,7 +308,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
         description="Acompanhe mensagens planejadas, enviadas e que precisam de atenção."
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-6">
+      <div className="fasa-metrics mb-8 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-3 2xl:grid-cols-6">
         <StatCard
           title="Na fila"
           value={summary.queue + summary.retry}
@@ -352,8 +352,8 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
       </section>
 
       <div className="mb-3 grid gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categorias</p>
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <p className="sr-only">Categorias</p>
+        <div className="flex gap-5 overflow-x-auto border-b border-slate-200">
           {getQuickFilters(today).map((item) => {
             const active = activeQuickFilter === item.key;
 
@@ -363,10 +363,10 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-9 shrink-0 items-center rounded-md px-3 text-sm font-medium transition-colors duration-150",
+                  "inline-flex min-h-11 shrink-0 items-center border-b-2 px-0.5 text-sm font-medium transition-colors duration-150",
                   active
-                    ? "bg-blue-700 text-white"
-                    : "border border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-800",
+                    ? "border-blue-700 text-blue-700"
+                    : "border-transparent text-slate-500 hover:text-slate-950",
                 )}
               >
                 {item.label}

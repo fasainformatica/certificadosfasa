@@ -71,6 +71,7 @@ Atualizacao de 2026-07-15:
 
 ## Tokens visuais
 
+- Iteracao minimalista de 2026-11-10: fundo principal branco, sidebar `#172232`, divisorias finas, pouco uso de sombras e status com cor apenas quando possuem significado. `StatCard` e `MetricCard` operam em faixas contiguas; `SectionCard` e formularios principais usam separacao por linha em vez de caixas flutuantes. O dashboard prioriza vencimentos e operacao de avisos; os graficos sao secundarios. Em telas menores, a navegacao abre em drawer de altura total e volta o foco ao gatilho ao fechar.
 - Background geral: neutro frio (`--background`); superficies brancas (`--surface`) e apoio (`--surface-muted`).
 - Texto principal (`--foreground`), auxiliar (`--muted`) e divisorias (`--border-subtle`).
 - Azul `--primary` para acao e foco; verde, ambar e vermelho reservados para significado operacional.

@@ -35,19 +35,15 @@ const navigationIcons = {
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
 
-  return (
+  return pending ? (
     <span className="ml-auto flex h-4 w-4 shrink-0 items-center" role="status">
-      {pending ? (
-        <>
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-          <span className="sr-only">Carregando</span>
-        </>
-      ) : null}
+      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+      <span className="sr-only">Carregando</span>
     </span>
-  );
+  ) : null;
 }
 
-export function AppNavigation({ items }: { items: NavigationItem[] }) {
+export function AppNavigation({ items, mobileOnly = false }: { items: NavigationItem[]; mobileOnly?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const drawerId = useId();
@@ -107,21 +103,21 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
         className={cn(
-          "group relative inline-flex min-h-11 shrink-0 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+          "group relative inline-flex min-h-11 shrink-0 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#172232]",
           active
-            ? "bg-blue-50 text-blue-800 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-blue-700"
-            : "text-slate-700 hover:bg-slate-100 hover:text-slate-950",
+            ? "bg-white/10 text-white before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-blue-400"
+            : "text-slate-300 hover:bg-white/5 hover:text-white",
         )}
       >
         <span
           className={cn(
             "relative flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150",
-            active ? "text-blue-700" : "text-slate-500 group-hover:text-slate-700",
+            active ? "text-blue-300" : "text-slate-400 group-hover:text-slate-200",
           )}
         >
           <Icon aria-hidden="true" className="h-[17px] w-[17px]" />
         </span>
-        <span className="relative min-w-0 truncate">{item.label}</span>
+        <span className="relative min-w-0">{item.label}</span>
         <NavigationPendingIndicator />
       </Link>
     );
@@ -129,34 +125,34 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
 
   return (
     <>
-      <nav aria-label="Navegação principal" className="hidden lg:sticky lg:top-[80px] lg:block lg:self-start">
-        <div className="flex min-h-[calc(100vh-112px)] flex-col gap-1 border-r border-slate-200 pr-4">
+      {!mobileOnly ? <nav aria-label="Navegação principal" className="hidden flex-1 px-3 py-5 lg:block">
+        <div className="flex flex-col gap-1">
           {items.map((item) => renderLink(item))}
         </div>
-      </nav>
+      </nav> : null}
 
-      <button
+      {mobileOnly ? <button
         ref={menuButtonRef}
         type="button"
-        className="fixed bottom-4 left-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 shadow-md outline-none transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 lg:hidden"
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 outline-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 lg:hidden"
+        aria-label="Abrir navegação"
         aria-controls={drawerId}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen(true)}
       >
-        <Menu aria-hidden="true" className="h-4 w-4" />
-        Menu
-      </button>
+        <Menu aria-hidden="true" className="h-5 w-5" />
+      </button> : null}
 
-      {mobileOpen ? (
+      {mobileOnly && mobileOpen ? (
         <button
           type="button"
           className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden"
           aria-label="Fechar navegação"
-        onClick={closeMobileMenu}
+          onClick={closeMobileMenu}
         />
       ) : null}
 
-      <aside
+      {mobileOnly ? <aside
         ref={drawerRef}
         id={drawerId}
         role="dialog"
@@ -164,15 +160,15 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
         inert={!mobileOpen}
         aria-label="Navegação principal"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-slate-200 bg-white p-4 shadow-xl transition-transform duration-200 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-white/10 bg-[#172232] p-4 shadow-xl transition-transform duration-200 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-slate-950">Navegação</p>
+          <p className="text-sm font-semibold text-white">Fasa Certificados</p>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 outline-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/15 text-slate-200 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-400"
             aria-label="Fechar navegação"
             onClick={closeMobileMenu}
           >
@@ -180,7 +176,7 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
           </button>
         </div>
         <nav className="grid gap-1">{items.map((item) => renderLink(item, () => setMobileOpen(false)))}</nav>
-      </aside>
+      </aside> : null}
     </>
   );
 }

@@ -34,21 +34,33 @@ export function AppShell({ user, children }: AppShellProps) {
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <div className="fasa-app min-h-screen overflow-x-hidden">
+    <div className="fasa-app min-h-screen overflow-x-hidden lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <a href="#main-content" className="sr-only rounded-md bg-white px-4 py-2 font-semibold text-blue-700 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70]">Ir para o conteúdo principal</a>
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/96 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <FasaLogo className="h-9 w-9 sm:h-10 sm:w-10" priority />
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold leading-4 text-blue-700 sm:text-xs">Fasa Informática</p>
-              <p className="truncate text-sm font-semibold text-slate-950 sm:text-base">
-                Certificados Digitais
-              </p>
-            </div>
+      <aside className="hidden min-h-screen border-r border-[#283345] bg-[#172232] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <div className="flex h-16 items-center gap-3 border-b border-white/10 px-5">
+          <FasaLogo className="h-8 w-8" priority />
+          <div className="min-w-0 leading-tight">
+            <p className="text-sm font-semibold text-white">Fasa</p>
+            <p className="text-[11px] text-slate-400">Certificados Digitais</p>
           </div>
+        </div>
+        <AppNavigation items={visibleNavigation} />
+        <div className="mt-auto border-t border-white/10 px-5 py-4 text-xs text-slate-400">
+          <p className="truncate text-slate-200" title={user.email ?? undefined}>{user.email ?? "Usuário"}</p>
+          <p className="mt-1 capitalize">{user.role}</p>
+        </div>
+      </aside>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <div className="min-w-0">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+          <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-10">
+            <div className="flex min-w-0 items-center gap-3 lg:hidden">
+              <AppNavigation items={visibleNavigation} mobileOnly />
+              <FasaLogo className="h-8 w-8" priority />
+              <span className="truncate text-sm font-semibold text-slate-900">Fasa Certificados</span>
+            </div>
+            <span className="hidden text-xs font-medium text-slate-500 lg:block">Painel administrativo</span>
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <InternalNotificationsMenu />
             {isAdmin ? (
               <Link
@@ -61,13 +73,10 @@ export function AppShell({ user, children }: AppShellProps) {
               </Link>
             ) : null}
             <LogoutButton />
+            </div>
           </div>
-        </div>
-      </header>
-
-      <div className="mx-auto grid w-full max-w-[1920px] gap-5 px-4 py-6 pb-24 sm:px-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:pb-10">
-        <AppNavigation items={visibleNavigation} />
-        <main id="main-content" className="min-w-0 pb-6">
+        </header>
+        <main id="main-content" className="mx-auto w-full max-w-[1600px] min-w-0 px-4 py-6 pb-12 sm:px-6 lg:px-10 lg:py-8">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

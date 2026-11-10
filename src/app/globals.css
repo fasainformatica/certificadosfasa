@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fa;
+  --background: #ffffff;
   --foreground: #18212f;
   --surface: #ffffff;
-  --surface-muted: #f5f7f9;
+  --surface-muted: #f7f8fa;
   --primary: #1856d6;
   --primary-dark: #1746a4;
   --primary-soft: #edf3ff;
@@ -15,7 +15,7 @@
   --warning-soft: #fff7e9;
   --danger: #b4353b;
   --danger-soft: #fff1f1;
-  --border-subtle: #e4e8ee;
+  --border-subtle: #e8ebf0;
   --border-strong: #cbd3df;
   --muted: #5f6e82;
   --shadow-subtle: 0 1px 2px rgb(24 33 47 / 0.035);
@@ -55,14 +55,6 @@ body {
 
 .fasa-app :is(table, .tabular-nums) {
   font-variant-numeric: tabular-nums;
-}
-
-.fasa-app main :is(.rounded-2xl, .rounded-3xl) {
-  border-radius: 0.5rem;
-}
-
-.fasa-app main .shadow-sm {
-  box-shadow: var(--shadow-subtle);
 }
 
 .fasa-app [id] {

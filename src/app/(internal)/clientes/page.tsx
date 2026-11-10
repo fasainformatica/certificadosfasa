@@ -70,7 +70,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           </Link>
         }
       />
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="fasa-metrics mb-7 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-4">
         <StatCard
           title="Clientes encontrados"
           value={clientSummary.totalClients}

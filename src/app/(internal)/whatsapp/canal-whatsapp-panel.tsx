@@ -148,21 +148,21 @@ function MetricCard({
   tone?: Tone;
 }) {
   const toneClasses: Record<Tone, string> = {
-    blue: "bg-blue-50 text-blue-700",
-    green: "bg-emerald-50 text-emerald-700",
-    amber: "bg-amber-50 text-amber-800",
-    red: "bg-red-50 text-red-700",
-    slate: "bg-slate-100 text-slate-700",
+    blue: "text-slate-500",
+    green: "text-emerald-700",
+    amber: "text-amber-700",
+    red: "text-red-700",
+    slate: "text-slate-500",
   };
 
   return (
-    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+    <article className="min-w-0 border-b border-slate-200 px-4 py-4 sm:border-r sm:px-5 sm:py-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium text-slate-600">{title}</p>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneClasses[tone]}`}>{icon}</span>
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${toneClasses[tone]}`}>{icon}</span>
       </div>
-      <div className="mt-2 break-words text-[1.6rem] font-semibold leading-tight tabular-nums text-slate-950">{value}</div>
-      {description ? <p className="mt-1 text-xs leading-5 text-slate-600" title={description}>{description}</p> : null}
+      <div className="mt-2 break-words text-[1.55rem] font-semibold leading-tight tabular-nums text-slate-950">{value}</div>
+      {description ? <p className="mt-1 text-xs leading-5 text-slate-500" title={description}>{description}</p> : null}
     </article>
   );
 }
@@ -493,12 +493,12 @@ export function CanalWhatsAppPanel({
   }
 
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-4">
+    <div className="grid gap-10">
+      <section className="grid gap-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-950">WhatsApp automatico</h2>
+              <h2 className="text-lg font-semibold text-slate-950">Operação do WhatsApp</h2>
               <Badge tone="blue">Canal ativo: {euAtendo.activeProviderLabel}</Badge>
               <Badge tone={healthStatus.tone}>{healthStatus.label}</Badge>
               <Badge tone={automationEnabled ? "green" : "slate"}>
@@ -506,11 +506,11 @@ export function CanalWhatsAppPanel({
               </Badge>
             </div>
             <p className="mt-1 text-sm text-slate-600">
-              Acompanhe a fila dos avisos de vencimento e valide o canal oficial quando necessario.
+              Acompanhe a fila dos avisos de vencimento e valide o canal quando necessário.
             </p>
             {!euAtendo.notificationSettingsEnabled ? (
               <p className="mt-2 text-sm font-medium text-amber-700">
-                O envio automatico esta pausado nas Configuracoes do sistema.
+                O envio automático está pausado nas Configurações do sistema.
               </p>
             ) : null}
           </div>
@@ -525,11 +525,11 @@ export function CanalWhatsAppPanel({
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid overflow-hidden border-y border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Integração configurada"
             value={<Badge tone={configured ? "green" : "red"}>{configured ? "Sim" : "Não"}</Badge>}
-            description={activeProviderIsExtension ? "Token da extensao configurado no servidor" : "Variáveis server-only presentes"}
+            description={activeProviderIsExtension ? "Extensão configurada no servidor" : "Integração configurada no servidor"}
             icon={<ShieldCheck className="h-4 w-4" />}
             tone={configured ? "green" : "red"}
           />
@@ -568,7 +568,7 @@ export function CanalWhatsAppPanel({
 
         <PhoneQualityPanel quality={euAtendo.phoneQuality} />
 
-        <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-3 border-y border-slate-200 py-5 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-950">Segurança operacional</h3>
@@ -645,8 +645,8 @@ export function CanalWhatsAppPanel({
           </div>
         ) : null}
 
-        <div className="grid gap-3 xl:grid-cols-2">
-          <form onSubmit={checkNumber} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="grid gap-6 xl:grid-cols-2">
+          <form onSubmit={checkNumber} className="grid content-start gap-3 border-t border-slate-200 py-5">
             <div>
               <h3 className="text-sm font-semibold text-slate-950">Verificar número</h3>
               <p className="mt-1 text-xs text-slate-500">Use números controlados para homologação.</p>
@@ -669,7 +669,7 @@ export function CanalWhatsAppPanel({
             ) : null}
           </form>
 
-          <form onSubmit={sendTestMessage} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4">
+          <form onSubmit={sendTestMessage} className="grid gap-3 border-t border-slate-200 py-5">
             <div>
               <h3 className="text-sm font-semibold text-slate-950">Mensagem de teste</h3>
               <p className="mt-1 text-xs text-slate-500">

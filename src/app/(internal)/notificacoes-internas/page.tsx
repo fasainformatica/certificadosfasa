@@ -350,7 +350,7 @@ export default async function InternalNotificationsPage({ searchParams }: Intern
 
       <BroadcastNotificationForm />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+      <div className="fasa-metrics mb-7 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-4">
         <StatCard
           title="Ativas"
           value={activeCount}

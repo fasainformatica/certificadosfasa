@@ -4,6 +4,8 @@ Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `
 
 ## 2026-11-10 (branch de avaliacao visual)
 
+- Segunda iteracao estrutural: sidebar escura fixa no desktop, cabecalho compacto no mobile, dashboard recomposta com vencimentos e estado dos avisos antes da faixa de metricas e graficos; listagens, WhatsApp e Configuracoes usam menos molduras e divisorias mais leves. A cor continua reservada para acao e status.
+- Corrigido o drawer mobile, antes limitado a altura do cabecalho pelo `backdrop-filter`; testado aberto em 390 px e com fechamento por Escape. Nenhuma API, migration ou regra de envio foi alterada. Esta iteracao permanece somente na branch local.
 - Redesenhado o shell e os componentes visuais compartilhados para uma interface operacional mais limpa, preservando a identidade Fasa e os mesmos contratos e fluxos.
 - Dashboard passou a destacar pendencias antes dos graficos; listagens, avisos, WhatsApp e configuracoes reduziram caixas aninhadas e melhoraram a leitura.
 - Login e download publico receberam a mesma linguagem visual. Drawer mobile ganhou foco controlado, Escape e retorno de foco.

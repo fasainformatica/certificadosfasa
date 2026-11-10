@@ -69,7 +69,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   const name = item.payload?.name ?? item.name ?? label ?? "Certificados";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-sm shadow-xl shadow-blue-950/10 ring-1 ring-white/70 backdrop-blur">
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
       <p className="font-semibold text-slate-950">{name}</p>
       <p className="mt-1 text-slate-600">{item.value ?? 0} certificados</p>
     </div>
@@ -110,7 +110,7 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
           <span className="text-xs font-medium text-slate-500">total</span>
         </div>
       </div>
-      <div className="grid gap-3">
+      <div className="grid divide-y divide-slate-100 border-y border-slate-200">
         {data.map((item) => {
           const percent = Math.round((item.value / safeTotal) * 100);
           const href = getCertificateStatusHref(item.name);
@@ -130,14 +130,14 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
             <Link
               key={item.name}
               href={href}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-blue-100/70 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 outline-none transition duration-150 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/70 focus-visible:ring-4 focus-visible:ring-blue-100"
+              className="flex items-center justify-between gap-3 px-1 py-3 outline-none transition-colors duration-150 hover:bg-slate-50 focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-600"
               title={`Ver certificados ${item.name.toLowerCase()}`}
               aria-label={`Ver certificados ${item.name.toLowerCase()}`}
             >
               {content}
             </Link>
           ) : (
-            <div key={item.name} className="flex items-center justify-between gap-3 rounded-2xl border border-blue-100/70 bg-white px-3 py-2 shadow-sm shadow-blue-950/5 transition duration-150 hover:bg-blue-50/70">
+            <div key={item.name} className="flex items-center justify-between gap-3 px-1 py-3">
               {content}
             </div>
           );
@@ -154,8 +154,8 @@ export function ExpirationBarChart({ data }: { data: { name: string; value: numb
         <RechartsBarChart data={data} margin={{ top: 18, right: 10, left: -16, bottom: 0 }}>
           <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: "#64748B", fontSize: 12 }} />
           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "#64748B", fontSize: 12 }} />
-          <Tooltip cursor={{ fill: "#EFF6FF", radius: 12 }} content={<ChartTooltip />} />
-          <Bar dataKey="value" radius={[12, 12, 0, 0]} isAnimationActive animationDuration={650} animationEasing="ease-out" maxBarSize={50}>
+          <Tooltip cursor={{ fill: "#F1F5F9" }} content={<ChartTooltip />} />
+          <Bar dataKey="value" radius={[3, 3, 0, 0]} isAnimationActive={false} maxBarSize={50}>
             {data.map((entry) => (
               <Cell key={entry.name} fill={entry.color} />
             ))}
