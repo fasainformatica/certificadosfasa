@@ -110,3 +110,62 @@ Conclusão: os padrões podem ser herdados literalmente do arquivo/pasta importa
 - Sem push ou deploy. Capturas com dados reais não foram incluídas nos commits.
 
 As credenciais de teste fornecidas na conversa não devem ser publicadas. Recomenda-se trocar a senha dessa conta ao encerrar a homologação.
+
+
+---
+
+# Segunda rodada: perguntas, N11/N12 e etapas 3, 4 e 5
+
+Trabalho iniciado no Codex e concluído no Claude Code a partir do ponto em que a sessão foi interrompida. Parada após a etapa 5. Sem envio real, push, deploy ou alteração manual de banco, fila ou permissões.
+
+## Respostas
+
+1. "Futuros: 0" vinha da RPC legada `get_dashboard_metrics`, que ainda devolve 0 futuros, 0 na fila, 2 falhas e último envio em 16/07/2026. A leitura compartilhada conta 701 futuros.
+2. Valores em 23/11/2026, por volta das 15h55 (a extensão de produção enviou 4 avisos durante o dia, por isso a fila caiu de 4 para 0):
+
+| Tela | Fila | Falhas | Último envio |
+|---|---|---|---|
+| Visão geral | 0 | 3 | 23/11/2026 às 15:24 |
+| Central | 0 | 3 | não exibe como indicador |
+| WhatsApp | 0 | 3 | 23/11/2026 às 15:24 (formato antigo, etapa 7) |
+
+3. Certificados: 130 no total, contando 2 inativos. CNPJ repetido em Clientes: nenhum.
+
+## S01 (somente leitura)
+
+- Cadastro original: 2 mensagens enviadas ao cliente; zero contêm o nome completo atual. Isso não exclui nome anterior ou trecho parcial.
+- **Novo e urgente:** 9 cadastros contêm a palavra "senha" no nome. Em todos os eventos, 4 mensagens enviadas contêm essa palavra (30/07/2026 às 10:35 e 11:12, 05/11/2026 às 10:04, 20/11/2026 às 00:00, horário de São Paulo), 28 pendentes e 1 cancelada. As 28 pendentes coincidem em quantidade com as pendentes desses cadastros. Não foi verificado se cada ocorrência é uma senha real nem quem recebeu.
+- **DECISÃO:** corrigir os 9 nomes não altera o texto já renderizado dos 28 avisos pendentes; eles precisam ser tratados também. Nada foi alterado.
+
+## N11
+
+Endpoint recusa (409) validade diferente da referência, referência sem validade atual, e falta de referência com programação há mais de 30 dias. Condição em `updated_at` evita corrida. O botão da Central ainda usa regra mais estreita: pode aparecer e receber 409 com mensagem clara. Alinhar na etapa 6.
+
+## N12
+
+Cinco grupos repetidos com chave que inclui telefone e canal (os 8 anteriores usavam chave mais ampla): 1 de teste manual (5 eventos), 3 da extensão (2 eventos cada, 4 a 5 minutos de intervalo) e 1 do euAtendo (2 eventos, 2,6 segundos).
+Nenhum evento tem ID de mensagem do provedor nem recibo de entrega. `response_id` da extensão é código de ACK, não ID. **Entrega duplicada não pode ser confirmada nem descartada por IDs.** O banco registra dois envios em cada par; o do euAtendo é o mais suspeito pelo intervalo. Envio não alterado.
+
+## Etapas 3 a 5
+
+- Etapa 3 (D01–D14): seção 7 aplicada.
+- Etapa 4 (F01–F10, X06): seção 8 aplicada. F08: filtro padrão "Todas", 130 de 130.
+- Etapa 5 (C01–C10, X07): seção 9 aplicada; 38 com WhatsApp e 92 sem contato, iguais à tela WhatsApp. C07: "Novo certificado" leva a `/certificados/novo`, única criação existente; mantido como secundário. "Abrir cadastro" não tinha destino; foi criada `/clientes/[id]`, somente leitura.
+
+Defeitos encontrados na tela real e corrigidos: Clientes não carregava com a sessão do usuário (`certificados(count)`); "0" ausente nas barras; Inter não aplicada (variável no body, usada no root); `font: inherit` global deixando botões em 16 px; datas com microssegundos viravam "Indisponível"; tooltip cortado na expansão.
+
+## Escolhas e limites
+
+- Larguras da especificação somam mais que o painel em 1280 e 1024: o mínimo da coluna de nome cede para não haver rolagem.
+- Abaixo de 1280, Responsável (Clientes) vai para a expansão, como Renovação em Certificados.
+- "Enviar aviso" nunca teve confirmação; nenhuma foi criada.
+- Expansão de Certificados mantém observação e atualização do arquivo quando existem, para não perder informação.
+- Links da Visão geral seguem a especificação, mas abrem listas com todos os estados de renovação: cards 7 e 0, listas 8 e 15. **DECISÃO:** filtrar também por acompanhamento ou mudar o escopo dos cards.
+- Badge de conexão fixo em "Ainda não verificada": não há verificação registrada para ler; unificar na etapa 7.
+- "Inválido" não existe no mapa de status; mantido só para dados legados.
+- Central em 1024 px tem rolagem horizontal de 116 px; pertence à etapa 6.
+- Central recebeu apenas aliases de leitura para `?aba=fila|hoje|falhas|enviados|nova_tentativa`.
+
+## Validação
+
+TypeScript, lint e 359 testes (47 arquivos) aprovados; build aprovado antes dos últimos ajustes de CSS e do formatador. Sem rolagem horizontal nas três telas em 1920, 1440, 1366, 1280, 1024, 768, 390 e em 640 px (equivalente ao zoom de 200% em 1280). Capturas em `docs/auditoria/depois-etapas-3-5/` (1920, 1366, 1024, 390), locais: contêm dados reais e não devem ser publicadas. O script `investigacao-decisoes.mjs` também ficou fora dos commits por identificar o cadastro de S01.
