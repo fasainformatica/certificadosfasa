@@ -1,0 +1,112 @@
+# Relatório das etapas 0, 0.5, 1 e 2
+
+## Limite da rodada
+
+Especificação visual fornecida em Downloads prevalece sobre prompt e auditoria revisão 2. Os três documentos foram lidos antes das edições desta rodada. Etapas 3 a 9 não foram executadas; a composição final das telas continua pendente. Não houve envio de WhatsApp, validação de conexão, reenfileiramento, alteração de banco, migration, permissões ou regras de envio.
+
+O diretório já possuía modificações anteriores. Elas foram preservadas; não equivalem a trabalho novo desta rodada.
+
+## Etapa 0 — evidência e limitações
+
+- Login realizado com conta de teste autorizada. Credencial não foi adicionada a código, fixture ou relatório.
+- 20 capturas em `docs/auditoria/antes/`: cinco rotas, larguras 1920, 1366, 1024 e 390, altura 1000. Chromium 156, Windows, viewport em CSS px.
+- Limitação: a sessão ficou disponível após o início dos tokens. Portanto as capturas não são uma linha de base imutável anterior a toda mudança desta rodada. Algumas capturas da dashboard incluem skeleton dos gráficos lazy; não servem para aprovar geometria final de gráfico. Não apresentar essa evidência como uma comparação visual perfeita.
+- D01: inspeção do CSS computado em quatro `.fasa-panel` da dashboard confirmou fundo `rgb(255,255,255)`, borda `1px` e sombra `rgba(16,24,40,0.05) 0px 1px 2px`. Não reproduzida a ausência de superfície no ambiente atual. Não foi provado que o problema anterior era cache.
+- As imagens incluem dados reais internos e podem conter o dado de S01. Permanecem locais, fora dos commits desta rodada; não publicar essas imagens sem revisão de confidencialidade.
+- Levantamento das métricas: `metricas.md`. Script de investigação `read-only-summary.mjs`: somente SELECT, saída agregada, sem nomes, telefones, mensagens renderizadas ou credenciais.
+
+## Etapa 0.5 — fundação
+
+- Tokens e aliases no Tailwind, tipografia Inter via `next/font/google`, escala de títulos e superfícies conforme especificação.
+- Biblioteca de componentes em `src/components/ui/spec/`: KpiCard/KpiGrid, StatusBadge, Panel, Button, FilterBar, DataTable, AlertBanner, Tabs, KeyValueList, StatInline, Disclosure e HelpTip, com formatadores e mapa de status.
+- A pasta `spec` separa os contratos novos dos componentes legados ainda usados nas telas. Isso evita converter de uma vez as etapas 3 a 7. A adoção por tela ocorrerá nessas etapas, não foi declarada concluída agora.
+- Shell ajustado: tokens de sidebar, dimensões, ícones, header, alinhamento à esquerda, drawer e cabeçalho da página. Engrenagem removida: mesmo destino `/configuracoes` da lateral, E05 confirmado.
+- Sino: definição de avisos internos da conta, distinta de eventos de WhatsApp, e nome acessível com contagem. Não mudou consulta ou visibilidade.
+
+## Etapa 1 — S01, S02 e N11
+
+### S01 — investigação, sem alterar dado
+
+`src/lib/notifications/engine.ts` usa `cliente.nome_razao_social` nas substituições `cliente_nome` e `empresa_nome` de `renderCertificateTemplate`; o resumo de vencidos também inclui nome do cliente. Eventos persistem `mensagem_renderizada` e payload de planejamento. Os dispatchers usam a mensagem renderizada no envio. Portanto um nome importado com conteúdo indevido pode propagar-se quando o template o inclui.
+
+Não foi verificado conteúdo histórico bruto de mensagens nem logs para procurar o trecho específico: isso replicaria dado potencialmente sensível. O código confirma o caminho possível de propagação, não prova que esse trecho foi efetivamente entregue. Os logs técnicos usam mensagens de erro/provedor sanitizadas, mas não há evidência de que um trecho sensível embutido em um nome seja necessariamente reconhecido pela sanitização.
+
+**DECISÃO S01:** Mauro confirmar se é credencial real; se for, rotacionar na origem e aprovar investigação protegida/limpeza dos registros afetados. Não foi criada máscara heurística e nenhum nome relacionado foi copiado para os artefatos textuais.
+
+### S02 — origem dos padrões
+
+`src/app/api/certificados/importar/route.ts` define `nome_razao_social` a partir de `stripExtension(pfxFile.name)`, com fallback para o nome da pasta. `stripExtension` só retira a extensão: não remove datas, prefixos ou sequências numéricas. A seleção de TXT/senha é feita separadamente; não é uma sanitização de nome. `src/lib/certificados/upload-service.ts` prioriza o nome do cliente existente/informado e possui fallback para titular do PFX ou nome do arquivo. O parser PFX fornece o titular, não limpa a razão social importada.
+
+Conclusão: os padrões podem ser herdados literalmente do arquivo/pasta importado. Não foi possível atribuir cada registro histórico a um arquivo original específico sem acesso ao lote de importação e uma auditoria autorizada desse material. Nenhum banco foi limpo.
+
+### N11 — reenfileiramento visual
+
+- Eventos novos guardam `payload.data_vencimento` no planejamento. A lista passou a ler esse campo.
+- Helper compara apenas datas ISO válidas do payload e certificado atual; não infere validade a partir de data programada ou dias restantes.
+- Validade atual posterior à referência: botão de retry substituído pelo texto exato da especificação, “Certificado renovado”, com explicação contextual. A especificação prevalece sobre a frase mais longa do prompt.
+- Referência ausente/inválida: não é inventada. O helper retorna referência desconhecida. Não se pode declarar que eventos legados sem referência estão protegidos pela comparação.
+- Endpoint `POST /api/notifications/events/[id]/retry`: atualiza status permitido, mas não lê certificado/payload para comparar validades. Não foi alterado.
+- **DECISÃO N11:** aprovar proteção equivalente no servidor e definir tratamento de eventos legados sem referência. Ocultar botão não bloqueia chamada direta ao endpoint.
+
+## Etapa 2 — conclusões X
+
+| ID | Conclusão |
+|---|---|
+| X01 | As fontes antigas misturavam RPC da dashboard, eventos e logs do canal. Leitura compartilhada passa a contar eventos com status `failed`, sem cancelados; não é contagem de tentativas. Na investigação, há 3 eventos failed: 1 da extensão e 2 euAtendo. |
+| X02 | Confirmado por SELECT agregado: 701 pending futuros, 2 pending de hoje e 2 pending anteriores, todos da extensão. Logo 705 = 701 futuros + 4 vencidos por data de programação. Não confirmado estoque antigo preso de 705 mensagens. Nenhum registro apagado ou alterado. |
+| X03 | Último envio deve vir de `notification_events.sent_at` para status sent, todos os canais, sem confundir com logs de atividade nem timestamp do dispatcher. A leitura é compartilhada; horários formatados no fuso operacional. |
+| X04 | `whatsapp_dispatcher_state.last_dispatch_at` é estado de despacho/cadência do provider, não prova de cada consulta da extensão nem de entrega. Logs posteriores não contradizem necessariamente esse campo. Não rebatizado como verificação sem evidência. |
+| X05 | Contagem por tipo é de eventos, inclui histórico/cancelados conforme definição; não é número de certificados. Renomeação final dos cards pertence à etapa 6. |
+| X06 | Base observada: 130 certificados, 114 operacionais, 2 cliente_inativo. A regra operacional exclui inválidos e renovação não planejável; inclui em_acompanhamento e renovou_fasa. O 114 não inclui os 2 inativos. Não somar os cards de renovação. |
+| X07 | 130 clientes, nenhum sem certificado vinculado na leitura atual. A consulta de Clientes não exige vínculo: a coincidência atual não garante isso no futuro. Subtítulo deve descrever cadastro/contato sem prometer vínculo obrigatório. |
+| X08 | Sino conta avisos internos não lidos elegíveis para usuário/cargo, não expirados e não dispensados. Não é fila/falha de WhatsApp. A definição foi incluída no menu. |
+| X09 | Rótulo de apresentação da extensão acentuado; identificador persistido preservado. |
+
+## Outros itens “A verificar” — conclusão e fronteira
+
+| ID | O que foi possível concluir nesta rodada |
+|---|---|
+| D13 | Não validado geometria da rosca em zoom 100%; pertence à etapa 3. Não alterar padAngle/activeShape nesta rodada. |
+| F08 | O filtro atual usa estados de renovação planejáveis, não igualdade simples; investigação detalhada e apresentação pertencem à etapa 4. O 114 operacional não prova sozinho filtro incorreto. |
+| C09 / E03 | Filtros e links ainda precisam da implementação por tela nas etapas 4/5/8. Não declarar concluídos. |
+| N12 | SELECT agregado encontrou 8 chaves repetidas por tipo/certificado/recipient_id/dia. Isso não prova entrega duplicada; destinatários removidos podem compartilhar null e a chave não considera conteúdo nem telefone. **DECISÃO:** investigar eventos específicos com acesso protegido e aprovar eventual correção de idempotência. Agrupamento visual fica para etapa 6. |
+| N13 | `getSafeNotificationErrorMessage` recebe motivo sem status; uma string genérica pode virar mensagem de falha em linha cancelada. Ajuste de apresentação fica para etapa 6; não mudou status salvo. |
+| N14 | Lista usa relação opcional de destinatário: ausência da relação gera rótulo de removido. Isso não comprova se foi removido antes ou depois do envio; não inventar cronologia. |
+| N15 | Mesmo final mascarado não prova mesmo número; contato atual não prova contato usado historicamente. Não foi feita consulta de telefones/mensagens brutos. Permanece investigação protegida, sem reescrever histórico. |
+| N18 | `recipient_id` seleciona um cadastro específico; `audience` seleciona client/internal. Não são a mesma dimensão. A especificação da etapa 6 precisa preservar essa distinção. |
+| W14 / W16 | Proteção por falhas usa `whatsapp_auto_pause_enabled`, limiar e `whatsapp_failure_pause_window_minutes`; janela configurável, não presumir uma hora. Texto final fica para etapa 7. |
+| W15 | Há datas e bloqueios conhecidos no código, mas os números da captura não provam a causa da paralisação. Não executado dispatcher nem conexão; não afirmado motivo específico. Implementar somente motivos comprovados na etapa 7. |
+| E05 | Confirmado: engrenagem e lateral levavam a `/configuracoes`. Duplicação removida no shell. |
+
+## Pendências DECISÃO
+
+1. **S01:** confirmar natureza do dado, rotação se for segredo e autorização para auditoria histórica protegida.
+2. **N11 servidor:** aprovar validação de validade no retry e política para referência ausente; a UI não é barreira de segurança.
+3. **N12:** confirmar testes históricos versus repetição indevida e autorizar correção de idempotência somente se comprovada.
+4. **X02:** não há decisão de limpeza necessária com a evidência atual: 701 são futuros. Se os 2 pending anteriores estiverem presos operacionalmente, isso requer investigação distinta; não foram descartados.
+5. **Links/enum da especificação:** etapas seguintes deverão mapear parâmetros visuais para enums existentes, sem renomear valores salvos. Não criar filtros sem suporte silenciosamente.
+
+## Validação e comparação
+
+- `npx tsc --noEmit --pretty false`: passou.
+- `npm run lint`: passou, sem warnings na última execução.
+- `npm test`: 43 arquivos, 321 testes aprovados; verificação service-role/RBAC aprovada. Testes novos usam dados sintéticos/mocks, não enviam mensagens.
+- `npm run build`: passou, incluindo carregamento da fonte Inter.
+- `git diff --check`: sem erro de whitespace; apenas avisos de normalização LF/CRLF do Windows.
+- 20 capturas adicionais em `docs/auditoria/depois/`, mesmas larguras/altura, com espera por fontes e primeiro gráfico na dashboard. Na comparação, requisições não GET/HEAD sob `/api/` foram bloqueadas no navegador por precaução. Não são aprovação das etapas visuais 3–7.
+- Drawer mobile: `aria-modal=true` ao abrir; Escape fecha e devolve foco ao botão, confirmado por Playwright na sessão real.
+- N11 na sessão real: existem rótulos “Certificado renovado” nas duas renderizações responsivas da Central; os 26 nós encontrados não significam 26 eventos distintos (desktop e mobile coexistem no DOM). Nenhum botão foi acionado.
+- Comparação visual inspecionada: dashboard 1920 depois da integração. Restam os ajustes da etapa 3 (incluindo gráficos e zero neutro), intencionalmente não executados.
+
+## Commits e status dos IDs
+
+- `3d40be7`: etapa 0.5, fundação/componentes/shell; E05 e descrição de X08. Arquivos compartilhados já tinham alterações visuais locais relacionadas, preservadas na consolidação; não houve descarte de trabalho.
+- `2a190d9`: etapa 1, helper e testes N11.
+- `e8db85c`: etapa 2, X01–X09, integração das métricas e da regra N11 na Central; `metricas.md` e investigação agregada somente leitura.
+- S01/S02: investigação realizada, sem saneamento de nomes; pendências acima.
+- Etapa 0: métricas e captura feitas, com ressalva da linha de base registrada acima. Não pode ser declarada comparação anterior perfeita.
+- As etapas 3–9 e seus IDs visuais não foram executados nesta rodada. N10 continua encerrado, sem alteração.
+- Alterações anteriores fora dos arquivos consolidados continuam no diretório de trabalho; não foram incluídas automaticamente nos commits desta rodada.
+- Sem push ou deploy. Capturas com dados reais não foram incluídas nos commits.
+
+As credenciais de teste fornecidas na conversa não devem ser publicadas. Recomenda-se trocar a senha dessa conta ao encerrar a homologação.

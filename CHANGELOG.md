@@ -1,5 +1,22 @@
 # Changelog
 
+## Especificacao visual — etapas 0 a 2
+
+- Criada fundacao tipada de componentes, tokens, Inter, formatadores e status sem migrar a composicao final das telas.
+- Unificadas metricas somente leitura; confirmado que fila 705 corresponde a 701 futuros e 4 devidos, sem saneamento de registros.
+- N11 oculta retry quando payload prova validade anterior a atual. Endpoint inalterado, protecao no servidor e eventos sem referencia seguem pendentes de decisao.
+- Investigados S01/S02 sem copiar dado sensivel ou alterar cadastro. Relatorio em `docs/auditoria/RELATORIO_CORRECOES.md`; 321 testes, TypeScript, lint e build aprovados. Sem disparo real, push ou deploy.
+
+## Auditoria corretiva da branch visual
+
+- Dashboard voltou a apresentar indicadores e graficos acima do acompanhamento, conforme referencia; rosca e barras preservadas com melhor escala. Clientes passou a rotular contatos e informar ausencias em vez de tracos no desktop e mobile.
+
+- Corrigida sidebar sticky interrompida ao rolar, removendo overflow no ancestral e usando altura de viewport dinamica.
+- Restabelecidos contraste entre fundo e superficies e sombreamento leve; dashboard agrupa vencimentos, estado dos avisos e graficos com hierarquia clara.
+- Rotulos de metricas e dados ausentes explicitos; automacao habilitada nao e apresentada como conexao confirmada.
+- Graficos com unidades, valores zero visiveis, faixas de vencimento explicitas e alternativa textual. Sem alteracao de API, banco ou envio.
+- Validacoes locais: 208 testes, RBAC, lint, TypeScript e build passaram. Navegador redirecionou para login; dashboard real ainda exige revisao autenticada.
+
 Todas as mudancas relevantes devem ser registradas aqui e refletidas tambem em `docs/SYSTEM_CONTEXT.md`.
 
 ## 2026-11-10 (branch de avaliacao visual)

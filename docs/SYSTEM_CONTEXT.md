@@ -20,6 +20,12 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 
 ## Arquitetura
 
+Rodada limitada as etapas 0, 0.5, 1 e 2 da especificacao visual fornecida: fundacao isolada em `src/components/ui/spec`, formatadores e mapa de status; modulo `src/lib/metricas/operacao.ts` unifica leituras de dashboard/Central/WhatsApp. N11 compara validade atual com `payload.data_vencimento` somente na apresentacao; endpoint de retry continua sem protecao equivalente, pendente de decisao. Ver `docs/auditoria/RELATORIO_CORRECOES.md`. Sem alteracao de fila, banco ou permissoes. Etapas de composicao final das telas nao executadas.
+
+Ordem visual atual da dashboard na branch de avaliacao: indicadores, graficos e acompanhamento de vencimentos/avisos. Clientes apresenta e-mail, WhatsApp/telefone e responsavel com mensagens de ausencia especificas; os dados persistidos nao foram alterados.
+
+Revisao corretiva da branch visual: corrigido o ancestral de overflow da sidebar sticky, recuperada separacao de superficies no dashboard, incluidos contexto e unidades nos indicadores/graficos e mensagens explicitas para dados ausentes na importacao e no detalhe. APIs, consultas e regras de notificacao permanecem inalteradas. A validacao visual com sessao real ainda esta pendente; testes automatizados nao substituem essa verificacao.
+
 ### Frontend
 
 - Next.js 16 App Router em `src/app`.

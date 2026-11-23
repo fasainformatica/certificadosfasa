@@ -20,6 +20,8 @@ Documento especifico. A fonte oficial completa continua sendo [`SYSTEM_CONTEXT.m
 
 ## Componentes
 
+- Fundacao da especificacao visual em `src/components/ui/spec/`: 12 componentes e KpiGrid, com CSS Module e tokens de `globals.css`. Contratos legados preservados; a adocao completa nas cinco telas pertence as proximas etapas autorizadas. Formatadores em `src/lib/format.ts`, status em `src/lib/status-labels.ts`. Leituras operacionais compartilham `src/lib/metricas/operacao.ts`, sem tratar erro como zero. Relatorio e limites em `docs/auditoria/RELATORIO_CORRECOES.md`.
+
 - Preferencias de destinatarios: `src/components/notifications/recipient-preferences.tsx`, fieldset com duas opcoes independentes e labels associados. Usado no cadastro e na edicao em Configuracoes > Destinatarios.
 - Avisos internos: o formulario informa a inclusao condicional no WhatsApp e mostra a contagem enfileirada, sem afirmar entrega. A Central de avisos oferece filtros e rotulos para `certificate_updated` e `internal_notice`.
 
@@ -71,6 +73,9 @@ Atualizacao de 2026-07-15:
 
 ## Tokens visuais
 
+- Ajuste conforme referencia do usuario: dashboard ordena indicadores, graficos (rosca e barras) e acompanhamento operacional. Indicadores individuais com sombra discreta e valores de status destacados; graficos com valores/unidades preservados. Clientes identifica explicitamente e-mail, WhatsApp/telefone e responsavel ausentes nas duas apresentacoes, sem tracos isolados.
+
+- Auditoria corretiva: shell sem `overflow-x-hidden` no ancestral da sidebar sticky, altura desktop `100dvh` e alinhamento inicial. Fundo frio com superficies brancas, borda suave e sombra discreta nos grupos operacionais do dashboard. KPIs possuem nomes completos e contexto; campos ausentes devem descrever o dado indisponivel, nunca usar apenas traco. Graficos exibem unidades, contagens zero e alternativa textual, sem alterar os agrupamentos do banco. Automacao habilitada nao significa conexao confirmada do WhatsApp.
 - Iteracao minimalista de 2026-11-10: fundo principal branco, sidebar `#172232`, divisorias finas, pouco uso de sombras e status com cor apenas quando possuem significado. `StatCard` e `MetricCard` operam em faixas contiguas; `SectionCard` e formularios principais usam separacao por linha em vez de caixas flutuantes. O dashboard prioriza vencimentos e operacao de avisos; os graficos sao secundarios. Em telas menores, a navegacao abre em drawer de altura total e volta o foco ao gatilho ao fechar.
 - Background geral: neutro frio (`--background`); superficies brancas (`--surface`) e apoio (`--surface-muted`).
 - Texto principal (`--foreground`), auxiliar (`--muted`) e divisorias (`--border-subtle`).
