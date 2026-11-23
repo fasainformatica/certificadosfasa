@@ -11,6 +11,8 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/status-badge";
 import { canManageOperationalData } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
+import { getMetricDateContext, getOperationProviderLabel, lerMetricasOperacao } from "@/lib/metricas/operacao";
+import { getRenewalRetryPresentation } from "@/lib/notifications/renewal-retry";
 import { buildNotificationEventSearchFilter } from "@/lib/notifications/event-search";
 import {
   NOTIFICATION_EVENT_STATUSES,
@@ -23,15 +25,14 @@ import {
   getSafeNotificationErrorMessage,
   isRetryableNotificationStatus,
 } from "@/lib/notifications/event-presentation";
-import { getTodayDateString, SETTINGS_ID } from "@/lib/notifications/engine";
 import { createPaginationMeta, parsePagination } from "@/lib/pagination";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { NotificationEventStatus } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils/cn";
+import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
 import {
   EUATENDO_PROVIDER,
   WHATSAPP_EXTENSION_PROVIDER,
-  getWhatsAppProviderLabel,
 } from "@/lib/whatsapp/providers";
 import {
   formatCertificateTitle,
@@ -65,7 +66,7 @@ const audiences = ["internal", "client"] as const;
 
 const PROVIDER_LABELS: Record<string, string> = {
   [EUATENDO_PROVIDER]: "WhatsApp euAtendo",
-  [WHATSAPP_EXTENSION_PROVIDER]: "Extensao do Chrome",
+  [WHATSAPP_EXTENSION_PROVIDER]: getOperationProviderLabel(WHATSAPP_EXTENSION_PROVIDER),
 };
 
 const AUDIENCE_LABELS: Record<(typeof audiences)[number], string> = {
@@ -74,7 +75,7 @@ const AUDIENCE_LABELS: Record<(typeof audiences)[number], string> = {
 };
 
 function getProviderLabel(provider: string | null | undefined) {
-  return provider ? (PROVIDER_LABELS[provider] ?? getWhatsAppProviderLabel(provider)) : "WhatsApp";
+  return provider ? (PROVIDER_LABELS[provider] ?? getOperationProviderLabel(provider)) : "WhatsApp";
 }
 
 function getQuickFilters(today: string) {
@@ -85,7 +86,7 @@ function getQuickFilters(today: string) {
     { key: "retry", label: "Nova tentativa", href: "/notificacoes?status=retry" },
     { key: "sent", label: "Enviados", href: "/notificacoes?status=sent" },
     { key: "failed", label: "Com falha", href: "/notificacoes?status=failed" },
-    { key: "expired", label: "Vencidos", href: "/notificacoes?type=certificate_expired" },
+    { key: "expired", label: "Resumos de vencidos", href: "/notificacoes?type=certificate_expired" },
   ];
 }
 
@@ -114,44 +115,7 @@ function getMaskedClienteTelefone(cliente: { whatsapp?: string | null; telefone?
   return rawPhone ? maskPhone(rawPhone) : "Telefone não cadastrado";
 }
 
-async function loadNotificationSummary(admin: ReturnType<typeof createSupabaseAdminClient>, today: string) {
-  const [queueResult, retryResult, processingResult, sentTodayResult, failedResult, expiredResult, expiringResult] = await Promise.all([
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending")
-      .lte("send_date", today),
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "retry")
-      .lte("send_date", today),
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["reserved", "processing"]),
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "sent")
-      .gte("sent_at", `${today}T00:00:00`),
-    admin.from("notification_events").select("id", { count: "exact", head: true }).eq("status", "failed"),
-    admin.from("notification_events").select("id", { count: "exact", head: true }).eq("type", "certificate_expired"),
-    admin.from("notification_events").select("id", { count: "exact", head: true }).eq("type", "certificate_expiring"),
-  ]);
-
-  return {
-    queue: queueResult.count ?? 0,
-    retry: retryResult.count ?? 0,
-    processing: processingResult.count ?? 0,
-    sentToday: sentTodayResult.count ?? 0,
-    failed: failedResult.count ?? 0,
-    expired: expiredResult.count ?? 0,
-    expiring: expiringResult.count ?? 0,
-  };
-}
-
-type NotificationSummary = Awaited<ReturnType<typeof loadNotificationSummary>>;
+type NotificationSummary = Awaited<ReturnType<typeof lerMetricasOperacao>>;
 
 function buildOperationalFocus(summary: NotificationSummary) {
   const items: Array<{
@@ -162,7 +126,7 @@ function buildOperationalFocus(summary: NotificationSummary) {
     tone: "blue" | "green" | "amber" | "red" | "slate";
   }> = [];
 
-  if (summary.failed > 0) {
+  if (summary.failed != null && summary.failed > 0) {
     items.push({
       title: `${summary.failed} ${summary.failed === 1 ? "envio com falha" : "envios com falha"}`,
       description: "Revise o motivo apresentado e reenfileire apenas o que ainda deve ser enviado.",
@@ -172,9 +136,9 @@ function buildOperationalFocus(summary: NotificationSummary) {
     });
   }
 
-  if (summary.retry > 0) {
+  if (summary.queue && summary.queue.retry > 0) {
     items.push({
-      title: `${summary.retry} ${summary.retry === 1 ? "nova tentativa agendada" : "novas tentativas agendadas"}`,
+      title: `${summary.queue.retry} ${summary.queue.retry === 1 ? "nova tentativa agendada" : "novas tentativas agendadas"}`,
       description: "Esses avisos aguardam a próxima janela de envio definida pelo dispatcher.",
       href: "/notificacoes?status=retry",
       action: "Ver tentativas",
@@ -182,9 +146,9 @@ function buildOperationalFocus(summary: NotificationSummary) {
     });
   }
 
-  if (summary.queue > 0) {
+  if (summary.queue && summary.queue.pending > 0) {
     items.push({
-      title: `${summary.queue} ${summary.queue === 1 ? "mensagem na fila" : "mensagens na fila"}`,
+      title: `${summary.queue.pending} ${summary.queue.pending === 1 ? "mensagem na fila" : "mensagens na fila"}`,
       description: "A fila será consumida respeitando pausa, limites e intervalo seguro entre mensagens.",
       href: "/notificacoes?status=pending",
       action: "Ver fila",
@@ -192,7 +156,7 @@ function buildOperationalFocus(summary: NotificationSummary) {
     });
   }
 
-  if (summary.processing > 0) {
+  if (summary.processing != null && summary.processing > 0) {
     items.push({
       title: `${summary.processing} ${summary.processing === 1 ? "envio em processamento" : "envios em processamento"}`,
       description: "Acompanhe se esses avisos concluem ou voltam para nova tentativa.",
@@ -202,7 +166,7 @@ function buildOperationalFocus(summary: NotificationSummary) {
     });
   }
 
-  if (!items.length) {
+  if (!items.length && !summary.unavailable.length) {
     items.push({
       title: "Sem pendências críticas",
       description: "Não há falhas, retries ou mensagens vencidas aguardando envio neste momento.",
@@ -239,25 +203,21 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
   if (params.pageSize) urlParams.set("pageSize", params.pageSize);
   const pagination = parsePagination(urlParams);
   const admin = createSupabaseAdminClient();
-  const [{ data: settings }, { data: recipients }, searchFilter] = await Promise.all([
-    admin
-      .from("notification_settings")
-      .select("timezone")
-      .eq("id", SETTINGS_ID)
-      .maybeSingle(),
+  const [{ data: recipients }, searchFilter] = await Promise.all([
     admin
       .from("notification_recipients")
       .select("id, nome, telefone_normalizado, ativo")
       .order("nome", { ascending: true }),
     search ? buildNotificationEventSearchFilter(admin, search) : null,
   ]);
-  const today = getTodayDateString(settings?.timezone || "America/Sao_Paulo");
+  const now = new Date();
+  const today = getMetricDateContext(now).today;
   const activeQuickFilter = getActiveQuickFilter({ status, type, sendDate, today });
 
   let query = admin
     .from("notification_events")
     .select(
-      "id, recipient_id, telefone_destino, type, audience, provider, dias_restantes, send_date, status, sent_at, failed_at, attempt_count, max_attempts, next_retry_at, error_message, created_at, clientes(nome_razao_social, cnpj, telefone, whatsapp), certificados(nome_titular, cnpj, data_vencimento), notification_recipients(nome, telefone_normalizado, ativo)",
+      "id, recipient_id, telefone_destino, type, audience, provider, payload, dias_restantes, send_date, status, sent_at, failed_at, attempt_count, max_attempts, next_retry_at, error_message, created_at, clientes(nome_razao_social, cnpj, telefone, whatsapp), certificados(nome_titular, cnpj, data_vencimento), notification_recipients(nome, telefone_normalizado, ativo)",
       { count: "exact" },
     )
     .order("send_date", { ascending: true })
@@ -294,11 +254,11 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
 
   const [{ data: rawEvents, count }, summary] = await Promise.all([
     query,
-    loadNotificationSummary(admin, today),
+    lerMetricasOperacao(admin, getActiveNotificationProvider(), now).catch(() => null),
   ]);
   const events = rawEvents ?? [];
   const paginationMeta = createPaginationMeta(count, pagination.page, pagination.pageSize);
-  const operationalFocus = buildOperationalFocus(summary);
+  const operationalFocus = summary ? buildOperationalFocus(summary) : [];
   const hasFilters = Boolean(search || status || type || sendDate || recipientId || provider || audience);
 
   return (
@@ -311,16 +271,16 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
       <div className="fasa-metrics mb-8 grid grid-cols-2 overflow-hidden border-y border-slate-200 bg-white md:grid-cols-3 2xl:grid-cols-6">
         <StatCard
           title="Na fila"
-          value={summary.queue + summary.retry}
-          description={`${summary.queue} aguardando envio, ${summary.retry} em nova tentativa`}
+          value={summary?.queue?.total ?? "Indisponível"}
+          description={summary?.queue ? `${summary.queue.pending} aguardando envio, ${summary.queue.retry} em nova tentativa; até hoje` : "Não foi possível carregar."}
           icon={Clock3}
           tone="blue"
         />
-        <StatCard title="Processando" value={summary.processing} description="Reservadas ou enviando agora" icon={SendHorizonal} tone="blue" />
-        <StatCard title="Enviadas hoje" value={summary.sentToday} description="Aceitas pelo provedor" icon={CheckCircle2} tone="green" />
-        <StatCard title="Com falha" value={summary.failed} description="Precisam de revisão" icon={AlertTriangle} tone="red" />
-        <StatCard title="Vencidos" value={summary.expired} description="Resumos de vencidos" icon={XCircle} tone="red" />
-        <StatCard title="Próximos" value={summary.expiring} description="Avisos de vencimento" icon={CalendarClock} tone="amber" />
+        <StatCard title="Processando" value={summary?.processing ?? "Indisponível"} description="Reservadas ou enviando agora; todos os canais" icon={SendHorizonal} tone="blue" />
+        <StatCard title="Enviadas hoje" value={summary?.sentToday ?? "Indisponível"} description="Aceitas pelo provedor; todos os canais" icon={CheckCircle2} tone="green" />
+        <StatCard title="Com falha" value={summary?.failed ?? "Indisponível"} description="Precisam de revisão; todos os canais e datas" icon={AlertTriangle} tone="red" />
+        <StatCard title="Resumos de vencidos" value={summary?.expired ?? "Indisponível"} description="Eventos, não certificados; todos os status e datas" icon={XCircle} tone="red" />
+        <StatCard title="Avisos de vencimento" value={summary?.expiring ?? "Indisponível"} description="Eventos, não certificados; todos os status e datas" icon={CalendarClock} tone="amber" />
       </div>
 
       <section className="mb-5 border-b border-slate-200 pb-5">
@@ -332,6 +292,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
           <p className="text-xs font-medium text-slate-500">Data operacional: {formatDate(today)}</p>
         </div>
         <div className="mt-4 grid gap-0 divide-y divide-slate-200 border-y border-slate-200 lg:grid-cols-2 lg:divide-y-0 2xl:grid-cols-4">
+          {!summary || summary.unavailable.length ? <p>Algumas métricas estão indisponíveis. Não foi possível carregar.</p> : null}
           {operationalFocus.map((item) => (
             <article key={item.title} className="min-w-0 px-3 py-3.5 lg:border-r lg:border-slate-200 lg:last:border-r-0">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -439,6 +400,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
             {events.map((event) => {
               const cliente = Array.isArray(event.clientes) ? event.clientes[0] : event.clientes;
               const certificado = Array.isArray(event.certificados) ? event.certificados[0] : event.certificados;
+              const renewalRetry = getRenewalRetryPresentation(event.payload, certificado?.data_vencimento);
               const recipient = Array.isArray(event.notification_recipients)
                 ? event.notification_recipients[0]
                 : event.notification_recipients;
@@ -482,7 +444,9 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                       {safeError}
                     </p>
                   ) : null}
-                  {canManageNotifications && isRetryableNotificationStatus(event.status) ? (
+                  {renewalRetry.renewed ? (
+                    <p title="A validade mudou depois deste aviso. Reenviar mandaria uma data que não vale mais.">Certificado renovado</p>
+                  ) : canManageNotifications && isRetryableNotificationStatus(event.status) ? (
                     <div className="mt-3">
                       <RetryEventButton eventId={event.id} />
                     </div>
@@ -510,6 +474,7 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                 {events.map((event) => {
                   const cliente = Array.isArray(event.clientes) ? event.clientes[0] : event.clientes;
                   const certificado = Array.isArray(event.certificados) ? event.certificados[0] : event.certificados;
+                  const renewalRetry = getRenewalRetryPresentation(event.payload, certificado?.data_vencimento);
                   const recipient = Array.isArray(event.notification_recipients)
                     ? event.notification_recipients[0]
                     : event.notification_recipients;
@@ -566,7 +531,9 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
                         </p>
                       </TableCell>
                       <TableCell>
-                        {canManageNotifications && isRetryableNotificationStatus(event.status) ? (
+                        {renewalRetry.renewed ? (
+                          <span title="A validade mudou depois deste aviso. Reenviar mandaria uma data que não vale mais.">Certificado renovado</span>
+                        ) : canManageNotifications && isRetryableNotificationStatus(event.status) ? (
                           <RetryEventButton eventId={event.id} />
                         ) : (
                           <span className="text-slate-400">-</span>
