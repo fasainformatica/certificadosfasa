@@ -59,3 +59,20 @@ export function getStatusPresentation(selection: StatusSelection): StatusPresent
   const domain: Readonly<Record<string, StatusPresentation>> = STATUS_LABELS[selection.domain];
   return domain[selection.status];
 }
+
+/** Stored event status to the display map. Skipped has no label of its own in the specification. */
+export const NOTICE_DISPLAY_STATUS: Readonly<Record<string, StatusValue<"aviso">>> = {
+  pending: "na_fila", reserved: "processando", processing: "processando", retry: "nova_tentativa",
+  sent: "enviado", failed: "falha", cancelled: "cancelado", skipped: "cancelado",
+};
+
+/** Channel log status; outcomes that are not a delivery state get no badge. */
+export const CHANNEL_LOG_DISPLAY_STATUS: Readonly<Record<string, StatusValue<"aviso">>> = {
+  sent: "enviado", retry: "nova_tentativa", failed: "falha", error: "falha", waiting: "na_fila",
+};
+
+export const CHANNEL_EVENT_LABELS: Readonly<Record<string, string>> = {
+  dispatch: "Execução do envio", operational_safety: "Verificação de segurança", reserve: "Reserva de mensagem",
+  send_text: "Envio de mensagem", extension_ack: "Confirmação da extensão", extension_safety: "Verificação de segurança da extensão",
+  extension_reserve: "Reserva de mensagem pela extensão", manual_certificate_notice: "Aviso manual de certificado",
+};

@@ -1,0 +1,26 @@
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; min-width: 0; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: -8px; }
+.date { margin: 0; color: var(--text-3); font-size: 13px; line-height: 20px; white-space: nowrap; }
+.alerts { display: grid; gap: 8px; }
+.filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; width: 100%; min-width: 0; }
+.table { min-width: 0; }
+.notice { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.repeat { flex-shrink: 0; }
+.repeat::before { display: none; }
+.time { display: block; }
+.renewed { display: inline-flex; align-items: center; white-space: nowrap; }
+/* Collapse instead of removing, so the expanded row colspan stays valid. */
+@media (max-width: 1439px) {
+  .table table col:nth-child(3), .table table col:nth-child(4) { width: 180px !important; }
+  .table table col:nth-child(5) { width: 120px !important; }
+}
+@media (max-width: 1365px) {
+  .table table col:nth-child(4) { width: 0 !important; }
+  .table table th:nth-child(4), .table table td:nth-child(4) { padding: 0; overflow: hidden; visibility: hidden; }
+}
+@media (max-width: 1279px) {
+  .table table col:nth-child(5) { width: 0 !important; }
+  .table table th:nth-child(5), .table table td:nth-child(5) { padding: 0; overflow: hidden; visibility: hidden; }
+}
+@media (min-width: 1280px) { .table dl > div:has(.scheduledDetail) { display: none; } }
+@media (max-width: 767px) { .header { flex-direction: column; gap: 8px; } }

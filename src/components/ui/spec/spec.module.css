@@ -89,7 +89,8 @@ a.kpi:hover { border-color: var(--border-strong); background: var(--surface-hove
 .alert[data-tone='danger'] .alertIcon { color: var(--danger); }
 .alertContent { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .alertContent strong { font-weight: 600; }
-.tabs { display: flex; height: 40px; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; height: 40px; border-bottom: 1px solid var(--border); }
+.tabs::-webkit-scrollbar { display: none; }
 .tab { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; height: 40px; padding: 0 12px; border-bottom: 2px solid transparent; color: var(--text-2); font-weight: 500; white-space: nowrap; }
 .tab[aria-current='page'] { color: var(--primary); border-bottom-color: var(--primary); }
 .tab .badge { height: 20px; }
@@ -137,7 +138,5 @@ a.keyRow:hover { background: var(--surface-hover); }
   .pagination { gap: 8px; }
   .alert { flex-wrap: wrap; align-items: flex-start; }
   .alert > .link { margin-left: 28px; flex-basis: 100%; }
-  .tabs { overflow-x: auto; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
   .panelHeader { flex-wrap: wrap; }
 }
