@@ -1,782 +1,298 @@
 "use client";
 
-import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-  MessageCircle,
-  RefreshCw,
-  Search,
-  Send,
-  ShieldCheck,
-  Smartphone,
-} from "lucide-react";
+import { CirclePause, CirclePlay, RefreshCw, Search, Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 
-import { buttonClass, inputClass } from "@/components/ui/button-styles";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Badge, type Tone } from "@/components/ui/status-badge";
-import { formatCnpj, formatDateTimeShort, formatDisplayName } from "@/lib/utils/format";
+import { AlertBanner, Button, Disclosure, Panel, StatInline, StatusBadge, TableText } from "@/components/ui/spec";
+import spec from "@/components/ui/spec/spec.module.css";
+import { getClientDisplayName } from "@/lib/clientes/list-presentation";
+import { formatCnpj, formatCount, formatDateTime, formatRelative } from "@/lib/format";
+import { CHANNEL_EVENT_LABELS, CHANNEL_LOG_DISPLAY_STATUS } from "@/lib/status-labels";
 import type { WhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
-import type { WhatsAppPhoneQualityIssueType, WhatsAppPhoneQualitySummary } from "@/lib/whatsapp/phone-quality";
-import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
-type EuAtendoConfig = {
-  enabled: boolean;
-  apiUrlConfigured: boolean;
-  tokenConfigured: boolean;
-  instanceConfigured: boolean;
-};
+import styles from "./whatsapp.module.css";
 
-type ExtensionConfig = {
-  enabled: boolean;
-  tokenConfigured: boolean;
-  activeProvider: boolean;
-};
-
-type EuAtendoStats = {
-  pending: number;
-  retry: number;
-  failed: number;
-  sentToday: number;
-  sentMonth: number;
-  processing: number;
-  lastSentAt: string | null;
-  averageDurationMs: number | null;
-};
-
-type EuAtendoState = {
-  provider: string;
-  last_dispatch_at: string | null;
-  next_allowed_send_at: string;
-  locked_until: string | null;
-  updated_at: string;
-} | null;
-
-type EuAtendoLog = {
-  id: string;
-  event_id: string | null;
-  audience: string | null;
-  operation: string;
-  telefone_mascarado: string | null;
-  template_type: string | null;
-  duration_ms: number | null;
-  status: string;
-  attempt_count: number | null;
-  error_code: string | null;
-  error_message: string | null;
-  response_id: string | null;
-  created_at: string;
-};
-
-type EuAtendoHealthPayload = {
-  health?: {
-    ok: boolean;
-    latencyMs: number | null;
-    errorCode: string | null;
-    errorMessage: string | null;
-    instance: {
-      connected: boolean;
-      status: string | null;
-      profileName: string | null;
-      phoneNumber: string | null;
-      serverType: string | null;
-      cached: boolean | null;
-    } | null;
-    listedInstance: {
-      id: string;
-      name: string | null;
-      status: string | null;
-      phoneNumber: string | null;
-      profileName: string | null;
-      serverType: string | null;
-    } | null;
+type ClientRef = { id: string; name: string; cnpj: string };
+export type WhatsAppPanelProps = {
+  channel: string; configured: boolean; automationEnabled: boolean | null; safety: WhatsAppOperationalSafetySnapshot | null;
+  queue: {
+    total: number | null; failed: number | null; lastSentAt: string | null; lastSentUnavailable: boolean;
+    notice: "unavailable" | "empty" | "interval" | "stalled" | "none"; nextAllowedAt: string | null; knownReason: string;
+    lockedUntil: string | null; sentMonth: number | null; processing: number | null; averageMs: number | null | "unavailable";
   };
-  error?: {
-    message?: string;
-  } | string;
+  logs: Array<{ id: string; audience: string | null; operation: string; duration_ms: number | null; status: string; attempt_count: number | null; response_id: string | null; created_at: string }> | null;
+  quality: {
+    ready: number; missing: number; invalid: number; repeated: number; groups: number; blocked: number;
+    limited: { analyzed: number; total: number } | null; missingSamples: ClientRef[]; duplicates: Array<{ phone: string; clients: ClientRef[] }>;
+  } | null;
 };
 
-type CheckNumberPayload = {
-  result?: {
-    number: string;
-    exists: boolean | null;
-    jid_found: boolean;
-  };
-  error?: {
-    message?: string;
-  } | string;
+type ApiError = { error?: { message?: string } | string };
+type HealthPayload = ApiError & {
+  health?: { ok: boolean; errorMessage: string | null; instance: { phoneNumber: string | null } | null };
 };
+type CheckNumberPayload = ApiError & { result?: { exists: boolean | null } };
+type TestMessagePayload = ApiError & { result?: { accepted: boolean } };
 
-type TestMessagePayload = {
-  result?: {
-    accepted: boolean;
-    provider: string;
-    provider_message_id: string | null;
-    provider_status: string | null;
-    chat_id: string | null;
-    http_status: number | null;
-  };
-  error?: {
-    message?: string;
-  } | string;
-};
-
-function getErrorMessage(payload: EuAtendoHealthPayload | CheckNumberPayload | TestMessagePayload | null, fallback: string) {
-  if (!payload?.error) {
-    return fallback;
-  }
-
+function getErrorMessage(payload: ApiError | null, fallback: string) {
+  if (!payload?.error) return fallback;
   return typeof payload.error === "string" ? payload.error : payload.error.message ?? fallback;
 }
 
-function MetricCard({
-  title,
-  value,
-  description,
-  icon,
-  tone = "blue",
-}: {
-  title: string;
-  value: ReactNode;
-  description?: string;
-  icon: ReactNode;
-  tone?: Tone;
-}) {
-  const toneClasses: Record<Tone, string> = {
-    blue: "text-slate-500",
-    green: "text-emerald-700",
-    amber: "text-amber-700",
-    red: "text-red-700",
-    slate: "text-slate-500",
-  };
+async function request<T extends ApiError>(url: string, init: RequestInit): Promise<{ ok: boolean; payload: T | null }> {
+  const response = await fetch(url, init).catch(() => null);
+  const payload = (await response?.json().catch(() => null) ?? null) as T | null;
+  return { ok: response?.ok === true, payload };
+}
 
-  return (
-    <article className="min-w-0 border-b border-slate-200 px-4 py-4 sm:border-r sm:px-5 sm:py-5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-slate-600">{title}</p>
-        <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${toneClasses[tone]}`}>{icon}</span>
+function post(body: unknown): RequestInit {
+  return { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+}
+
+export function formatDuration(ms: number) {
+  return ms < 1000 ? `${formatCount(ms)} ms` : `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
+}
+
+export function formatFailureWindow(minutes: number) {
+  if (minutes === 60) return "na última hora";
+  if (minutes === 1440) return "nas últimas 24 horas";
+  return minutes % 60 === 0 ? `nas últimas ${minutes / 60} horas` : `nos últimos ${formatCount(minutes)} minutos`;
+}
+
+function count(value: number | null) {
+  return value === null ? "Indisponível" : formatCount(value);
+}
+
+function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const ratio = limit > 0 ? Math.min(1, used / limit) : 0;
+  return <div>
+    <div className={styles.meterLabel}>{label}</div>
+    <div className={styles.meterValue}>{formatCount(used)} de {formatCount(limit)}</div>
+    <div className={styles.bar} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={Math.min(used, limit)}
+      data-tone={ratio >= 1 ? "danger" : ratio >= 0.8 ? "warning" : "none"}><span style={{ width: `${ratio * 100}%` }} /></div>
+  </div>;
+}
+
+function QueueNotice({ queue }: { queue: WhatsAppPanelProps["queue"] }) {
+  if (queue.notice === "empty") return <p className={styles.muted}>Nenhuma mensagem aguardando envio.</p>;
+  if (queue.notice === "interval") return <AlertBanner tone="info">Próximo envio liberado a partir de {formatDateTime(queue.nextAllowedAt)}.</AlertBanner>;
+  if (queue.notice === "stalled") return <AlertBanner tone="warning">
+    <strong>{count(queue.total)} {queue.total === 1 ? "mensagem" : "mensagens"} na fila</strong> e nenhum envio {queue.lastSentAt ? `desde ${formatDateTime(queue.lastSentAt)}` : "registrado"}. {queue.knownReason}
+  </AlertBanner>;
+  return queue.notice === "unavailable" ? <p className={styles.muted}>Indisponível. Não foi possível carregar.</p> : null;
+}
+
+function QueuePanel({ queue, logs }: Pick<WhatsAppPanelProps, "queue" | "logs">) {
+  const average = queue.averageMs === "unavailable" ? "Indisponível" : queue.averageMs === null ? "Sem medições" : formatDuration(queue.averageMs);
+  return <Panel title="Fila de envio" description="Mensagens aguardando o canal e últimos eventos."
+    actions={<Link href="/notificacoes?aba=pendentes" className={styles.link}>Abrir na Central de avisos</Link>}>
+    <div className={styles.stack}>
+      <div className={styles.stats}>
+        <StatInline label="Na fila" value={count(queue.total)} href="/notificacoes?aba=fila" />
+        <StatInline label="Falhas aguardando revisão" value={count(queue.failed)} href="/notificacoes?aba=falhas" />
+        <StatInline label="Último envio" value={queue.lastSentUnavailable ? "Indisponível" : queue.lastSentAt ? formatDateTime(queue.lastSentAt) : "Sem medições"}
+          description={queue.lastSentAt ? formatRelative(queue.lastSentAt) : undefined} />
       </div>
-      <div className="mt-2 break-words text-[1.55rem] font-semibold leading-tight tabular-nums text-slate-950">{value}</div>
-      {description ? <p className="mt-1 text-xs leading-5 text-slate-500" title={description}>{description}</p> : null}
-    </article>
-  );
-}
-
-function formatDuration(ms: number | null) {
-  if (ms === null) {
-    return "-";
-  }
-
-  if (ms < 1000) {
-    return `${ms} ms`;
-  }
-
-  return `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
-}
-
-function getLogStatusMeta(status: string): { label: string; tone: Tone } {
-  if (status === "sent") {
-    return { label: "Mensagem enviada", tone: "green" };
-  }
-
-  if (status === "retry") {
-    return { label: "Nova tentativa agendada", tone: "amber" };
-  }
-
-  if (status === "failed" || status === "error") {
-    return { label: "Não foi possível enviar", tone: "red" };
-  }
-
-  return { label: "Registrado", tone: "blue" };
-}
-
-function getSafeLogMessage(log: EuAtendoLog) {
-  const raw = `${log.error_code ?? ""} ${log.error_message ?? ""}`.toLowerCase();
-
-  if (!raw.trim()) {
-    return null;
-  }
-
-  if (raw.includes("provider_disabled") || raw.includes("feature flag")) {
-    return "Envio automático pausado pela configuração.";
-  }
-
-  if (raw.includes("for update") || raw.includes("reserve")) {
-    return "Não foi possível reservar a próxima mensagem.";
-  }
-
-  if (raw.includes("timeout") || raw.includes("rate")) {
-    return "A integração demorou para responder. Uma nova tentativa poderá ser feita automaticamente.";
-  }
-
-  return "Não foi possível concluir o envio. Verifique a integração e tente novamente.";
-}
-
-function getPhoneIssueTone(type: WhatsAppPhoneQualityIssueType): Tone {
-  if (type === "notifications_disabled") {
-    return "slate";
-  }
-
-  return type === "missing_phone" ? "amber" : "red";
-}
-
-function PhoneQualityPanel({ quality }: { quality: WhatsAppPhoneQualitySummary }) {
-  const actionableIssueCount = quality.missingPhoneCount + quality.invalidPhoneCount;
-  const hasIssueSamples = quality.issueSamples.length > 0;
-  const hasDuplicateGroups = quality.duplicateGroups.length > 0;
-
-  return (
-    <div className="grid gap-3 border-t border-slate-200 pt-4">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-950">Qualidade dos telefones</h3>
-            <Badge tone={actionableIssueCount ? "amber" : "green"}>
-              {actionableIssueCount ? "Revisar cadastros" : "Base pronta para envio"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            Diagnóstico dos telefones usados pela fila automática. Nenhum número é verificado no WhatsApp aqui.
-          </p>
-          {quality.analysisLimited ? (
-            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-              Foram analisados {quality.analyzedClients} de {quality.totalClients} clientes. Use a lista de clientes para revisar o restante.
-            </p>
-          ) : null}
-        </div>
-        <Link href="/clientes" className={buttonClass("secondary", "h-10 px-4")}>
-          Revisar clientes
-        </Link>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          title="Prontos para envio"
-          value={quality.readyToSendCount}
-          description="Com avisos permitidos e telefone válido"
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          tone="green"
-        />
-        <MetricCard
-          title="Sem telefone"
-          value={quality.missingPhoneCount}
-          description="Podem falhar ao criar aviso"
-          icon={<Smartphone className="h-4 w-4" />}
-          tone={quality.missingPhoneCount ? "amber" : "slate"}
-        />
-        <MetricCard
-          title="Formato inválido"
-          value={quality.invalidPhoneCount}
-          description="Revise DDD e número"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          tone={quality.invalidPhoneCount ? "red" : "slate"}
-        />
-        <MetricCard
-          title="Números repetidos"
-          value={quality.duplicateClientCount}
-          description={`${quality.duplicateGroupCount} grupos encontrados`}
-          icon={<Activity className="h-4 w-4" />}
-          tone={quality.duplicateGroupCount ? "amber" : "slate"}
-        />
-        <MetricCard
-          title="Avisos bloqueados"
-          value={quality.notificationsDisabledCount}
-          description="Clientes fora da fila automática"
-          icon={<ShieldCheck className="h-4 w-4" />}
-          tone={quality.notificationsDisabledCount ? "slate" : "green"}
-        />
-      </div>
-
-      {!hasIssueSamples && !hasDuplicateGroups ? (
-        <p className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-          Não há inconsistências críticas nos telefones analisados.
-        </p>
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {hasIssueSamples ? (
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cadastros para revisar</p>
-              {quality.issueSamples.map((issue) => (
-                <article key={`${issue.type}-${issue.clientId}`} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={getPhoneIssueTone(issue.type)}>{issue.title}</Badge>
-                    <span className="text-xs font-semibold text-slate-500">{issue.phoneMasked ?? "Sem telefone"}</span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatDisplayName(issue.clientName)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{formatCnpj(issue.cnpj)}</p>
-                  <p className="mt-2 text-xs text-slate-600">{issue.description}</p>
-                  <Link
-                    href={`/clientes?q=${encodeURIComponent(issue.cnpj)}`}
-                    className="mt-3 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    Abrir cadastro
-                  </Link>
-                </article>
-              ))}
-            </div>
-          ) : null}
-
-          {hasDuplicateGroups ? (
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Números repetidos</p>
-              {quality.duplicateGroups.map((group) => (
-                <article key={group.normalizedPhone} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone="amber">{group.count} clientes</Badge>
-                    <span className="text-xs font-semibold text-slate-500">{group.phoneMasked}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-600">
-                    Pode estar correto quando o mesmo responsável recebe avisos de vários clientes. Revise se não for intencional.
-                  </p>
-                  <ul className="mt-2 grid gap-1">
-                    {group.clients.map((client) => (
-                      <li key={`${group.normalizedPhone}-${client.id}`} className="text-xs text-slate-600">
-                        <Link
-                          href={`/clientes?q=${encodeURIComponent(client.cnpj)}`}
-                          className="font-semibold text-slate-800 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
-                          {formatDisplayName(client.name)}
-                        </Link>{" "}
-                        <span className="text-slate-500">{formatCnpj(client.cnpj)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
+      <QueueNotice queue={queue} />
+      {queue.lockedUntil && <p className={styles.muted}>Reservado para envio: até {formatDateTime(queue.lockedUntil)}</p>}
+      <p className={styles.muted}>No mês: {count(queue.sentMonth)} enviadas · Tempo médio hoje: {average} · Enviando agora: {count(queue.processing)}</p>
+      <h3 className={styles.subtitle} style={{ marginTop: 8 }}>Últimos eventos da fila</h3>
+      {logs === null ? <p className={styles.muted}>Indisponível. Não foi possível carregar.</p> : !logs.length ? <p className={styles.muted}>Nenhum evento registrado.</p> :
+        <ul className={styles.events}>{logs.map((log) => {
+          const status = CHANNEL_LOG_DISPLAY_STATUS[log.status];
+          const extra = [log.attempt_count ? `Tentativa ${log.attempt_count}` : null, log.duration_ms !== null ? formatDuration(log.duration_ms) : null].filter(Boolean).join(" · ");
+          return <li key={log.id} className={styles.event} title={log.response_id ? `ID técnico: ${log.response_id}` : undefined}>
+            <span className={styles.muted}>{formatDateTime(log.created_at)}</span>
+            <span>{CHANNEL_EVENT_LABELS[log.operation] ?? "Evento do canal"}{extra && <span className={styles.muted}> · {extra}</span>}</span>
+            <span className={styles.muted}>{log.audience === "client" ? "Cliente" : log.audience === "internal" ? "Equipe interna" : ""}</span>
+            <span>{status && <StatusBadge domain="aviso" status={status} />}</span>
+          </li>;
+        })}</ul>}
     </div>
-  );
+  </Panel>;
 }
 
-export function CanalWhatsAppPanel({
-  euAtendo,
-}: {
-  euAtendo: {
-    config: EuAtendoConfig;
-    extensionConfig: ExtensionConfig;
-    activeProvider: string;
-    activeProviderLabel: string;
-    notificationSettingsEnabled: boolean;
-    safety: WhatsAppOperationalSafetySnapshot;
-    phoneQuality: WhatsAppPhoneQualitySummary;
-    stats: EuAtendoStats;
-    state: EuAtendoState;
-    logs: EuAtendoLog[];
-  };
-}) {
-  const router = useRouter();
-  const [pending, setPending] = useState<"health" | "number" | "message" | null>(null);
-  const [automationPending, setAutomationPending] = useState<"pause" | "resume" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [health, setHealth] = useState<EuAtendoHealthPayload["health"] | null>(null);
-  const [numberCheck, setNumberCheck] = useState<CheckNumberPayload["result"] | null>(null);
-  const [testResult, setTestResult] = useState<TestMessagePayload["result"] | null>(null);
-  const [dispatchPaused, setDispatchPaused] = useState(euAtendo.safety.dispatchPaused);
-  const [dispatchPauseReason, setDispatchPauseReason] = useState(euAtendo.safety.pauseReason);
-  const activeProviderIsExtension = euAtendo.activeProvider === WHATSAPP_EXTENSION_PROVIDER;
-  const configured = activeProviderIsExtension
-    ? euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured
-    : euAtendo.config.apiUrlConfigured && euAtendo.config.tokenConfigured && euAtendo.config.instanceConfigured;
-  const automationEnabled = activeProviderIsExtension
-    ? euAtendo.notificationSettingsEnabled && euAtendo.extensionConfig.enabled && euAtendo.extensionConfig.tokenConfigured && !dispatchPaused
-    : euAtendo.notificationSettingsEnabled && euAtendo.config.enabled && !dispatchPaused;
-  const healthStatus = health?.ok
-    ? { label: "Conectado", tone: "green" as const }
-    : health
-      ? { label: "Desconectado", tone: "red" as const }
-      : { label: "Não verificado", tone: "slate" as const };
-  const queueTotal = euAtendo.stats.pending + euAtendo.stats.retry;
+function QualityPanel({ quality }: Pick<WhatsAppPanelProps, "quality">) {
+  return <Panel title="Qualidade dos telefones" description="Cadastros usados pela fila automática. Nenhum número é testado no WhatsApp aqui."
+    actions={<Link href="/clientes?contato=sem_contato" className={styles.link}>Revisar na lista de clientes</Link>} state={quality ? "ok" : "error"}>
+    {quality && <div className={styles.stack} style={{ gap: 20 }}>
+      {quality.limited && <p className={styles.muted}>Foram analisados {formatCount(quality.limited.analyzed)} de {formatCount(quality.limited.total)} clientes.</p>}
+      <div className={styles.stats}>
+        <StatInline label="Prontos para envio" value={formatCount(quality.ready)} description="Avisos permitidos e telefone válido" />
+        <StatInline label="Sem telefone" value={<span className={quality.missing ? styles.warningValue : undefined}>{formatCount(quality.missing)}</span>} description="Não recebem aviso" />
+        <StatInline label="Formato inválido" value={formatCount(quality.invalid)} description="Revisar DDD e número" />
+        <StatInline label="Números repetidos" value={formatCount(quality.repeated)} description={`${formatCount(quality.groups)} ${quality.groups === 1 ? "grupo" : "grupos"}`} />
+        <StatInline label="Avisos bloqueados" value={formatCount(quality.blocked)} description="Fora da fila automática" />
+      </div>
+      <div className={styles.columns}>
+        <div>
+          <h3 className={styles.subtitle}>Sem telefone ({formatCount(quality.missingSamples.length)} de {formatCount(quality.missing)})</h3>
+          <p className={styles.muted}>Cadastre um WhatsApp ou desative os avisos de cada cliente.</p>
+          {quality.missingSamples.length > 0 && <>
+            <ul className={styles.box}>{quality.missingSamples.map((client) => <li key={client.id}>
+              <div><TableText primary={getClientDisplayName(client.name, client.cnpj)} secondary={formatCnpj(client.cnpj)} /></div>
+              <Link href={`/clientes/${client.id}`} className={styles.link}>Abrir cadastro</Link>
+            </li>)}</ul>
+            <Link href="/clientes?contato=sem_contato" className={styles.link}>Ver os {formatCount(quality.missing)} em Clientes</Link>
+          </>}
+        </div>
+        <div>
+          <h3 className={styles.subtitle}>Números repetidos ({formatCount(quality.groups)} {quality.groups === 1 ? "grupo" : "grupos"})</h3>
+          <p className={styles.muted}>Pode estar certo quando o mesmo responsável recebe avisos de vários clientes.</p>
+          {!quality.duplicates.length ? <p className={styles.muted}>Nenhum número repetido.</p> : quality.duplicates.map((group, index) =>
+            <div key={index} className={styles.group}>
+              <div className={styles.row}><strong>{group.phone}</strong><span className={`${spec.badge} ${styles.plain}`} data-tone="neutral">{formatCount(group.clients.length)} clientes</span></div>
+              {group.clients.map((client) => <span key={client.id}>{getClientDisplayName(client.name, client.cnpj)} · {formatCnpj(client.cnpj)}</span>)}
+            </div>)}
+        </div>
+      </div>
+    </div>}
+  </Panel>;
+}
 
-  async function setAutomationPaused(paused: boolean) {
-    setAutomationPending(paused ? "pause" : "resume");
-    setError(null);
-
-    const response = await fetch("/api/whatsapp/automation", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        paused,
-        reason: paused ? "Pausa manual acionada na central do WhatsApp." : null,
-      }),
-    });
-    const payload = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      setError(getErrorMessage(payload, "Não foi possível alterar a pausa operacional do WhatsApp."));
-      setAutomationPending(null);
-      return;
-    }
-
-    setDispatchPaused(paused);
-    setDispatchPauseReason(paused ? "Pausa manual acionada na central do WhatsApp." : null);
-    setAutomationPending(null);
-    router.refresh();
-  }
-
-  async function testHealth() {
-    setPending("health");
-    setError(null);
-    setHealth(null);
-
-    const response = await fetch("/api/whatsapp/euatendo/health", { method: "GET" });
-    const payload = (await response.json().catch(() => null)) as EuAtendoHealthPayload | null;
-
-    if (!response.ok || !payload?.health) {
-      setError(getErrorMessage(payload, "Não foi possível validar a conexão do WhatsApp. Verifique as configurações da integração."));
-      setPending(null);
-      return;
-    }
-
-    setHealth(payload.health);
-    setPending(null);
-  }
+function HomologationPanel() {
+  const id = useId();
+  const [pending, setPending] = useState<"number" | "message" | null>(null);
+  const [numberResult, setNumberResult] = useState<{ tone: "success" | "danger" | "muted"; text: string } | null>(null);
+  const [messageResult, setMessageResult] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [confirmError, setConfirmError] = useState(false);
 
   async function checkNumber(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setPending("number");
-    setError(null);
-    setNumberCheck(null);
-
-    const response = await fetch("/api/whatsapp/euatendo/check-number", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ number: form.get("number") }),
-    });
-    const payload = (await response.json().catch(() => null)) as CheckNumberPayload | null;
-
-    if (!response.ok || !payload?.result) {
-      setError(getErrorMessage(payload, "Não foi possível verificar o número. Revise o telefone informado e tente novamente."));
-      setPending(null);
+    setNumberResult(null);
+    const { ok, payload } = await request<CheckNumberPayload>("/api/whatsapp/euatendo/check-number", post({ number: form.get("number") }));
+    setPending(null);
+    if (!ok || !payload?.result) {
+      setNumberResult({ tone: "danger", text: getErrorMessage(payload, "Não foi possível verificar o número. Revise o telefone informado e tente novamente.") });
       return;
     }
-
-    setNumberCheck(payload.result);
-    setPending(null);
+    const { exists } = payload.result;
+    setNumberResult(exists === true ? { tone: "success", text: "Número disponível no WhatsApp." }
+      : exists === false ? { tone: "danger", text: "O número informado não está disponível no WhatsApp." }
+        : { tone: "muted", text: "A integração não confirmou a disponibilidade do número." });
   }
 
   async function sendTestMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const confirmed = form.get("confirm_send") === "on";
+    setConfirmError(!confirmed);
+    setMessageResult(null);
+    if (!confirmed) return;
     setPending("message");
-    setError(null);
-    setTestResult(null);
-
-    const response = await fetch("/api/whatsapp/euatendo/test-message", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        number: form.get("number"),
-        message: form.get("message"),
-        check_number: form.get("check_number") === "on",
-        confirm_send: form.get("confirm_send") === "on",
-      }),
-    });
-    const payload = (await response.json().catch(() => null)) as TestMessagePayload | null;
-
-    if (!response.ok || !payload?.result) {
-      setError(getErrorMessage(payload, "Não foi possível enviar a mensagem de teste. Verifique a conexão do WhatsApp e tente novamente."));
-      setPending(null);
-      return;
-    }
-
-    setTestResult(payload.result);
+    const { ok, payload } = await request<TestMessagePayload>("/api/whatsapp/euatendo/test-message", post({
+      number: form.get("number"), message: form.get("message"), check_number: form.get("check_number") === "on", confirm_send: confirmed,
+    }));
     setPending(null);
+    setMessageResult(ok && payload?.result ? { tone: "success", text: "Mensagem de teste enviada." }
+      : { tone: "danger", text: getErrorMessage(payload, "Não foi possível enviar a mensagem de teste. Verifique a conexão do WhatsApp e tente novamente.") });
   }
 
-  return (
-    <div className="grid gap-10">
-      <section className="grid gap-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-950">Operação do WhatsApp</h2>
-              <Badge tone="blue">Canal ativo: {euAtendo.activeProviderLabel}</Badge>
-              <Badge tone={healthStatus.tone}>{healthStatus.label}</Badge>
-              <Badge tone={automationEnabled ? "green" : "slate"}>
-                {automationEnabled ? "Envio automático ativo" : "Envio automático pausado"}
-              </Badge>
-            </div>
-            <p className="mt-1 text-sm text-slate-600">
-              Acompanhe a fila dos avisos de vencimento e valide o canal quando necessário.
-            </p>
-            {!euAtendo.notificationSettingsEnabled ? (
-              <p className="mt-2 text-sm font-medium text-amber-700">
-                O envio automático está pausado nas Configurações do sistema.
-              </p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={testHealth}
-            disabled={pending === "health"}
-            className={buttonClass("primary", "h-10 px-4")}
-          >
-            {pending === "health" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {pending === "health" ? "Validando conexão" : "Validar conexão"}
-          </button>
+  return <Disclosure title="Testes de homologação" description="Use só números controlados. Não usa dados de certificado e não entra na fila automática." storageKey="fasa-whatsapp-homologacao">
+    <div className={styles.tests}>
+      <form onSubmit={checkNumber} className={styles.form}>
+        <h3 className={styles.subtitle}>Verificar número</h3>
+        <div className={styles.inline}>
+          <div className={styles.field}><label htmlFor={`${id}-check`}>Telefone</label>
+            <input id={`${id}-check`} name="number" type="tel" required placeholder="(15) 99999-9999" className={spec.input} /></div>
+          <Button type="submit" variant="secondary" icon={Search} disabled={pending === "number"}>{pending === "number" ? "Verificando" : "Verificar"}</Button>
         </div>
-
-        <div className="grid overflow-hidden border-y border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Integração configurada"
-            value={<Badge tone={configured ? "green" : "red"}>{configured ? "Sim" : "Não"}</Badge>}
-            description={activeProviderIsExtension ? "Extensão configurada no servidor" : "Integração configurada no servidor"}
-            icon={<ShieldCheck className="h-4 w-4" />}
-            tone={configured ? "green" : "red"}
-          />
-          <MetricCard
-            title="Instância conectada"
-            value={<span className="text-xl">{health?.instance?.profileName ?? health?.listedInstance?.name ?? "-"}</span>}
-            description={health?.instance?.phoneNumber ?? "Valide a conexão para ver o número mascarado"}
-            icon={<Smartphone className="h-4 w-4" />}
-            tone={health?.ok ? "green" : "blue"}
-          />
-          <MetricCard
-            title="Mensagens na fila"
-            value={queueTotal}
-            description={`${euAtendo.stats.retry} com nova tentativa agendada`}
-            icon={<Clock3 className="h-4 w-4" />}
-            tone="blue"
-          />
-          <MetricCard
-            title="Mensagens enviadas hoje"
-            value={euAtendo.stats.sentToday}
-            description={euAtendo.stats.lastSentAt ? `Último envio às ${formatDateTimeShort(euAtendo.stats.lastSentAt)}` : "Nenhum envio hoje"}
-            icon={<Send className="h-4 w-4" />}
-            tone="green"
-          />
-          <MetricCard title="Enviadas no mês" value={euAtendo.stats.sentMonth} description="Mensagens aceitas pela integração" icon={<CheckCircle2 className="h-4 w-4" />} tone="green" />
-          <MetricCard title="Em processamento" value={euAtendo.stats.processing} description="Reservadas ou enviando agora" icon={<Activity className="h-4 w-4" />} tone="amber" />
-          <MetricCard title="Envios com falha" value={euAtendo.stats.failed} description="Precisam de atenção" icon={<AlertTriangle className="h-4 w-4" />} tone="red" />
-          <MetricCard
-            title="Tempo médio de envio"
-            value={<span className="text-xl">{formatDuration(euAtendo.stats.averageDurationMs)}</span>}
-            description="Média dos envios aceitos hoje"
-            icon={<Clock3 className="h-4 w-4" />}
-            tone="slate"
-          />
-        </div>
-
-        <PhoneQualityPanel quality={euAtendo.phoneQuality} />
-
-        <div className="grid gap-3 border-y border-slate-200 py-5 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-950">Segurança operacional</h3>
-              <Badge tone={automationEnabled ? "green" : "amber"}>
-                {automationEnabled ? "Envio liberado" : "Envio pausado"}
-              </Badge>
-              <Badge tone={euAtendo.safety.autoPauseEnabled ? "blue" : "slate"}>
-                {euAtendo.safety.autoPauseEnabled ? "Pausa automática ativa" : "Pausa automática desligada"}
-              </Badge>
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <div className="border-r border-slate-200 pr-3">
-                <p className="text-xs font-semibold text-slate-500">Limite diário</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950">
-                  {euAtendo.safety.sentToday} de {euAtendo.safety.dailyLimit}
-                </p>
-              </div>
-              <div className="border-r border-slate-200 pr-3">
-                <p className="text-xs font-semibold text-slate-500">Limite por hora</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950">
-                  {euAtendo.safety.sentLastHour} de {euAtendo.safety.hourlyLimit}
-                </p>
-              </div>
-              <div className="pr-3">
-                <p className="text-xs font-semibold text-slate-500">Falhas recentes</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950">
-                  {euAtendo.safety.failuresInWindow} de {euAtendo.safety.failurePauseThreshold}
-                </p>
-              </div>
-            </div>
-            {dispatchPaused || euAtendo.safety.blockedMessage ? (
-              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                {dispatchPauseReason || euAtendo.safety.blockedMessage}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-            {dispatchPaused ? (
-              <button
-                type="button"
-                onClick={() => setAutomationPaused(false)}
-                disabled={automationPending !== null}
-                className={buttonClass("primary", "h-10 px-4")}
-              >
-                {automationPending === "resume" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Retomar envio
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAutomationPaused(true)}
-                disabled={automationPending !== null}
-                className={buttonClass("danger", "h-10 px-4")}
-              >
-                {automationPending === "pause" ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
-                Pausar envio agora
-              </button>
-            )}
-          </div>
-        </div>
-
-        {health ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700" aria-live="polite">
-            <p className="font-semibold text-slate-950">
-              Resultado da conexão: {health.ok ? "instância pronta para envio" : "precisa de atenção"}
-            </p>
-            <p className="mt-1">
-              Status: {health.instance?.status ?? "-"} | Servidor: {health.instance?.serverType ?? "-"} | Latência:{" "}
-              {health.latencyMs !== null ? formatDuration(health.latencyMs) : "-"}
-            </p>
-            {!health.ok ? (
-              <p className="mt-1 text-red-700">Não foi possível validar a instância. Verifique as configurações da integração.</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="grid gap-6 xl:grid-cols-2">
-          <form onSubmit={checkNumber} className="grid content-start gap-3 border-t border-slate-200 py-5">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-950">Verificar número</h3>
-              <p className="mt-1 text-xs text-slate-500">Use números controlados para homologação.</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input name="number" required placeholder="(11) 99999-9999" className={inputClass} aria-label="Número para verificar no WhatsApp" />
-              <button type="submit" disabled={pending === "number"} className={buttonClass("secondary", "h-10 px-4")}>
-                {pending === "number" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                {pending === "number" ? "Verificando número" : "Verificar número"}
-              </button>
-            </div>
-            {numberCheck ? (
-              <p className="text-sm text-slate-700" aria-live="polite">
-                {numberCheck.exists === true
-                  ? "Número disponível no WhatsApp."
-                  : numberCheck.exists === false
-                    ? "O número informado não está disponível no WhatsApp."
-                    : "A integração não confirmou a disponibilidade do número."}
-              </p>
-            ) : null}
-          </form>
-
-          <form onSubmit={sendTestMessage} className="grid gap-3 border-t border-slate-200 py-5">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-950">Mensagem de teste</h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Não usa dados de certificado, não entra na fila automática e serve apenas para homologação.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
-              <input name="number" required placeholder="(11) 99999-9999" className={inputClass} aria-label="Número para mensagem de teste" />
-              <input
-                name="message"
-                required
-                maxLength={1200}
-                placeholder="Digite uma mensagem para validar o envio"
-                className={inputClass}
-                aria-label="Mensagem de teste"
-              />
-            </div>
-            <div className="flex flex-col gap-2 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <label className="inline-flex items-center gap-2">
-                <input name="check_number" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                Verificar número antes de enviar
-              </label>
-              <label className="inline-flex items-center gap-2 font-semibold text-slate-800">
-                <input name="confirm_send" type="checkbox" required className="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                Confirmo o envio controlado
-              </label>
-            </div>
-            <button type="submit" disabled={pending === "message"} className={buttonClass("primary", "h-10 w-full")}>
-              {pending === "message" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
-              {pending === "message" ? "Enviando mensagem" : "Enviar mensagem de teste"}
-            </button>
-            {testResult ? (
-              <p className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700" aria-live="polite">
-                Mensagem de teste enviada.
-              </p>
-            ) : null}
-          </form>
-        </div>
-
-        {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p> : null}
-      </section>
-
-      <section className="grid gap-4 border-t border-slate-200 pt-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">Fila automática</h2>
-            <p className="mt-1 text-sm text-slate-600">Cadência, reserva atual e últimos envios sanitizados.</p>
-          </div>
-          <Badge tone={automationEnabled ? "green" : "slate"}>
-            {automationEnabled ? "Envio automático ativo" : "Envio automático pausado"}
-          </Badge>
-        </div>
-
-        <div className="grid gap-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white px-4 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
-          <div className="py-3 sm:pr-4">
-            <p className="text-xs font-semibold text-blue-700">Próximo envio permitido</p>
-            <p className="mt-1 text-sm font-semibold text-slate-950">
-              {euAtendo.state?.next_allowed_send_at ? formatDateTimeShort(euAtendo.state.next_allowed_send_at) : "-"}
-            </p>
-          </div>
-          <div className="py-3 sm:px-4">
-            <p className="text-xs font-semibold text-slate-600">Último envio automático</p>
-            <p className="mt-1 text-sm font-semibold text-slate-950">
-              {euAtendo.state?.last_dispatch_at ? formatDateTimeShort(euAtendo.state.last_dispatch_at) : "-"}
-            </p>
-          </div>
-          <div className="py-3 sm:pl-4">
-            <p className="text-xs font-semibold text-slate-600">Reserva atual</p>
-            <p className="mt-1 text-sm font-semibold text-slate-950">
-              {euAtendo.state?.locked_until ? `Reservado até ${formatDateTimeShort(euAtendo.state.locked_until)}` : "Livre"}
-            </p>
-          </div>
-        </div>
-
-        {!euAtendo.logs.length ? (
-          <EmptyState
-            title="Nenhum envio registrado"
-            description="Os envios aparecerão aqui após a homologação da integração."
-            icon={MessageCircle}
-          />
-        ) : (
-          <div className="grid gap-2">
-            {euAtendo.logs.map((log) => {
-              const meta = getLogStatusMeta(log.status);
-              const safeMessage = getSafeLogMessage(log);
-
-              return (
-                <article key={log.id} className="grid gap-2 border-b border-slate-200 px-1 py-3 last:border-b-0 md:grid-cols-[1fr_auto] md:items-center">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={meta.tone}>{meta.label}</Badge>
-                      <span className="text-xs font-semibold text-slate-600">
-                        {log.audience === "client" ? "Cliente" : "Equipe interna"} | {log.telefone_mascarado ?? "-"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatDateTimeShort(log.created_at)} | Tentativa {log.attempt_count ?? "-"} | {formatDuration(log.duration_ms)}
-                    </p>
-                    {safeMessage ? <p className="mt-1 text-xs text-red-700">{safeMessage}</p> : null}
-                  </div>
-                  <p className="text-xs text-slate-500">{log.response_id ? `ID técnico ${log.response_id}` : "Sem ID técnico"}</p>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        <div aria-live="polite">{numberResult && <p className={styles[numberResult.tone]}>{numberResult.text}</p>}</div>
+      </form>
+      <form onSubmit={sendTestMessage} className={styles.form}>
+        <h3 className={styles.subtitle}>Mensagem de teste</h3>
+        <div className={styles.field}><label htmlFor={`${id}-number`}>Telefone</label>
+          <input id={`${id}-number`} name="number" type="tel" required placeholder="(15) 99999-9999" className={spec.input} /></div>
+        <div className={styles.field}><label htmlFor={`${id}-message`}>Mensagem</label>
+          <textarea id={`${id}-message`} name="message" rows={3} required maxLength={1200} placeholder="Mensagem para validar o envio" className={styles.textarea} /></div>
+        <label className={styles.check}><input name="check_number" type="checkbox" defaultChecked />Verificar o número antes de enviar</label>
+        <div><label className={styles.check}><input name="confirm_send" type="checkbox" aria-invalid={confirmError} aria-describedby={confirmError ? `${id}-confirm` : undefined} onChange={() => setConfirmError(false)} />Confirmo que é um envio controlado</label>
+          {confirmError && <p id={`${id}-confirm`} role="alert" className={styles.danger}>Marque a confirmação para enviar.</p>}</div>
+        <Button type="submit" variant="secondary" icon={Send} disabled={pending === "message"}>{pending === "message" ? "Enviando mensagem" : "Enviar mensagem de teste"}</Button>
+        <div aria-live="polite">{messageResult && <p className={styles[messageResult.tone]}>{messageResult.text}</p>}</div>
+      </form>
     </div>
-  );
+  </Disclosure>;
+}
+
+export function CanalWhatsAppPanel({ channel, configured, automationEnabled, safety, queue, logs, quality }: WhatsAppPanelProps) {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+  const [health, setHealth] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [paused, setPaused] = useState(safety?.dispatchPaused ?? false);
+  const [pausing, setPausing] = useState(false);
+  const [pauseError, setPauseError] = useState<string | null>(null);
+
+  async function testHealth() {
+    setChecking(true);
+    setHealth(null);
+    const { ok, payload } = await request<HealthPayload>("/api/whatsapp/euatendo/health", { method: "GET" });
+    const fallback = "Não foi possível validar a conexão do WhatsApp. Verifique as configurações da integração.";
+    const result = ok ? payload?.health : undefined;
+    setHealth(result?.ok ? { ok: true, detail: `Número: ${result.instance?.phoneNumber ?? "Não informado"} · verificado ${formatRelative(new Date())}` }
+      : { ok: false, detail: result ? "Não foi possível validar a instância. Verifique as configurações da integração." : getErrorMessage(payload, fallback) });
+    setChecking(false);
+  }
+
+  async function setAutomationPaused(next: boolean) {
+    setPausing(true);
+    setPauseError(null);
+    const { ok, payload } = await request<ApiError>("/api/whatsapp/automation", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ paused: next, reason: next ? "Pausa manual acionada na central do WhatsApp." : null }),
+    });
+    setPausing(false);
+    if (!ok) {
+      setPauseError(getErrorMessage(payload, "Não foi possível alterar a pausa operacional do WhatsApp."));
+      return;
+    }
+    setPaused(next);
+    router.refresh();
+  }
+
+  const blocked = paused || safety?.allowed === false;
+  return <section className={styles.page}>
+    <header className={styles.header}>
+      <div><h1 className="page-title">Automação do WhatsApp</h1><p className="page-subtitle mt-1">Estado do canal, limites de segurança e fila de envio.</p></div>
+      <Button variant={health?.ok ? "secondary" : "primary"} icon={RefreshCw} onClick={testHealth} disabled={checking} aria-busy={checking}>{checking ? "Validando conexão" : "Validar conexão"}</Button>
+    </header>
+
+    <Panel title="Estado do canal">
+      <div className={styles.channel}>
+        <div className={styles.block}><span className={styles.blockLabel}>Configuração</span><StatusBadge domain="canal" status={configured ? "configurado" : "nao_configurado"} /><p className={styles.muted}>Canal: {channel}</p></div>
+        <div className={styles.block} aria-live="polite"><span className={styles.blockLabel}>Conexão</span>
+          <StatusBadge domain="conexao" status={health ? health.ok ? "verificada" : "falhou" : "nao_verificada"} />
+          <p className={`${styles.muted} ${styles.clamp}`} title={health?.detail}>{health?.detail ?? "Use Validar conexão para confirmar o número."}</p></div>
+        <div className={styles.block}><span className={styles.blockLabel}>Automação</span>
+          {automationEnabled === null ? <span className={styles.muted}>Indisponível</span> : <StatusBadge domain="automacao" status={automationEnabled ? "habilitada" : "desligada"} />}
+          <p className={`${styles.muted} ${styles.clamp}`}>Envia sozinha quando há mensagens na fila e a conexão responde.</p></div>
+      </div>
+    </Panel>
+
+    <Panel title="Segurança operacional" description="Limites que seguram o envio para proteger o número." state={safety ? "ok" : "error"} onRetry={() => router.refresh()}
+      actions={safety ? paused
+        ? <Button variant="primary" icon={CirclePlay} disabled={pausing} onClick={() => setAutomationPaused(false)}>Retomar envio</Button>
+        : <Button variant="danger" icon={CirclePause} disabled={pausing} onClick={() => setAutomationPaused(true)}>Pausar envio agora</Button> : undefined}>
+      {safety && <div className={styles.stack}>
+        <div className={styles.row}><StatusBadge domain="envio" status={blocked ? "pausado" : "liberado"} />
+          <span>{safety.autoPauseEnabled ? `Pausa por falhas: ligada (pausa ao chegar em ${formatCount(safety.failurePauseThreshold)} falhas)` : "Pausa por falhas: desligada"}</span></div>
+        {blocked && safety.blockedMessage && <p className={styles.muted}>{safety.blockedMessage}</p>}
+        {pauseError && <p role="alert" className={styles.danger}>{pauseError}</p>}
+        <div className={styles.meters}>
+          <Meter label="Envios hoje" used={safety.sentToday} limit={safety.dailyLimit} />
+          <Meter label="Envios na última hora" used={safety.sentLastHour} limit={safety.hourlyLimit} />
+          <Meter label={`Falhas ${formatFailureWindow(safety.failurePauseWindowMinutes)}`} used={safety.failuresInWindow} limit={safety.failurePauseThreshold} />
+        </div>
+      </div>}
+    </Panel>
+
+    <QueuePanel queue={queue} logs={logs} />
+    <QualityPanel quality={quality} />
+    <HomologationPanel />
+  </section>;
 }

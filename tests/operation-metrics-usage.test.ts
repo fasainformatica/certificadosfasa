@@ -31,14 +31,16 @@ describe("page usage of the shared operational metrics", () => {
     expect(code).not.toContain('rpc("get_dashboard_metrics")');
     expect(code).not.toContain("head: true");
     expect(code).not.toContain('"use client"');
-    expect(code).toContain("Indisponível");
+    const presentation = page === "whatsapp" ? readFileSync(join(process.cwd(), "src/app/(internal)/whatsapp/canal-whatsapp-panel.tsx"), "utf8") : code;
+    expect(presentation).toContain("Indisponível");
   });
 
   it("uses shared fields for each repeated displayed metric, not legacy aliases", () => {
     for (const page of pages) {
       const code = source(page);
-      for (const field of ["queue", "failed", "sentToday"]) expect(code).toContain(`.${field}`);
+      for (const field of ["queue", "failed"]) expect(code).toContain(`.${field}`);
     }
+    for (const page of ["dashboard", "notificacoes"]) expect(source(page)).toContain(".sentToday");
     for (const page of ["dashboard", "whatsapp"]) {
       expect(source(page)).toContain(".lastSentAt");
     }
@@ -59,14 +61,11 @@ describe("page usage of the shared operational metrics", () => {
     expect(code).not.toMatch(/console\./);
   });
 
-  it("uses N11 payload helper in both presentations without deriving validity from send_date", () => {
+  it("uses the N11 payload helper and the endpoint decision without deriving validity from send_date", () => {
     const code = source("notificacoes");
-    expect(code).toContain("provider, payload, dias_restantes");
-    expect(calls(code, "getRenewalRetryPresentation")).toHaveLength(2);
-    for (const call of calls(code, "getRenewalRetryPresentation")) {
-      expect(call.arguments.map((argument) => argument.getText())).toEqual(["event.payload", "certificado?.data_vencimento"]);
-    }
-    expect(code.match(/renewalRetry\.renewed \?/g)).toHaveLength(2);
-    expect(code.match(/A validade mudou depois deste aviso\. Reenviar mandaria uma data que n\u00e3o vale mais\./g)).toHaveLength(2);
+    expect(readFileSync(join(process.cwd(), "src/lib/notifications/central-read.ts"), "utf8")).toContain("provider, payload, dias_restantes");
+    expect(calls(code, "getNotificationRetryDecision")).toHaveLength(1);
+    expect(calls(code, "getRenewalRetryPresentation").map((call) => call.arguments.map((argument) => argument.getText())))
+      .toEqual([["event.payload", "event.certificados?.data_vencimento"]]);
   });
 });
