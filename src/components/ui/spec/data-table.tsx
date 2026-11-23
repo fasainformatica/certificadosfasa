@@ -5,12 +5,13 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-react";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "./button";
+import { HelpTip } from "./help-tip";
 import { ErrorMessage, LoadingSkeleton, type LoadState } from "./shared";
 import styles from "./spec.module.css";
 
 export type DataColumn<T> = {
   key: string; label: string; render: (row: T) => ReactNode; sortable?: boolean;
-  width?: CSSProperties["width"]; minWidth?: CSSProperties["minWidth"];
+  help?: string; width?: CSSProperties["width"]; minWidth?: CSSProperties["minWidth"];
 };
 export type DetailItem = { label: string; value: ReactNode };
 export type DataTableProps<T> = {
@@ -59,7 +60,7 @@ export function DataTable<T>({ label, rows, columns, getRowKey, getRowLabel, mob
           {columns.map((column) => <th key={column.key} scope="col" aria-sort={column.sortable ? sort?.key === column.key ? sort.direction === "asc" ? "ascending" : "descending" : "none" : undefined}>
             {column.sortable && onSort ? <button type="button" className={styles.sortButton} onClick={() => onSort(column.key, sort?.key === column.key && sort.direction === "asc" ? "desc" : "asc")}>
               {column.label}{sort?.key === column.key ? sort.direction === "asc" ? <ArrowUp size={16} aria-hidden="true" /> : <ArrowDown size={16} aria-hidden="true" /> : <ArrowUpDown size={16} aria-hidden="true" />}
-            </button> : column.label}
+            </button> : column.label}{column.help && <HelpTip subject={column.label}>{column.help}</HelpTip>}
           </th>)}{actions && <th scope="col" className={styles.actions}>Ações</th>}
         </tr></thead>
         <tbody>{rows.map((row) => {

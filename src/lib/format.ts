@@ -14,10 +14,10 @@ const clock = new Intl.DateTimeFormat("pt-BR", {
 function parseDate(value: DateInput): Date | null {
   if (value == null || value === "") return null;
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null;
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?)?$/.exec(value);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/.exec(value);
   if (!iso) return null;
   const [, year, month, day, hour = "00", minute = "00", second = "00", fraction = "0", zone] = iso;
-  const utc = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second, +fraction.padEnd(3, "0"));
+  const utc = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second, +fraction.slice(0, 3).padEnd(3, "0"));
   const check = new Date(utc);
   if (check.getUTCFullYear() !== +year || check.getUTCMonth() !== +month - 1 || check.getUTCDate() !== +day || +hour > 23 || +minute > 59 || +second > 59) return null;
   if (zone) {

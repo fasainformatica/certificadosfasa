@@ -138,13 +138,6 @@ body {
 }
 
 button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button,
 a,
 select,
 input[type="checkbox"],
