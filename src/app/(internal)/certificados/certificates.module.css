@@ -1,0 +1,35 @@
+.page { min-width: 0; color: var(--text); }
+.tableSection { margin-top: 32px; }
+.summaryNote { margin: 0 0 8px; color: var(--text-3); font-size: 13px; line-height: 18px; }
+.table { min-width: 0; }
+.expiration { white-space: nowrap; }
+.expiration[data-tone='warning'] { color: var(--warning); }
+.expiration[data-tone='danger'] { color: var(--danger); }
+.fullActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.menuActions { display: none; position: relative; }
+.actionMenu { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; min-width: 180px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12); }
+.actionMenu:not([hidden]) { display: grid; gap: 8px; }
+.emptyActions { padding: 0 16px 32px; text-align: center; }
+.notice { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.noticeFeedback { max-width: 240px; color: var(--success); font-size: 13px; line-height: 18px; text-align: left; overflow-wrap: anywhere; }
+.noticeFeedback[data-tone='error'] { color: var(--danger); }
+.notice[data-compact='true'] .noticeFeedback { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: 240px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12); }
+@media (max-width: 1279px) {
+  /* Collapse instead of removing, so the expanded row colspan stays valid. */
+  .table table col:nth-child(5) { width: 0 !important; }
+  .table table th:nth-child(5), .table table td:nth-child(5) { padding: 0; overflow: hidden; visibility: hidden; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .table table col:last-child { width: 64px !important; }
+}
+@media (max-width: 1023px) {
+  .fullActions { display: none; }
+  .menuActions { display: block; }
+}
+@media (max-width: 767px) {
+  .actionMenu { left: 0; right: auto; }
+  .table [role='listitem'] span[title] { white-space: normal; }
+}
+@media (min-width: 1280px) {
+  .table dl > div:has(.renewalDetail) { display: none; }
+}
