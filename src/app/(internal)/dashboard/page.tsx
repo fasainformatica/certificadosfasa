@@ -90,11 +90,11 @@ export default async function DashboardPage() {
 
       <KpiGrid>
         <KpiCard label="Certificados ativos" value={metrics?.active ?? null} state={metrics ? "ok" : "error"}
-          description={inactive == null ? "Indisponível" : inactive === 0 ? "Todos em acompanhamento" : `${formatCount(inactive)} inativos fora do acompanhamento`} href="/certificados" />
-        <KpiCard label="Em dia" value={metrics?.ok ?? null} state={metrics ? "ok" : "error"} description="Fora da janela de aviso" href="/certificados?situacao=em_dia" />
+          description={inactive == null ? "Indisponível" : inactive === 0 ? "Todos em acompanhamento" : `${formatCount(inactive)} inativos fora do acompanhamento`} href="/certificados?renovacao=em_acompanhamento" />
+        <KpiCard label="Em dia" value={metrics?.ok ?? null} state={metrics ? "ok" : "error"} description="Fora da janela de aviso" href="/certificados?situacao=em_dia&renovacao=em_acompanhamento" />
         <KpiCard label="Vencem em breve" value={metrics?.warning ?? null} state={metrics ? "ok" : "error"}
-          description={metrics ? `Nos próximos ${formatCount(metrics.warningDays)} dias` : "Dentro da janela configurada"} tone="warning" href="/certificados?situacao=vence_em_breve" />
-        <KpiCard label="Vencidos" value={metrics?.expired ?? null} state={metrics ? "ok" : "error"} description="Validade encerrada" tone="danger" href="/certificados?situacao=vencido" />
+          description={metrics ? `Nos próximos ${formatCount(metrics.warningDays)} dias` : "Dentro da janela configurada"} tone="warning" href="/certificados?situacao=vence_em_breve&renovacao=em_acompanhamento" />
+        <KpiCard label="Vencidos" value={metrics?.expired ?? null} state={metrics ? "ok" : "error"} description="Validade encerrada" tone="danger" href="/certificados?situacao=vencido&renovacao=em_acompanhamento" />
         <KpiCard label="Avisos para hoje" value={operation?.queue?.total ?? null} state={operation?.queue ? "ok" : "error"} description="Programados até hoje" href="/notificacoes?aba=hoje" />
         <KpiCard label="Falhas de envio" value={failed} state={failed == null ? "error" : "ok"} description="Aguardando revisão" tone="danger" href="/notificacoes?aba=falhas" />
       </KpiGrid>
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-12 items-start gap-4">
         <div className="col-span-12 min-w-0 xl:col-span-7">
-          <Panel title="Vencimentos para acompanhar" flush actions={<Link href="/certificados?situacao=vence_em_breve" className="shrink-0 text-sm font-medium text-primary hover:underline">Ver todos</Link>}
+          <Panel title="Vencimentos para acompanhar" flush actions={<Link href="/certificados?situacao=vence_em_breve&renovacao=em_acompanhamento" className="shrink-0 text-sm font-medium text-primary hover:underline">Ver todos</Link>}
             state={!metrics ? "error" : metrics.attention.length === 0 ? "empty" : "ok"} emptyMessage="Nenhum certificado vence nos próximos 30 dias.">
             {metrics?.attention.map((certificate) => {
               const title = formatCertificateTitle(certificate.nome_titular, certificate.cnpj);

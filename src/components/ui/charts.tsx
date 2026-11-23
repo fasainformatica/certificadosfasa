@@ -42,7 +42,7 @@ export function getCertificateStatusHref(name: string) {
   const normalized = normalizeStatusName(name);
 
   if (normalized === "em dia" || normalized === "validos" || normalized.includes("lidos")) {
-    return "/certificados?situacao=em_dia";
+    return "/certificados?situacao=em_dia&renovacao=em_acompanhamento";
   }
 
   if (
@@ -52,11 +52,11 @@ export function getCertificateStatusHref(name: string) {
     normalized === "proximo" ||
     normalized === "proximos"
   ) {
-    return "/certificados?situacao=vence_em_breve";
+    return "/certificados?situacao=vence_em_breve&renovacao=em_acompanhamento";
   }
 
   if (normalized === "vencidos") {
-    return "/certificados?situacao=vencido";
+    return "/certificados?situacao=vencido&renovacao=em_acompanhamento";
   }
 
   return null;
@@ -171,7 +171,7 @@ export function ExpirationBarChart({ data }: { data: { name: string; value: numb
           <XAxis dataKey="name" tickFormatter={expirationLabel} interval={0} minTickGap={0} tickLine={false} axisLine={{ stroke: "var(--border)" }} tick={{ fill: "var(--text-2)", fontSize: 13 }} />
           <Tooltip cursor={{ fill: "var(--surface-hover)" }} content={<ChartTooltip />} />
           <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={40} minPointSize={(value) => value === 0 ? 0.01 : 0}
-            onClick={(_, index) => { if (data[index]?.name === "Vencidos") router.push("/certificados?situacao=vencido"); }}>
+            onClick={(_, index) => { if (data[index]?.name === "Vencidos") router.push("/certificados?situacao=vencido&renovacao=em_acompanhamento"); }}>
             <LabelList dataKey="value" position="top" offset={8} fill="var(--text)" fontSize={13} fontWeight={600} formatter={(value) => formatCount(Number(value))} />
             {data.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} cursor={entry.name === "Vencidos" ? "pointer" : "default"} />
@@ -189,7 +189,7 @@ export function ExpirationBarChart({ data }: { data: { name: string; value: numb
         ))}
         </tbody>
       </table>
-      <Link href="/certificados?situacao=vencido" className="sr-only text-sm text-primary focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:outline-primary">Ver certificados vencidos</Link>
+      <Link href="/certificados?situacao=vencido&renovacao=em_acompanhamento" className="sr-only text-sm text-primary focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:outline-primary">Ver certificados vencidos</Link>
       {data.length === 0 ? (
         <p className="text-sm text-text-3">Indisponível</p>
       ) : null}
