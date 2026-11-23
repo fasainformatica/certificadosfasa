@@ -193,3 +193,32 @@ TypeScript, lint e 359 testes (47 arquivos) aprovados; build aprovado antes dos 
 ## Validação
 
 TypeScript, lint e 368 testes aprovados. Central e WhatsApp sem rolagem horizontal em 1920, 1440, 1366, 1280, 1024, 768, 640 e 390. Capturas locais em `docs/auditoria/depois-etapas-6-7/`, com dados reais: não publicar. Requisições de escrita bloqueadas no navegador; reenvio, pausa, verificação e mensagem de teste não foram executados de verdade. Etapas 8 e 9 pendentes.
+
+
+---
+
+# Quarta rodada: decisões, etapas 8 e 9
+
+## Decisões autorizadas
+
+- **Conexão da extensão:** `messages` e `status` registram o contato autenticado que informa um número, no máximo uma vez por minuto, atualizando só `updated_at` em `whatsapp_dispatcher_state`. Sem migration e sem mudar trava, cadência ou último despacho; falha nessa gravação não impede o envio. "Validar conexão" passa a ler esse contato quando a extensão é o canal ativo: conectada até 10 minutos, senão "Falha na conexão" com a data. Visão geral e WhatsApp usam a mesma regra ao abrir. Prova que a extensão fala com o servidor, não que a sessão do WhatsApp entrega mensagens. **Só funciona por completo após o deploy**: até lá, a produção não grava contatos com a fila vazia.
+- **Limite diário:** conta a partir da meia-noite do fuso configurado. Antes começava à meia-noite UTC (21h). Vale após o deploy.
+
+## Etapa 8
+
+E04: barra de filtros única em Certificados, Clientes e Central. E03: cards que contam pendências levam à lista filtrada. E05: engrenagem já removida. Superfícies: as cinco telas usam os componentes da especificação. `StatCard` e `fasa-panel` ficaram apenas em `notificacoes-internas`, fora do escopo.
+
+## Etapa 9
+
+- Cinco telas em 1920, 1440, 1366, 1280, 1024, 768, 640 (zoom de 200%) e 390: sem rolagem horizontal, sem select cortado, sem `-` isolado em tabela, sem controle sem nome.
+- Contraste medido nos textos visíveis: nenhum abaixo de 4,5:1. Texto abaixo de 12 px: só o contador do sino (11 px, definido na seção 3.2).
+- Teclado: 30 paradas por tela, foco visível em todas; expansão por Enter; drawer fecha com Esc e devolve o foco.
+- Nomes longos: verificados com os cadastros reais. Estados vazio, zero e erro: testes automatizados.
+- Não testados: leitor de tela, outros navegadores e as ações de escrita reais.
+- O critério da auditoria "mais recentes primeiro" difere da seção 10.4 (pendente mais antigo primeiro); vale a especificação.
+- Capturas em `docs/auditoria/depois-final/`, locais, com dados reais.
+- TypeScript, lint, 371 testes e build.
+
+## Pendências
+
+S01 (9 nomes e 28 avisos pendentes), N12 (sem IDs para concluir) e o deploy.
