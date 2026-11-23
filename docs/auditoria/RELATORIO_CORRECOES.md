@@ -169,3 +169,27 @@ Defeitos encontrados na tela real e corrigidos: Clientes não carregava com a se
 ## Validação
 
 TypeScript, lint e 359 testes (47 arquivos) aprovados; build aprovado antes dos últimos ajustes de CSS e do formatador. Sem rolagem horizontal nas três telas em 1920, 1440, 1366, 1280, 1024, 768, 390 e em 640 px (equivalente ao zoom de 200% em 1280). Capturas em `docs/auditoria/depois-etapas-3-5/` (1920, 1366, 1024, 390), locais: contêm dados reais e não devem ser publicadas. O script `investigacao-decisoes.mjs` também ficou fora dos commits por identificar o cadastro de S01.
+
+
+---
+
+# Terceira rodada: etapas 6 e 7 e links da Visão geral
+
+- **S01, avisos:** com autorização, 28 eventos pendentes foram cancelados; em seguida o pedido foi retirado e os 28 voltaram a pendente (`error_message` nulo, zero tentativas). Total de pendentes: 701, como antes. Apenas `updated_at` mudou. O primeiro está programado para 25/11/2026. Todos são para a equipe interna. Já as enviadas: 2 para a equipe interna e 2 para clientes; em uma delas a palavra não veio do nome do cadastro. Os 9 nomes continuam sem correção.
+- **Links da Visão geral:** agora incluem `renovacao=em_acompanhamento`, o mesmo escopo dos cards. Desvio deliberado da seção 7.2, autorizado.
+- **Etapa 6 (N01–N18):** seção 10 aplicada. Contagens, ordem e agrupamento usam o resultado inteiro. N11: o botão usa a mesma regra do endpoint e mostra a mensagem dele. N12: só envios concluídos são agrupados; falhas continuam separadas para não perder o reenvio.
+- **Etapa 7 (W01–W21):** seção 11 aplicada; cada painel trata o próprio erro. W14: a pausa liga ao atingir o limite de falhas na janela configurada (hoje 60 minutos, "na última hora").
+
+## Escolhas e limites
+
+- "Pendentes" e "Na fila" usam a fila até hoje (X02). Futuros aparecem só em "Todos". "Hoje" e "Na fila" coincidem, para bater com o card "Avisos para hoje".
+- N18: pessoa e público são dimensões diferentes; mantido o filtro "Pessoa da equipe". Com seis controles, a barra ocupa duas linhas em 1280–1440.
+- Abaixo de 1366, Destinatário vai para a expansão; abaixo de 1280, Programado também.
+- "Ignorado" não existe no mapa; aparece como "Cancelado". Evento de canal sem resultado final não recebe badge.
+- "Retomar envio" e "Pausar" nunca tiveram confirmação; nenhuma foi criada.
+- **DECISÃO:** "Validar conexão" consulta a euAtendo mesmo com a extensão como canal ativo. Não comprova a extensão.
+- **DECISÃO:** o contador de envios do dia nos limites começa à meia-noite UTC (21h em São Paulo). É regra de envio; não alterada.
+
+## Validação
+
+TypeScript, lint e 368 testes aprovados. Central e WhatsApp sem rolagem horizontal em 1920, 1440, 1366, 1280, 1024, 768, 640 e 390. Capturas locais em `docs/auditoria/depois-etapas-6-7/`, com dados reais: não publicar. Requisições de escrita bloqueadas no navegador; reenvio, pausa, verificação e mensagem de teste não foram executados de verdade. Etapas 8 e 9 pendentes.
