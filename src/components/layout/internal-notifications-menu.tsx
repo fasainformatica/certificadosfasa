@@ -69,15 +69,7 @@ function formatNotificationTime(value: string) {
 }
 
 function getUnreadLabel(unreadCount: number) {
-  if (unreadCount === 0) {
-    return "Abrir notificações internas";
-  }
-
-  if (unreadCount === 1) {
-    return "Abrir notificações internas, 1 não lida";
-  }
-
-  return `Abrir notificações internas, ${unreadCount} não lidas`;
+  return `Notificações: ${unreadCount} não lidas`;
 }
 
 export function InternalNotificationsMenu() {
@@ -325,7 +317,7 @@ export function InternalNotificationsMenu() {
       <button
         type="button"
         className={cn(
-          "relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 outline-none transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+          "relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-2)] transition-colors hover:bg-[var(--surface-hover)]",
           open && "border-blue-200 text-blue-700 ring-1 ring-blue-100",
         )}
         aria-label={getUnreadLabel(unreadCount)}
@@ -339,7 +331,7 @@ export function InternalNotificationsMenu() {
         {loadingSummary ? (
           <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-slate-300" />
         ) : unreadCount > 0 ? (
-          <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold leading-5 text-white ring-2 ring-white">
+          <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[11px] font-semibold leading-[18px] text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
@@ -354,7 +346,8 @@ export function InternalNotificationsMenu() {
         >
           <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950">Notificações internas</p>
+              <p className="section-title">Notificações</p>
+              <p className="mt-1 text-[13px] leading-[18px] text-[var(--text-3)]">Avisos internos não lidos disponíveis para sua conta. Não são mensagens do WhatsApp.</p>
               <p className="mt-0.5 text-xs text-slate-500">
                 {unreadCount > 0
                   ? `${unreadCount} ${unreadCount === 1 ? "não lida" : "não lidas"}`

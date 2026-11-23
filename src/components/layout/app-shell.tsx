@@ -1,5 +1,3 @@
-import { Settings } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FasaLogo } from "@/components/brand/fasa-logo";
@@ -34,49 +32,37 @@ export function AppShell({ user, children }: AppShellProps) {
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <div className="fasa-app min-h-screen overflow-x-hidden lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="fasa-app min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <a href="#main-content" className="sr-only rounded-md bg-white px-4 py-2 font-semibold text-blue-700 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70]">Ir para o conteúdo principal</a>
-      <aside className="hidden min-h-screen border-r border-[#283345] bg-[#172232] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-        <div className="flex h-16 items-center gap-3 border-b border-white/10 px-5">
+      <aside className="hidden min-h-screen bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start lg:flex-col">
+        <div className="flex h-16 items-center gap-3 border-b border-white/[0.08] px-4">
           <FasaLogo className="h-8 w-8" priority />
           <div className="min-w-0 leading-tight">
             <p className="text-sm font-semibold text-white">Fasa</p>
-            <p className="text-[11px] text-slate-400">Certificados Digitais</p>
+            <p className="text-xs leading-4 text-[var(--sidebar-text)]">Certificados Digitais</p>
           </div>
         </div>
         <AppNavigation items={visibleNavigation} />
-        <div className="mt-auto border-t border-white/10 px-5 py-4 text-xs text-slate-400">
-          <p className="truncate text-slate-200" title={user.email ?? undefined}>{user.email ?? "Usuário"}</p>
+        <div className="mt-auto border-t border-white/[0.08] p-4 text-xs leading-4 text-[var(--sidebar-text)]">
+          <p className="truncate text-[13px] leading-[18px] text-white" title={user.email ?? undefined}>{user.email ?? "Não informado"}</p>
           <p className="mt-1 capitalize">{user.role}</p>
         </div>
       </aside>
 
       <div className="min-w-0">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-          <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-10">
-            <div className="flex min-w-0 items-center gap-3 lg:hidden">
+          <div className="flex h-16 w-full items-center justify-between gap-3 px-4 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
               <AppNavigation items={visibleNavigation} mobileOnly />
-              <FasaLogo className="h-8 w-8" priority />
-              <span className="truncate text-sm font-semibold text-slate-900">Fasa Certificados</span>
+              <span className="text-[13px] leading-[18px] text-[var(--text-3)]">Painel administrativo</span>
             </div>
-            <span className="hidden text-xs font-medium text-slate-500 lg:block">Painel administrativo</span>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <div className="flex shrink-0 items-center gap-2">
             <InternalNotificationsMenu />
-            {isAdmin ? (
-              <Link
-                href="/configuracoes"
-                className="hidden h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 sm:flex"
-                aria-label="Abrir configurações"
-                title="Configurações"
-              >
-                <Settings aria-hidden="true" className="h-4 w-4" />
-              </Link>
-            ) : null}
             <LogoutButton />
             </div>
           </div>
         </header>
-        <main id="main-content" className="mx-auto w-full max-w-[1600px] min-w-0 px-4 py-6 pb-12 sm:px-6 lg:px-10 lg:py-8">
+        <main id="main-content" className="w-full max-w-[1440px] min-w-0 p-4 lg:p-8">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

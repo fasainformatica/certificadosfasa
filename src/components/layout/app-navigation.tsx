@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  BarChart3,
-  FileKey2,
+  LayoutDashboard,
+  FileBadge,
   Loader2,
   Menu,
-  MessageSquareText,
+  MessageSquare,
   Send,
   Settings,
-  UsersRound,
+  Users,
   X,
 } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
@@ -24,11 +24,11 @@ export type NavigationItem = {
 };
 
 const navigationIcons = {
-  dashboard: BarChart3,
-  certificates: FileKey2,
-  clients: UsersRound,
+  dashboard: LayoutDashboard,
+  certificates: FileBadge,
+  clients: Users,
   notifications: Send,
-  whatsapp: MessageSquareText,
+  whatsapp: MessageSquare,
   settings: Settings,
 };
 
@@ -61,6 +61,7 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
     }
 
     const drawer = drawerRef.current;
+    const menuButton = menuButtonRef.current;
     drawer?.querySelector<HTMLButtonElement>("button")?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -89,6 +90,7 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
+      menuButton?.focus();
     };
   }, [mobileOpen, closeMobileMenu]);
 
@@ -103,19 +105,18 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
         className={cn(
-          "group relative inline-flex min-h-11 shrink-0 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#172232]",
+          "group relative inline-flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm leading-5 font-medium transition-colors duration-150",
           active
-            ? "bg-white/10 text-white before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-blue-400"
-            : "text-slate-300 hover:bg-white/5 hover:text-white",
+            ? "bg-[var(--sidebar-active-bg)] text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:bg-[var(--sidebar-active-bar)]"
+            : "text-[var(--sidebar-text)] hover:bg-white/[0.04]",
         )}
       >
         <span
           className={cn(
-            "relative flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150",
-            active ? "text-blue-300" : "text-slate-400 group-hover:text-slate-200",
+            "relative flex h-[18px] w-[18px] items-center justify-center",
           )}
         >
-          <Icon aria-hidden="true" className="h-[17px] w-[17px]" />
+          <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
         </span>
         <span className="relative min-w-0">{item.label}</span>
         <NavigationPendingIndicator />
@@ -125,7 +126,7 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
 
   return (
     <>
-      {!mobileOnly ? <nav aria-label="Navegação principal" className="hidden flex-1 px-3 py-5 lg:block">
+      {!mobileOnly ? <nav aria-label="Navegação principal" className="hidden flex-1 p-3 lg:block">
         <div className="flex flex-col gap-1">
           {items.map((item) => renderLink(item))}
         </div>
@@ -146,7 +147,7 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
       {mobileOnly && mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden"
+          className="fixed inset-0 z-40 bg-[rgba(15,26,43,0.4)] lg:hidden"
           aria-label="Fechar navegação"
           onClick={closeMobileMenu}
         />
@@ -160,7 +161,7 @@ export function AppNavigation({ items, mobileOnly = false }: { items: Navigation
         inert={!mobileOpen}
         aria-label="Navegação principal"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-white/10 bg-[#172232] p-4 shadow-xl transition-transform duration-200 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[min(240px,86vw)] flex-col bg-[var(--sidebar-bg)] p-3 shadow-[var(--shadow-popover)] transition-transform duration-200 overscroll-contain lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
