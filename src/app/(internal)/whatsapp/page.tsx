@@ -4,6 +4,7 @@ import { getMetricDateContext, getOperationProviderLabel, lerMetricasOperacao } 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { hasRecentExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
 import { getWhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
 import { analyzeWhatsAppPhoneQuality } from "@/lib/whatsapp/phone-quality";
 import { WHATSAPP_EXTENSION_PROVIDER, WHATSAPP_NOTIFICATION_PROVIDERS } from "@/lib/whatsapp/providers";
@@ -83,6 +84,7 @@ export default async function WhatsappPage() {
     <CanalWhatsAppPanel
       key={String(safety?.dispatchPaused)}
       channel={getOperationProviderLabel(activeProvider)}
+      contactAt={isExtension && hasRecentExtensionContact(operation?.state?.updated_at, now) ? operation?.state?.updated_at : null}
       configured={configured}
       automationEnabled={settingsResult.error ? null : automationEnabled}
       safety={safety}

@@ -46,7 +46,7 @@ describe("page usage of the shared operational metrics", () => {
     }
     expect(source("whatsapp")).toContain(".state");
     // Section 7.5 removes dispatch/cadence state: it is not a confirmed queue verification.
-    expect(source("dashboard")).not.toContain("operation.state");
+    expect(source("dashboard")).not.toContain("last_dispatch_at");
     expect(source("dashboard")).not.toContain("Última execução registrada");
     expect(calls(source("dashboard"), "lerCertificadosEmOperacao")).toHaveLength(1);
     expect(source("dashboard")).not.toContain("falhas_hoje ||");

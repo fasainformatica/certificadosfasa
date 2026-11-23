@@ -14,6 +14,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatCertificateTitle } from "@/lib/utils/format";
 import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { hasRecentExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
 import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -79,6 +80,8 @@ export default async function DashboardPage() {
   const failed = operation?.failed ?? null;
   const lastSentUnavailable = !operation || operation.unavailable.includes("lastSentAt");
   const operationalCount = (value: number | null | undefined) => value == null ? "Indisponível" : formatCount(value);
+  const connection = whatsappAutomation.activeProvider === WHATSAPP_EXTENSION_PROVIDER && hasRecentExtensionContact(operation?.state?.updated_at)
+    ? "verificada" as const : "nao_verificada" as const;
   const retry = <Link href="/dashboard" className="text-primary hover:underline">Tentar de novo</Link>;
 
   return (
@@ -137,7 +140,7 @@ export default async function DashboardPage() {
           {!metrics && <div className="mt-2 text-[13px]">{retry}</div>}
         </div>
         <div className="col-span-12 min-w-0 xl:col-span-5">
-          <Panel title="Avisos e WhatsApp" actions={canAccessWhatsapp ? <Link href="/whatsapp" aria-label="Estado da conexão: Ainda não verificada"><StatusBadge domain="conexao" status="nao_verificada" /></Link> : <StatusBadge domain="conexao" status="nao_verificada" />}>
+          <Panel title="Avisos e WhatsApp" actions={canAccessWhatsapp ? <Link href="/whatsapp" aria-label={`Estado da conexão: ${getStatusLabel("conexao", connection).label}`}><StatusBadge domain="conexao" status={connection} /></Link> : <StatusBadge domain="conexao" status={connection} />}>
             <KeyValueList items={[
               { id: "queue", label: "Na fila agora", value: operationalCount(operation?.queue?.total), href: "/notificacoes?aba=fila" },
               { id: "failed", label: "Falhas aguardando revisão", value: operationalCount(failed), href: "/notificacoes?aba=falhas" },

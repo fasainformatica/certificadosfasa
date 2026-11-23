@@ -11,12 +11,13 @@ import { getClientDisplayName } from "@/lib/clientes/list-presentation";
 import { formatCnpj, formatCount, formatDateTime, formatRelative } from "@/lib/format";
 import { CHANNEL_EVENT_LABELS, CHANNEL_LOG_DISPLAY_STATUS } from "@/lib/status-labels";
 import type { WhatsAppOperationalSafetySnapshot } from "@/lib/whatsapp/operational-safety";
+import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 import styles from "./whatsapp.module.css";
 
 type ClientRef = { id: string; name: string; cnpj: string };
 export type WhatsAppPanelProps = {
-  channel: string; configured: boolean; automationEnabled: boolean | null; safety: WhatsAppOperationalSafetySnapshot | null;
+  channel: string; contactAt?: string | null; configured: boolean; automationEnabled: boolean | null; safety: WhatsAppOperationalSafetySnapshot | null;
   queue: {
     total: number | null; failed: number | null; lastSentAt: string | null; lastSentUnavailable: boolean;
     notice: "unavailable" | "empty" | "interval" | "stalled" | "none"; nextAllowedAt: string | null; knownReason: string;
@@ -31,7 +32,7 @@ export type WhatsAppPanelProps = {
 
 type ApiError = { error?: { message?: string } | string };
 type HealthPayload = ApiError & {
-  health?: { ok: boolean; errorMessage: string | null; instance: { phoneNumber: string | null } | null };
+  health?: { ok: boolean; provider?: string; lastContactAt?: string | null; errorMessage: string | null; instance: { phoneNumber: string | null } | null };
 };
 type CheckNumberPayload = ApiError & { result?: { exists: boolean | null } };
 type TestMessagePayload = ApiError & { result?: { accepted: boolean } };
@@ -219,10 +220,10 @@ function HomologationPanel() {
   </Disclosure>;
 }
 
-export function CanalWhatsAppPanel({ channel, configured, automationEnabled, safety, queue, logs, quality }: WhatsAppPanelProps) {
+export function CanalWhatsAppPanel({ channel, contactAt = null, configured, automationEnabled, safety, queue, logs, quality }: WhatsAppPanelProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(false);
-  const [health, setHealth] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [health, setHealth] = useState<{ ok: boolean; detail: string } | null>(contactAt ? { ok: true, detail: `Extensão em contato · ${formatDateTime(contactAt)}` } : null);
   const [paused, setPaused] = useState(safety?.dispatchPaused ?? false);
   const [pausing, setPausing] = useState(false);
   const [pauseError, setPauseError] = useState<string | null>(null);
@@ -233,6 +234,12 @@ export function CanalWhatsAppPanel({ channel, configured, automationEnabled, saf
     const { ok, payload } = await request<HealthPayload>("/api/whatsapp/euatendo/health", { method: "GET" });
     const fallback = "Não foi possível validar a conexão do WhatsApp. Verifique as configurações da integração.";
     const result = ok ? payload?.health : undefined;
+    if (result?.provider === WHATSAPP_EXTENSION_PROVIDER) {
+      setHealth({ ok: result.ok, detail: result.ok ? `Extensão em contato · ${formatDateTime(result.lastContactAt)}`
+        : result.lastContactAt ? `Sem contato da extensão desde ${formatDateTime(result.lastContactAt)}.` : "Nenhum contato da extensão registrado." });
+      setChecking(false);
+      return;
+    }
     setHealth(result?.ok ? { ok: true, detail: `Número: ${result.instance?.phoneNumber ?? "Não informado"} · verificado ${formatRelative(new Date())}` }
       : { ok: false, detail: result ? "Não foi possível validar a instância. Verifique as configurações da integração." : getErrorMessage(payload, fallback) });
     setChecking(false);

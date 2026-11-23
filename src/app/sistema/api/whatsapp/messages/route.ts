@@ -11,6 +11,7 @@ import {
   processWhatsAppExtensionAcks,
   reserveNextWhatsAppExtensionMessage,
 } from "@/lib/whatsapp/extension/dispatcher";
+import { recordExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   try {
+    await recordExtensionContact(admin, auth.context);
     await processWhatsAppExtensionAcks({ admin, auth: auth.context, body });
     const result = await reserveNextWhatsAppExtensionMessage({ admin, auth: auth.context, body });
 
