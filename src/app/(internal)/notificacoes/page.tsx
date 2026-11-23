@@ -47,6 +47,7 @@ import { RetryEventButton } from "./retry-event-button";
 
 type NotificacoesPageProps = {
   searchParams: Promise<{
+    aba?: string;
     status?: string;
     type?: string;
     send_date?: string;
@@ -183,8 +184,9 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
   const params = await searchParams;
   const user = await requireInternalUser();
   const canManageNotifications = canManageOperationalData(user.role);
-  const status = params.status && statuses.includes(params.status as NotificationEventStatus)
-    ? (params.status as NotificationEventStatus)
+  const linkedStatus = params.status ?? ({ falhas: "failed", enviados: "sent", nova_tentativa: "retry" } as Record<string, string>)[params.aba ?? ""];
+  const status = linkedStatus && statuses.includes(linkedStatus as NotificationEventStatus)
+    ? (linkedStatus as NotificationEventStatus)
     : null;
   const type = params.type && types.includes(params.type as (typeof types)[number])
     ? (params.type as (typeof types)[number])
@@ -226,6 +228,10 @@ export default async function NotificacoesPage({ searchParams }: NotificacoesPag
 
   if (status) {
     query = query.eq("status", status);
+  }
+  // Read-only aliases for links from the specified dashboard; no Central redesign.
+  if (params.aba === "fila" || params.aba === "hoje") {
+    query = query.in("status", ["pending", "retry"]).lte("send_date", today);
   }
 
   if (type) {
