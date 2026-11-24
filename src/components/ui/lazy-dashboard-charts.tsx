@@ -19,7 +19,7 @@ const DynamicExpirationBarChart = dynamic(() => import("@/components/ui/charts")
 });
 
 function ChartSkeleton() {
-  return <div className="h-56 animate-pulse rounded-2xl border border-slate-100 bg-slate-100/70" />;
+  return <div role="status" aria-label="Carregando gráfico" className="h-[220px] w-full animate-pulse rounded bg-surface-muted motion-reduce:animate-none" />;
 }
 
 export function LazyDonutChart({ data, total }: { data: ChartItem[]; total: number }) {

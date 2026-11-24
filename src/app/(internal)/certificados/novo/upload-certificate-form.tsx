@@ -141,16 +141,16 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
       onSubmit={handleSubmit}
       aria-busy={pending}
       aria-describedby={error ? "upload-error" : undefined}
-      className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5"
+      className="grid gap-6 border-t border-slate-200 bg-white py-6"
     >
-      <div className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-950 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="grid gap-3 border-l-2 border-blue-500 bg-blue-50/50 px-4 py-3 text-sm text-blue-950 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div>
           <p className="font-semibold">Envio seguro de certificado</p>
           <p className="mt-1 text-blue-900/80">
             O sistema valida o PFX, atualiza o cadastro do cliente e recalcula os avisos de vencimento após o envio.
           </p>
         </div>
-        <span className="inline-flex w-fit rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
+        <span className="inline-flex w-fit rounded-md border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-800">
           PFX privado
         </span>
       </div>
@@ -185,7 +185,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
         <label htmlFor="arquivo" className="text-sm font-medium text-slate-800">
           Arquivo PFX
         </label>
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 transition duration-200 hover:border-blue-300 hover:bg-blue-50/50">
+        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/50 p-4 transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50/50">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p id="arquivo-summary" className="text-sm font-semibold text-slate-950">
@@ -275,7 +275,7 @@ export function UploadCertificateForm({ clients, initialClientId = "" }: UploadC
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4" aria-labelledby="dados-cliente-title">
+      <div className="grid gap-3 border-t border-slate-200 pt-5" aria-labelledby="dados-cliente-title">
         <div>
           <h3 id="dados-cliente-title" className="text-sm font-semibold text-slate-950">
             Dados do cliente

@@ -6,6 +6,9 @@ import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getSafeOperationalErrorMessage } from "@/lib/security/sensitive-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEuAtendoConfigStatus, EuAtendoWhatsAppProvider } from "@/lib/whatsapp/euatendo";
+import { getActiveNotificationProvider } from "@/lib/whatsapp/euatendo/config";
+import { hasRecentExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
+import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 import { maskPhone } from "@/lib/utils/phone";
 
 export const runtime = "nodejs";
@@ -30,6 +33,28 @@ export async function GET(request: NextRequest) {
 
   const configured = getEuAtendoConfigStatus();
   const admin = createSupabaseAdminClient();
+
+  if (getActiveNotificationProvider() === WHATSAPP_EXTENSION_PROVIDER) {
+    const { data, error } = await admin.from("whatsapp_dispatcher_state").select("updated_at")
+      .eq("provider", WHATSAPP_EXTENSION_PROVIDER).maybeSingle();
+
+    if (error) {
+      return jsonError("Não foi possível consultar o último contato da extensão.", 503, "extensao_contato");
+    }
+
+    return NextResponse.json({
+      health: {
+        provider: WHATSAPP_EXTENSION_PROVIDER,
+        ok: hasRecentExtensionContact(data?.updated_at),
+        lastContactAt: data?.updated_at ?? null,
+        latencyMs: null,
+        instance: null,
+        listedInstance: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+  }
 
   try {
     const provider = new EuAtendoWhatsAppProvider();

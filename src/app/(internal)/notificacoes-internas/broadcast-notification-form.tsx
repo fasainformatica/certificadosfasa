@@ -103,21 +103,21 @@ export function BroadcastNotificationForm() {
   return (
     <form
       onSubmit={submitBroadcast}
-      className="mb-5 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm shadow-blue-950/5"
+      className="mb-5 overflow-hidden rounded-lg border border-slate-200 bg-white"
     >
-      <div className="grid gap-4 border-b border-slate-100 bg-blue-50/40 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <div className="grid gap-4 border-b border-slate-200 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div className="flex gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700">
             <Megaphone aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-slate-950">Enviar aviso interno</h2>
+            <h2 className="text-base font-semibold text-slate-950">Enviar aviso interno</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Envie para todos os usuários do painel e do notificador Windows. No WhatsApp, recebem apenas os destinatários ativos com “Certificados atualizados” marcado.
             </p>
           </div>
         </div>
-        <span className="inline-flex w-fit rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
+        <span className="inline-flex w-fit rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-800">
           WhatsApp conforme destinatários
         </span>
       </div>

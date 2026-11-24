@@ -1,5 +1,3 @@
-import { Settings } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FasaLogo } from "@/components/brand/fasa-logo";
@@ -34,39 +32,37 @@ export function AppShell({ user, children }: AppShellProps) {
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-950/5 backdrop-blur-xl">
-        <div className="flex w-full items-center justify-between gap-2 px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <FasaLogo className="h-10 w-10 sm:h-11 sm:w-11" priority />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold leading-4 text-blue-700 sm:text-sm">Fasa Informática</p>
-              <h1 className="truncate text-base font-semibold tracking-normal text-slate-950 sm:text-lg">
-                Certificados Digitais
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <InternalNotificationsMenu />
-            {isAdmin ? (
-              <Link
-                href="/configuracoes"
-                className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm shadow-slate-950/5 transition hover:border-blue-200 hover:text-blue-700 sm:flex"
-                aria-label="Abrir configurações"
-                title="Configurações"
-              >
-                <Settings aria-hidden="true" className="h-4 w-4" />
-              </Link>
-            ) : null}
-            <LogoutButton />
+    <div className="fasa-app min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+      <a href="#main-content" className="sr-only rounded-md bg-white px-4 py-2 font-semibold text-blue-700 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70]">Ir para o conteúdo principal</a>
+      <aside className="hidden min-h-screen bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start lg:flex-col">
+        <div className="flex h-16 items-center gap-3 border-b border-white/[0.08] px-4">
+          <FasaLogo className="h-8 w-8" priority />
+          <div className="min-w-0 leading-tight">
+            <p className="text-sm font-semibold text-white">Fasa</p>
+            <p className="text-xs leading-4 text-[var(--sidebar-text)]">Certificados Digitais</p>
           </div>
         </div>
-      </header>
-
-      <div className="grid w-full gap-4 px-3 py-4 pb-24 sm:px-4 lg:grid-cols-[248px_minmax(0,1fr)] lg:px-5 lg:pb-6 xl:px-6">
         <AppNavigation items={visibleNavigation} />
-        <main className="min-w-0 pb-6 lg:max-w-[1680px]">
+        <div className="mt-auto border-t border-white/[0.08] p-4 text-xs leading-4 text-[var(--sidebar-text)]">
+          <p className="truncate text-[13px] leading-[18px] text-white" title={user.email ?? undefined}>{user.email ?? "Não informado"}</p>
+          <p className="mt-1 capitalize">{user.role}</p>
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+          <div className="flex h-16 w-full items-center justify-between gap-3 px-4 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <AppNavigation items={visibleNavigation} mobileOnly />
+              <span className="text-[13px] leading-[18px] text-[var(--text-3)]">Painel administrativo</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+            <InternalNotificationsMenu />
+            <LogoutButton />
+            </div>
+          </div>
+        </header>
+        <main id="main-content" className="w-full min-w-0 p-4 lg:p-8">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

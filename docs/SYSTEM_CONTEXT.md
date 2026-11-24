@@ -20,6 +20,12 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 
 ## Arquitetura
 
+Rodada limitada as etapas 0, 0.5, 1 e 2 da especificacao visual fornecida: fundacao isolada em `src/components/ui/spec`, formatadores e mapa de status; modulo `src/lib/metricas/operacao.ts` unifica leituras de dashboard/Central/WhatsApp. N11 compara validade atual com `payload.data_vencimento` somente na apresentacao; endpoint de retry continua sem protecao equivalente, pendente de decisao. Ver `docs/auditoria/RELATORIO_CORRECOES.md`. Sem alteracao de fila, banco ou permissoes. Etapas de composicao final das telas nao executadas.
+
+Ordem visual atual da dashboard na branch de avaliacao: indicadores, graficos e acompanhamento de vencimentos/avisos. Clientes apresenta e-mail, WhatsApp/telefone e responsavel com mensagens de ausencia especificas; os dados persistidos nao foram alterados.
+
+Revisao corretiva da branch visual: corrigido o ancestral de overflow da sidebar sticky, recuperada separacao de superficies no dashboard, incluidos contexto e unidades nos indicadores/graficos e mensagens explicitas para dados ausentes na importacao e no detalhe. APIs, consultas e regras de notificacao permanecem inalteradas. A validacao visual com sessao real ainda esta pendente; testes automatizados nao substituem essa verificacao.
+
 ### Frontend
 
 - Next.js 16 App Router em `src/app`.
@@ -29,6 +35,8 @@ Estado local desta consolidacao: o codigo, migrations e documentacao foram reorg
 - Componentes reutilizaveis em `src/components`.
 - Tailwind CSS 4 e componentes de layout proprios.
 - Refatoracao visual de 2026-07-15: o painel interno usa shell com sidebar responsiva, superficies neutras, hierarquia operacional por tarefas, cards de metricas, tabelas escaneaveis, estados vazios e mensagens em portugues do Brasil.
+- Atualizacao visual de 2026-11-10 em branch separada: shell mais leve, bordas e raios menores, KPIs compactos, foco operacional antes de graficos, formularios e tabelas com menos caixas aninhadas, mobile com drawer acessivel. API, banco, autenticacao, RBAC e integracoes nao foram alterados; a versao em `main` permanece preservada ate aprovacao.
+- Iteracao minimalista da mesma branch: shell em duas colunas com sidebar escura fixa no desktop e navegacao em drawer no mobile; dashboard mostra vencimentos e avisos em duas colunas antes de metricas e graficos; faixas de indicadores substituem cards individuais nas listagens e no WhatsApp. O drawer nao usa `backdrop-filter` no ancestral para manter altura total. Ainda nao houve publicacao.
 - Vocabulario principal: Visao geral, Certificados, Clientes, Central de avisos, Automacao do WhatsApp e Configuracoes do sistema.
 - Status persistidos continuam tecnicos, mas a apresentacao converte para rotulos humanos como Valido, Vence em breve, Vencido, Na fila, Enviado, Falha no envio, Conectado e Envio automatico pausado.
 - O header interno possui `InternalNotificationsMenu`, um sininho que consulta `GET /api/internal-notifications/summary`, abre uma lista compacta de notificacoes ativas, permite marcar como lida ou dispensar, aponta para a central completa em `/notificacoes-internas` e oferece ativacao manual de pop-ups do navegador. Tambem existe cliente Windows WPF em `tools/windows-notifier-app` para pop-ups fora do navegador.

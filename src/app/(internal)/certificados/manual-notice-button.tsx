@@ -3,12 +3,15 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
 
-import { buttonClass } from "@/components/ui/button-styles";
+import { Button } from "@/components/ui/spec/button";
+import styles from "./certificates.module.css";
 import { cn } from "@/lib/utils/cn";
 
 type ManualNoticeButtonProps = {
   certificadoId: string;
   className?: string;
+  titular?: string;
+  compact?: boolean;
 };
 
 type Feedback = {
@@ -16,7 +19,7 @@ type Feedback = {
   message: string;
 };
 
-export function ManualNoticeButton({ certificadoId, className }: ManualNoticeButtonProps) {
+export function ManualNoticeButton({ certificadoId, className, titular, compact = false }: ManualNoticeButtonProps) {
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
@@ -58,25 +61,15 @@ export function ManualNoticeButton({ certificadoId, className }: ManualNoticeBut
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <button
-        type="button"
-        className={buttonClass("secondary", "min-h-8 px-3 text-xs")}
-        onClick={sendManualNotice}
-        disabled={pending}
-        aria-live="polite"
-      >
-        <Send aria-hidden="true" className="h-3.5 w-3.5" />
-        {pending ? "Enviando aviso" : "Enviar aviso"}
-      </button>
+    <div className={cn(styles.notice, className)} data-compact={compact}>
+      {compact ? <Button iconOnly icon={Send} variant="secondary" size="sm" aria-label={pending ? `Enviando aviso para ${titular}` : `Enviar aviso para ${titular}`} onClick={sendManualNotice} disabled={pending} aria-busy={pending} /> :
+        <Button icon={Send} variant="secondary" size="sm" onClick={sendManualNotice} disabled={pending} aria-busy={pending}>{pending ? "Enviando aviso" : "Enviar aviso"}</Button>}
       {feedback ? (
         <span
           role={feedback.tone === "error" ? "alert" : "status"}
           aria-live={feedback.tone === "error" ? "assertive" : "polite"}
-          className={cn(
-            "max-w-52 text-xs font-medium leading-4",
-            feedback.tone === "success" ? "text-green-700" : "text-red-700",
-          )}
+          className={styles.noticeFeedback}
+          data-tone={feedback.tone}
           title={feedback.message}
         >
           {feedback.message}

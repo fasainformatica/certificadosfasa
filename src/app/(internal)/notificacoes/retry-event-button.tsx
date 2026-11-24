@@ -4,7 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { buttonClass } from "@/components/ui/button-styles";
+import { Button } from "@/components/ui/spec";
 
 export function RetryEventButton({ eventId }: { eventId: string }) {
   const router = useRouter();
@@ -16,11 +16,12 @@ export function RetryEventButton({ eventId }: { eventId: string }) {
     setError(null);
 
     const response = await fetch(`/api/notifications/events/${eventId}/retry`, { method: "POST" }).catch(() => null);
+    const payload = response?.ok ? null : await response?.json().catch(() => null);
 
     setPending(false);
 
     if (!response?.ok) {
-      setError("Não foi possível reenfileirar o aviso. Atualize a página e tente novamente.");
+      setError(payload?.error?.message ?? "Não foi possível reenfileirar o aviso. Atualize a página e tente novamente.");
       return;
     }
 
@@ -29,16 +30,10 @@ export function RetryEventButton({ eventId }: { eventId: string }) {
 
   return (
     <div className="grid gap-2">
-      <button
-        type="button"
-        onClick={retry}
-        disabled={pending}
-        className={buttonClass("secondary", "min-h-8 px-3 text-xs")}
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
+      <Button variant="secondary" size="sm" icon={RotateCcw} onClick={retry} disabled={pending} aria-busy={pending}>
         {pending ? "Reenfileirando" : "Tentar novamente"}
-      </button>
-      {error ? <p className="text-xs font-medium text-red-700" role="alert">{error}</p> : null}
+      </Button>
+      {error ? <p className="text-[13px] leading-[18px] text-danger" role="alert">{error}</p> : null}
     </div>
   );
 }

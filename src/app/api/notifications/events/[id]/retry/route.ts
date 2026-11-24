@@ -4,6 +4,7 @@ import { jsonError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/api";
 import { OPERATIONAL_ROLES } from "@/lib/auth/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getNotificationRetryDecision } from "@/lib/notifications/renewal-retry";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,14 @@ export async function POST(request: NextRequest, { params }: RetryRouteProps) {
 
   const { id } = await params;
   const admin = createSupabaseAdminClient();
+  const snapshot = await admin.from("notification_events")
+    .select("id, payload, send_date, updated_at, certificados(data_vencimento)")
+    .eq("id", id).in("status", ["failed", "cancelled", "skipped"]).maybeSingle();
+  if (snapshot.error) return jsonError("Não foi possível verificar este aviso. Tente novamente.", 503, "evento_verificacao");
+  if (!snapshot.data) return jsonError("Evento não encontrado ou não pode ser reenfileirado.", 404, "evento_retry");
+  const certificate = Array.isArray(snapshot.data.certificados) ? snapshot.data.certificados[0] : snapshot.data.certificados;
+  const decision = getNotificationRetryDecision(snapshot.data.payload, certificate?.data_vencimento, snapshot.data.send_date);
+  if (!decision.allowed) return jsonError(decision.message ?? "Este aviso não pode ser reenfileirado.", 409, "evento_validade_alterada");
   const { data, error } = await admin
     .from("notification_events")
     .update({
@@ -35,6 +44,7 @@ export async function POST(request: NextRequest, { params }: RetryRouteProps) {
       processing_started_at: null,
     })
     .eq("id", id)
+    .eq("updated_at", snapshot.data.updated_at)
     .in("status", ["failed", "cancelled", "skipped"])
     .select("id, status, next_retry_at")
     .maybeSingle();

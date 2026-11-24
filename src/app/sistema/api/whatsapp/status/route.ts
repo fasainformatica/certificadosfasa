@@ -9,6 +9,7 @@ import {
 } from "@/lib/whatsapp/extension/config";
 import { processWhatsAppExtensionAcks } from "@/lib/whatsapp/extension/dispatcher";
 import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
+import { recordExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   try {
+    await recordExtensionContact(admin, auth.context);
     const acks = await processWhatsAppExtensionAcks({ admin, auth: auth.context, body });
 
     return extensionJson(request, {

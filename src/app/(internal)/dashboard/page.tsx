@@ -1,331 +1,67 @@
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarClock,
-  Clock3,
-  FileCheck2,
-  FileKey2,
-  MessageCircleWarning,
-  RefreshCw,
-  XCircle,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { EmptyState } from "@/components/ui/empty-state";
 import { LazyDonutChart, LazyExpirationBarChart } from "@/components/ui/lazy-dashboard-charts";
-import { SectionCard } from "@/components/ui/section-card";
-import { SectionHeader } from "@/components/ui/section-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Badge, StatusBadge } from "@/components/ui/status-badge";
+import { AlertBanner, KeyValueList, KpiCard, KpiGrid, Panel, StatusBadge } from "@/components/ui/spec";
 import { canAccessAdminOnlyArea } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/rbac";
-import { PLANNABLE_CERTIFICATE_RENEWAL_STATUSES } from "@/lib/certificados/renewal-status";
 import { calculateCertificateStatus, getCertificateStatusReferenceDates } from "@/lib/certificados/status";
+import { formatCnpj, formatCount, formatDate, formatDateTime, formatDays, formatRelative } from "@/lib/format";
+import { getOperationProviderLabel, lerCertificadosEmOperacao, lerMetricasOperacao } from "@/lib/metricas/operacao";
 import { SETTINGS_ID } from "@/lib/notifications/engine";
+import { getStatusLabel } from "@/lib/status-labels";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { CertificadoStatus, Json } from "@/lib/supabase/database.types";
-import {
-  formatCertificateTitle,
-  formatCnpj,
-  formatDate,
-  formatDateTimeShort,
-  formatRelativeExpiration,
-} from "@/lib/utils/format";
+import { formatCertificateTitle } from "@/lib/utils/format";
 import { getActiveNotificationProvider, getEuAtendoConfigStatus } from "@/lib/whatsapp/euatendo/config";
 import { getWhatsAppExtensionConfigStatus } from "@/lib/whatsapp/extension/config";
+import { hasRecentExtensionContact } from "@/lib/whatsapp/extension/heartbeat";
 import { WHATSAPP_EXTENSION_PROVIDER } from "@/lib/whatsapp/providers";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
-type ChartItem = {
-  name: string;
-  value: number;
-  color: string;
-};
-
-type DashboardAttentionCertificate = {
-  id: string;
-  cnpj: string;
-  nome_titular: string;
-  data_vencimento: string;
-  status: CertificadoStatus;
-  dias_restantes: number;
-  clientes: {
-    nome_razao_social: string | null;
-  } | null;
-};
-
-type DashboardMetrics = {
-  total_certificados: number;
-  certificados_validos: number;
-  certificados_vencendo: number;
-  certificados_vencidos: number;
-  avisos_para_hoje: number;
-  mensagens_enviadas: number;
-  falhas_envio: number;
-  falhas_hoje: number;
-  avisos_planejados: number;
-  ultimo_envio: string | null;
-  status_canal_whatsapp: boolean;
-  mensagens_aguardando: number;
-  enviadas_hoje: number;
-  status_chart: ChartItem[];
-  expiration_chart: ChartItem[];
-  attention_certificates: DashboardAttentionCertificate[];
-};
-
-const emptyMetrics: DashboardMetrics = {
-  total_certificados: 0,
-  certificados_validos: 0,
-  certificados_vencendo: 0,
-  certificados_vencidos: 0,
-  avisos_para_hoje: 0,
-  mensagens_enviadas: 0,
-  falhas_envio: 0,
-  falhas_hoje: 0,
-  avisos_planejados: 0,
-  ultimo_envio: null,
-  status_canal_whatsapp: false,
-  mensagens_aguardando: 0,
-  enviadas_hoje: 0,
-  status_chart: [
-    { name: "Válidos", value: 0, color: "#15803D" },
-    { name: "Vencem em breve", value: 0, color: "#D97706" },
-    { name: "Vencidos", value: 0, color: "#DC2626" },
-  ],
-  expiration_chart: [
-    { name: "Vencidos", value: 0, color: "#DC2626" },
-    { name: "7 dias", value: 0, color: "#D97706" },
-    { name: "15 dias", value: 0, color: "#2563EB" },
-    { name: "30 dias", value: 0, color: "#60A5FA" },
-  ],
-  attention_certificates: [],
-};
-
-function isRecord(value: Json | null | undefined): value is Record<string, Json | undefined> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function toNumber(value: unknown) {
-  return Number.isFinite(Number(value)) ? Number(value) : 0;
-}
-
-function normalizeChartName(value: unknown) {
-  if (typeof value !== "string") {
-    return "Sem nome";
-  }
-
-  const labels: Record<string, string> = {
-    Validos: "Válidos",
-    "Válidos": "Válidos",
-    Vencidos: "Vencidos",
-    Vencendo: "Vencem em breve",
-  };
-
-  return labels[value] ?? value;
-}
-
-function toChartItems(value: unknown, fallback: ChartItem[]) {
-  if (!Array.isArray(value)) {
-    return fallback;
-  }
-
-  return value.map((item) => ({
-    name: normalizeChartName(item?.name),
-    value: toNumber(item?.value),
-    color: typeof item?.color === "string" ? item.color : "#64748B",
-  }));
-}
-
-function normalizeMetrics(value: Json | null): DashboardMetrics {
-  if (!isRecord(value)) {
-    return emptyMetrics;
-  }
-
-  return {
-    total_certificados: toNumber(value.total_certificados),
-    certificados_validos: toNumber(value.certificados_validos),
-    certificados_vencendo: toNumber(value.certificados_vencendo),
-    certificados_vencidos: toNumber(value.certificados_vencidos),
-    avisos_para_hoje: toNumber(value.avisos_para_hoje),
-    mensagens_enviadas: toNumber(value.mensagens_enviadas),
-    falhas_envio: toNumber(value.falhas_envio),
-    falhas_hoje: toNumber(value.falhas_hoje),
-    avisos_planejados: toNumber(value.avisos_planejados),
-    ultimo_envio: typeof value.ultimo_envio === "string" ? value.ultimo_envio : null,
-    status_canal_whatsapp: value.status_canal_whatsapp === true,
-    mensagens_aguardando: toNumber(value.mensagens_aguardando),
-    enviadas_hoje: toNumber(value.enviadas_hoje),
-    status_chart: toChartItems(value.status_chart, emptyMetrics.status_chart),
-    expiration_chart: toChartItems(value.expiration_chart, emptyMetrics.expiration_chart),
-    attention_certificates: Array.isArray(value.attention_certificates)
-      ? (value.attention_certificates as DashboardAttentionCertificate[])
-      : [],
-  };
-}
-
 function getActiveWhatsAppAutomationStatus() {
   const activeProvider = getActiveNotificationProvider();
-
-  if (activeProvider === WHATSAPP_EXTENSION_PROVIDER) {
-    const extension = getWhatsAppExtensionConfigStatus();
-
-    return {
-      activeProvider,
-      label: "Extensao do Chrome",
-      enabled: extension.enabled && extension.tokenConfigured,
-    };
-  }
-
-  const euAtendo = getEuAtendoConfigStatus();
-
+  const extension = activeProvider === WHATSAPP_EXTENSION_PROVIDER ? getWhatsAppExtensionConfigStatus() : null;
   return {
     activeProvider,
-    label: "euAtendo",
-    enabled: euAtendo.enabled,
-  };
-}
-
-function buildChartsFromCertificates(
-  certificates: DashboardAttentionCertificate[],
-  counts: Pick<DashboardMetrics, "certificados_validos" | "certificados_vencendo" | "certificados_vencidos">,
-) {
-  return {
-    statusChart: [
-      { name: "Válidos", value: counts.certificados_validos, color: "#15803D" },
-      { name: "Vencem em breve", value: counts.certificados_vencendo, color: "#D97706" },
-      { name: "Vencidos", value: counts.certificados_vencidos, color: "#DC2626" },
-    ],
-    expirationChart: [
-      { name: "Vencidos", value: certificates.filter((item) => item.dias_restantes < 0).length, color: "#DC2626" },
-      {
-        name: "7 dias",
-        value: certificates.filter((item) => item.dias_restantes >= 0 && item.dias_restantes <= 7).length,
-        color: "#D97706",
-      },
-      {
-        name: "15 dias",
-        value: certificates.filter((item) => item.dias_restantes > 7 && item.dias_restantes <= 15).length,
-        color: "#2563EB",
-      },
-      {
-        name: "30 dias",
-        value: certificates.filter((item) => item.dias_restantes > 15 && item.dias_restantes <= 30).length,
-        color: "#60A5FA",
-      },
-    ],
-  };
-}
-
-async function loadDashboardMetricsFallback(admin: AdminClient): Promise<DashboardMetrics> {
-  const { data: settings } = await admin
-    .from("notification_settings")
-    .select("dias_aviso_vencimento, timezone")
-    .eq("id", SETTINGS_ID)
-    .maybeSingle();
-  const warningDays = settings?.dias_aviso_vencimento ?? [30, 15, 7];
-  const timezone = settings?.timezone ?? "America/Sao_Paulo";
-  const { today, warningDays: maxWarningDays } = getCertificateStatusReferenceDates(warningDays, timezone);
-
-  const [certificatesResult, plannedResult, todayResult, waitingResult, sentTodayResult, failedResult, failedTodayResult, lastSentResult] =
-    await Promise.all([
-      admin
-        .from("certificados")
-        .select("id, cnpj, nome_titular, data_vencimento, status, renovacao_status, clientes(nome_razao_social)")
-        .neq("status", "invalido")
-        .in("renovacao_status", [...PLANNABLE_CERTIFICATE_RENEWAL_STATUSES])
-        .order("data_vencimento", { ascending: true })
-        .limit(1000),
-      admin
-        .from("notification_events")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "retry"])
-        .gt("send_date", today),
-      admin
-        .from("notification_events")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "retry"])
-        .lte("send_date", today),
-      admin
-        .from("notification_events")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "reserved", "processing", "retry"]),
-      admin
-        .from("notification_events")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "sent")
-        .gte("sent_at", `${today}T00:00:00`),
-      admin.from("notification_events").select("id", { count: "exact", head: true }).eq("status", "failed"),
-      admin
-        .from("notification_events")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "failed")
-        .gte("failed_at", `${today}T00:00:00`),
-      admin
-        .from("notification_events")
-        .select("sent_at")
-        .eq("status", "sent")
-        .order("sent_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-  const mappedCertificates = (certificatesResult.data ?? []).map((certificado) => {
-    const diasRestantes = Math.round(
-      (new Date(`${certificado.data_vencimento}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) /
-        86_400_000,
-    );
-    const status = calculateCertificateStatus(certificado.data_vencimento, warningDays, timezone);
-    const cliente = Array.isArray(certificado.clientes) ? certificado.clientes[0] : certificado.clientes;
-
-    return {
-      id: certificado.id,
-      cnpj: certificado.cnpj,
-      nome_titular: certificado.nome_titular,
-      data_vencimento: certificado.data_vencimento,
-      status,
-      dias_restantes: diasRestantes,
-      clientes: { nome_razao_social: cliente?.nome_razao_social ?? null },
-    } satisfies DashboardAttentionCertificate;
-  });
-
-  const counts = {
-    certificados_validos: mappedCertificates.filter((item) => item.status === "ativo").length,
-    certificados_vencendo: mappedCertificates.filter((item) => item.status === "vencendo").length,
-    certificados_vencidos: mappedCertificates.filter((item) => item.status === "vencido").length,
-  };
-  const charts = buildChartsFromCertificates(mappedCertificates, counts);
-
-  return {
-    ...emptyMetrics,
-    total_certificados: mappedCertificates.length,
-    ...counts,
-    avisos_para_hoje: todayResult.count ?? 0,
-    mensagens_enviadas: sentTodayResult.count ?? 0,
-    falhas_envio: failedResult.count ?? 0,
-    falhas_hoje: failedTodayResult.count ?? 0,
-    avisos_planejados: plannedResult.count ?? 0,
-    ultimo_envio: lastSentResult.data?.sent_at ?? null,
-    status_canal_whatsapp: getActiveWhatsAppAutomationStatus().enabled,
-    mensagens_aguardando: waitingResult.count ?? 0,
-    enviadas_hoje: sentTodayResult.count ?? 0,
-    status_chart: charts.statusChart,
-    expiration_chart: charts.expirationChart,
-    attention_certificates: mappedCertificates
-      .filter((item) => item.dias_restantes < 0 || (item.dias_restantes >= 0 && item.dias_restantes <= maxWarningDays))
-      .sort((left, right) => left.dias_restantes - right.dias_restantes)
-      .slice(0, 6),
+    label: getOperationProviderLabel(activeProvider),
+    enabled: extension ? extension.enabled && extension.tokenConfigured : getEuAtendoConfigStatus().enabled,
   };
 }
 
 async function loadDashboardMetrics(admin: AdminClient) {
-  const { data, error } = await admin.rpc("get_dashboard_metrics");
-
-  if (error || !data) {
-    return loadDashboardMetricsFallback(admin);
-  }
-
-  return normalizeMetrics(data);
+  const { certificates, warningDays, timezone } = await lerCertificadosEmOperacao(admin);
+  const { today, warningDays: maxWarningDays } = getCertificateStatusReferenceDates(warningDays, timezone);
+  const mappedCertificates = certificates.map((certificate) => ({
+    ...certificate,
+    dias_restantes: Math.round(
+      (Date.parse(`${certificate.data_vencimento}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
+    ),
+    status: calculateCertificateStatus(certificate.data_vencimento, warningDays, timezone),
+  }));
+  const counts = {
+    active: mappedCertificates.length,
+    ok: mappedCertificates.filter((item) => item.status === "ativo").length,
+    warning: mappedCertificates.filter((item) => item.status === "vencendo").length,
+    expired: mappedCertificates.filter((item) => item.status === "vencido").length,
+  };
+  return {
+    ...counts,
+    warningDays: maxWarningDays,
+    statusChart: [
+      { name: getStatusLabel("validade", "em_dia").label, value: counts.ok, color: "var(--chart-ok)" },
+      { name: getStatusLabel("validade", "vence_em_breve").label, value: counts.warning, color: "var(--chart-warn)" },
+      { name: "Vencidos", value: counts.expired, color: "var(--chart-danger)" },
+    ],
+    expirationChart: [
+      { name: "Vencidos", value: counts.expired, color: "var(--chart-danger)" },
+      { name: "0\u20137 dias", value: mappedCertificates.filter((item) => item.dias_restantes >= 0 && item.dias_restantes <= 7).length, color: "var(--chart-warn)" },
+      { name: "8\u201315 dias", value: mappedCertificates.filter((item) => item.dias_restantes > 7 && item.dias_restantes <= 15).length, color: "var(--chart-neutral)" },
+      { name: "16\u201330 dias", value: mappedCertificates.filter((item) => item.dias_restantes > 15 && item.dias_restantes <= 30).length, color: "var(--chart-neutral)" },
+    ],
+    attention: mappedCertificates.filter((item) => item.dias_restantes >= 0 && item.dias_restantes <= 30)
+      .sort((left, right) => left.dias_restantes - right.dias_restantes).slice(0, 5),
+  };
 }
 
 export default async function DashboardPage() {
@@ -333,195 +69,91 @@ export default async function DashboardPage() {
   const canAccessWhatsapp = canAccessAdminOnlyArea(user.role);
   const admin = createSupabaseAdminClient();
   const whatsappAutomation = getActiveWhatsAppAutomationStatus();
-  const [metrics, whatsappStateResult, whatsappPendingResult, notificationSettingsResult] = await Promise.all([
-    loadDashboardMetrics(admin),
-    admin
-      .from("whatsapp_dispatcher_state")
-      .select("last_dispatch_at, next_allowed_send_at, locked_until, updated_at")
-      .eq("provider", whatsappAutomation.activeProvider)
-      .maybeSingle(),
-    admin
-      .from("notification_events")
-      .select("id", { count: "exact", head: true })
-      .eq("provider", whatsappAutomation.activeProvider)
-      .in("status", ["pending", "retry", "reserved", "processing"]),
-    admin
-      .from("notification_settings")
-      .select("enabled")
-      .eq("id", SETTINGS_ID)
-      .maybeSingle(),
+  const [metrics, operation, notificationSettingsResult, inactiveResult] = await Promise.all([
+    loadDashboardMetrics(admin).catch(() => null),
+    lerMetricasOperacao(admin, whatsappAutomation.activeProvider).catch(() => null),
+    admin.from("notification_settings").select("enabled").eq("id", SETTINGS_ID).maybeSingle(),
+    admin.from("certificados").select("id", { count: "exact" }).eq("renovacao_status", "cliente_inativo").limit(0),
   ]);
   const automationEnabled = whatsappAutomation.enabled && notificationSettingsResult.data?.enabled === true;
-  const falhasHoje = metrics.falhas_hoje || metrics.falhas_envio;
-
-  const attentionItems = [
-    ...metrics.attention_certificates
-      .sort((left, right) => left.dias_restantes - right.dias_restantes)
-      .map((certificado) => ({
-        key: certificado.id,
-        title: formatCertificateTitle(certificado.nome_titular, certificado.cnpj),
-        description: formatRelativeExpiration(certificado.dias_restantes),
-        meta: `${formatCnpj(certificado.cnpj)} - ${formatDate(certificado.data_vencimento)}`,
-        status: certificado.status,
-        href: `/certificados/${certificado.id}`,
-      })),
-    ...(metrics.falhas_envio
-      ? [
-          {
-            key: "failed-messages",
-            title: "Envios com falha",
-            description: `${metrics.falhas_envio} ${metrics.falhas_envio === 1 ? "aviso precisa" : "avisos precisam"} de atenção`,
-            meta: "Abra a Central de avisos para revisar",
-            status: "vencido" as const,
-            href: "/notificacoes?status=failed",
-          },
-        ]
-      : []),
-    ...(!automationEnabled && canAccessWhatsapp
-      ? [
-          {
-            key: "canal-whatsapp-pausado",
-            title: "Envio automático pausado",
-            description: `O envio pelo ${whatsappAutomation.label} esta desativado`,
-            meta: "Valide a integracao na tela de WhatsApp",
-            status: "vencido" as const,
-            href: "/whatsapp",
-          },
-        ]
-      : []),
-  ].slice(0, 8);
+  const inactive = inactiveResult.error ? null : inactiveResult.count;
+  const failed = operation?.failed ?? null;
+  const lastSentUnavailable = !operation || operation.unavailable.includes("lastSentAt");
+  const operationalCount = (value: number | null | undefined) => value == null ? "Indisponível" : formatCount(value);
+  const connection = whatsappAutomation.activeProvider === WHATSAPP_EXTENSION_PROVIDER && hasRecentExtensionContact(operation?.state?.updated_at)
+    ? "verificada" as const : "nao_verificada" as const;
+  const retry = <Link href="/dashboard" className="text-primary hover:underline">Tentar de novo</Link>;
 
   return (
-    <section>
-      <SectionHeader
-        title="Visão geral"
-        description="Acompanhe certificados, vencimentos e o funcionamento dos avisos."
-      />
+    <section className="space-y-8 text-text [letter-spacing:0]">
+      <header>
+        <h1 className="page-title">Visão geral</h1>
+        <p className="page-subtitle mt-1">Certificados, vencimentos e funcionamento dos avisos.</p>
+      </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-        <StatCard title="Cadastrados" value={metrics.total_certificados} description="Certificados no sistema" icon={FileKey2} tone="blue" />
-        <StatCard title="Válidos" value={metrics.certificados_validos} description="Fora da janela de aviso" icon={FileCheck2} tone="green" />
-        <StatCard title="Próximos" value={metrics.certificados_vencendo} description="Dentro da janela configurada" icon={CalendarClock} tone="amber" />
-        <StatCard title="Vencidos" value={metrics.certificados_vencidos} description="Exigem ação" icon={XCircle} tone="red" />
-        <StatCard title="Na fila" value={metrics.avisos_para_hoje} description="Avisos prontos para envio" icon={Clock3} tone="blue" />
-        <StatCard title="Com falha" value={metrics.falhas_envio} description="Envios que precisam de revisão" icon={AlertTriangle} tone="red" />
+      <KpiGrid>
+        <KpiCard label="Certificados ativos" value={metrics?.active ?? null} state={metrics ? "ok" : "error"}
+          description={inactive == null ? "Indisponível" : inactive === 0 ? "Todos em acompanhamento" : `${formatCount(inactive)} inativos fora do acompanhamento`} href="/certificados?renovacao=em_acompanhamento" />
+        <KpiCard label="Em dia" value={metrics?.ok ?? null} state={metrics ? "ok" : "error"} description="Fora da janela de aviso" href="/certificados?situacao=em_dia&renovacao=em_acompanhamento" />
+        <KpiCard label="Vencem em breve" value={metrics?.warning ?? null} state={metrics ? "ok" : "error"}
+          description={metrics ? `Nos próximos ${formatCount(metrics.warningDays)} dias` : "Dentro da janela configurada"} tone="warning" href="/certificados?situacao=vence_em_breve&renovacao=em_acompanhamento" />
+        <KpiCard label="Vencidos" value={metrics?.expired ?? null} state={metrics ? "ok" : "error"} description="Validade encerrada" tone="danger" href="/certificados?situacao=vencido&renovacao=em_acompanhamento" />
+        <KpiCard label="Avisos para hoje" value={operation?.queue?.total ?? null} state={operation?.queue ? "ok" : "error"} description="Programados até hoje" href="/notificacoes?aba=hoje" />
+        <KpiCard label="Falhas de envio" value={failed} state={failed == null ? "error" : "ok"} description="Aguardando revisão" tone="danger" href="/notificacoes?aba=falhas" />
+      </KpiGrid>
+
+      {failed != null && failed > 0 && <AlertBanner tone="danger" link={{ href: "/notificacoes?aba=falhas", label: "Revisar na Central de avisos" }}>
+        <strong className="font-semibold">{formatCount(failed)} {failed === 1 ? "envio com falha" : "envios com falha"}</strong> {failed === 1 ? "aguarda" : "aguardam"} revisão antes do próximo disparo.
+      </AlertBanner>}
+
+      <div className="grid grid-cols-12 items-stretch gap-4">
+        <div className="col-span-12 min-w-0 [&>section]:h-full xl:col-span-5">
+          <Panel title="Certificados por situação" description="Distribuição pela data de vencimento.">
+            {metrics ? <div className="flex min-h-[220px] items-center"><LazyDonutChart data={metrics.statusChart} total={metrics.active} /></div> : <div className="min-h-[220px] p-8 text-center text-[13px] leading-5 text-text-3"><p>Indisponível</p><p>Não foi possível carregar.</p>{retry}</div>}
+          </Panel>
+        </div>
+        <div className="col-span-12 min-w-0 [&>section]:h-full xl:col-span-7">
+          <Panel title="Vencimentos nos próximos 30 dias" description="Certificados por prazo até o vencimento.">
+            {metrics ? <LazyExpirationBarChart data={metrics.expirationChart} /> : <div className="min-h-[220px] p-8 text-center text-[13px] leading-5 text-text-3"><p>Indisponível</p><p>Não foi possível carregar.</p>{retry}</div>}
+          </Panel>
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <SectionCard>
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Certificados por status</h2>
-              <p className="text-sm text-slate-500">Distribuição calculada pela data de vencimento.</p>
-            </div>
-            <Badge tone="blue">Atualizado agora</Badge>
-          </div>
-          <LazyDonutChart data={metrics.status_chart} total={metrics.total_certificados} />
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualização automática
-          </div>
-        </SectionCard>
-
-        <SectionCard>
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Vencimentos por período</h2>
-              <p className="text-sm text-slate-500">Volume de certificados por janela de vencimento.</p>
-            </div>
-            <Badge tone="slate">Próximos 30 dias</Badge>
-          </div>
-          <LazyExpirationBarChart data={metrics.expiration_chart} />
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualização automática
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <SectionCard>
-          <div className="mb-3 flex items-center gap-2">
-            <MessageCircleWarning className="h-4 w-4 text-red-500" />
-            <h2 className="text-base font-semibold text-slate-950">Precisa de atenção</h2>
-          </div>
-          {attentionItems.length === 0 ? (
-            <EmptyState title="Nada urgente no momento" description="Nenhum certificado ou aviso crítico para revisar agora." />
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              {attentionItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 outline-none transition duration-150 last:border-b-0 hover:bg-slate-50 focus-visible:bg-blue-50 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-100 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-950" title={item.title}>{item.title}</p>
-                    <p className="text-sm text-slate-700">{item.description}</p>
-                    <p className="text-xs text-slate-500">{item.meta}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StatusBadge status={item.status} />
-                    <span className="sr-only">Ver detalhes</span>
-                    <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">Avisos e WhatsApp</h2>
-              <p className="text-sm text-slate-500">Resumo da operação de hoje.</p>
-            </div>
-            {!automationEnabled ? <Badge tone="red">Envio pausado</Badge> : <Badge tone="green">Envio ativo</Badge>}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-700">Mensagens na fila</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.avisos_para_hoje}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs font-semibold text-slate-600">Planejadas</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.avisos_planejados}</p>
-            </div>
-            <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-              <p className="text-xs font-semibold text-green-700">Enviadas hoje</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{metrics.enviadas_hoje}</p>
-            </div>
-            <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-              <p className="text-xs font-semibold text-red-700">Envios com falha</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{falhasHoje}</p>
-            </div>
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-700">Fila WhatsApp</p>
-              <p className="mt-1 text-2xl font-bold text-slate-950">{whatsappPendingResult.count ?? 0}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs font-semibold text-slate-600">Integração</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">
-                {automationEnabled ? whatsappAutomation.label : "Pausada"}
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-            <div className="flex items-center justify-between gap-3">
-              <span>Último envio</span>
-              <span className="text-right font-semibold text-slate-950">
-                {metrics.ultimo_envio ? formatDateTimeShort(metrics.ultimo_envio) : "Ainda não houve envio"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>Última sincronização</span>
-              <span className="text-right font-semibold text-slate-950">
-                {whatsappStateResult.data?.last_dispatch_at ? formatDateTimeShort(whatsappStateResult.data.last_dispatch_at) : "-"}
-              </span>
-            </div>
-          </div>
-        </SectionCard>
+      <div className="grid grid-cols-12 items-start gap-4">
+        <div className="col-span-12 min-w-0 xl:col-span-7">
+          <Panel title="Vencimentos para acompanhar" flush actions={<Link href="/certificados?situacao=vence_em_breve&renovacao=em_acompanhamento" className="shrink-0 text-sm font-medium text-primary hover:underline">Ver todos</Link>}
+            state={!metrics ? "error" : metrics.attention.length === 0 ? "empty" : "ok"} emptyMessage="Nenhum certificado vence nos próximos 30 dias.">
+            {metrics?.attention.map((certificate) => {
+              const title = formatCertificateTitle(certificate.nome_titular, certificate.cnpj);
+              return <Link key={certificate.id} href={`/certificados/${certificate.id}`} className="flex min-h-16 min-w-0 flex-col gap-2 border-b border-border px-5 py-3 last:border-b-0 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-row sm:items-center sm:gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="cell-primary truncate" title={title}>{title}</p>
+                  <p className="cell-secondary mt-1 break-words tabular-nums">{formatCnpj(certificate.cnpj)} · Vence em {formatDate(certificate.data_vencimento)}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="min-w-[120px] whitespace-nowrap text-sm font-semibold tabular-nums sm:text-right" style={{ color: certificate.dias_restantes <= 7 ? "var(--danger)" : certificate.dias_restantes <= 15 ? "var(--warning)" : "var(--text)" }}>{formatDays(certificate.dias_restantes)}</span>
+                  <ChevronRight size={16} className="shrink-0 text-text-3" aria-hidden="true" />
+                </div>
+              </Link>;
+            })}
+          </Panel>
+          {!metrics && <div className="mt-2 text-[13px]">{retry}</div>}
+        </div>
+        <div className="col-span-12 min-w-0 xl:col-span-5">
+          <Panel title="Avisos e WhatsApp" actions={canAccessWhatsapp ? <Link href="/whatsapp" aria-label={`Estado da conexão: ${getStatusLabel("conexao", connection).label}`}><StatusBadge domain="conexao" status={connection} /></Link> : <StatusBadge domain="conexao" status={connection} />}>
+            <KeyValueList items={[
+              { id: "queue", label: "Na fila agora", value: operationalCount(operation?.queue?.total), href: "/notificacoes?aba=fila" },
+              { id: "failed", label: "Falhas aguardando revisão", value: operationalCount(failed), href: "/notificacoes?aba=falhas" },
+              { id: "sentToday", label: "Enviadas hoje", value: operationalCount(operation?.sentToday) },
+              { id: "lastSentAt", label: "Último envio", value: lastSentUnavailable ? "Indisponível" : operation.lastSentAt ? formatDateTime(operation.lastSentAt) : "Sem medições", secondary: !lastSentUnavailable && operation.lastSentAt ? formatRelative(operation.lastSentAt) : undefined },
+              { id: "channel", label: "Canal", value: whatsappAutomation.label },
+              { id: "automation", label: "Automação", value: notificationSettingsResult.error ? "Indisponível" : getStatusLabel("automacao", automationEnabled ? "habilitada" : "desligada").label },
+            ]} />
+            {canAccessWhatsapp && <footer className="-mx-5 -mb-5 mt-5 border-t border-border px-5 py-4">
+              <Link href="/whatsapp" className="text-sm font-medium text-primary hover:underline">Abrir automação do WhatsApp</Link>
+            </footer>}
+          </Panel>
+        </div>
       </div>
     </section>
   );

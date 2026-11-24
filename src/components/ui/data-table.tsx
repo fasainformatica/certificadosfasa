@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils/cn";
 
 export function TableShell({ children, minWidth = "100%" }: { children: ReactNode; minWidth?: string }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
+    <div className="overflow-hidden border-y border-slate-200 bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm" style={{ minWidth }}>
+        <table className="w-full text-left text-sm tabular-nums" style={{ minWidth }}>
           {children}
         </table>
       </div>
@@ -15,11 +15,11 @@ export function TableShell({ children, minWidth = "100%" }: { children: ReactNod
 }
 
 export function TableHead({ children }: { children: ReactNode }) {
-  return <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">{children}</thead>;
+  return <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-[11px] font-medium uppercase text-slate-500">{children}</thead>;
 }
 
 export function TableBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y divide-slate-100/90">{children}</tbody>;
+  return <tbody className="divide-y divide-slate-100 [&_tr]:transition-colors [&_tr]:duration-150 [&_tr:hover]:bg-slate-50/80 [&_tr:focus-within]:bg-blue-50/50">{children}</tbody>;
 }
 
 export function TableCell({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -27,5 +27,5 @@ export function TableCell({ children, className = "" }: { children: ReactNode; c
 }
 
 export function TableHeaderCell({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <th scope="col" className={cn("px-4 py-3.5 font-semibold", className)}>{children}</th>;
+  return <th scope="col" className={cn("px-4 py-3 font-semibold", className)}>{children}</th>;
 }

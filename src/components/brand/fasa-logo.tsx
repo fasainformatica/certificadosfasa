@@ -11,7 +11,7 @@ export function FasaLogo({ className, priority = false }: FasaLogoProps) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm shadow-blue-950/5 ring-1 ring-blue-100",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-slate-200",
         className,
       )}
     >

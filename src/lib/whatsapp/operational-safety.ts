@@ -135,8 +135,18 @@ export function buildWhatsAppOperationalSafetySnapshot({
   };
 }
 
-function getTodayDateString(timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+/** Midnight of the operational date in its own timezone; midnight UTC would reset the daily limit at 21:00 in Sao Paulo. */
+export function getDayStartIso(timezone: string, now = new Date()) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(now);
+  const midnight = Date.parse(`${today}T00:00:00.000Z`);
+  const offsetFormat = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "longOffset" });
+  const readOffset = (time: number) => {
+    const name = offsetFormat.formatToParts(time).find((part) => part.type === "timeZoneName")?.value ?? "";
+    const match = /GMT([+-])(\d{2}):(\d{2})/.exec(name);
+    return match ? (match[1] === "+" ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3])) * 60_000 : 0;
+  };
+  const guess = midnight - readOffset(midnight);
+  return new Date(midnight - readOffset(guess)).toISOString();
 }
 
 async function countSentEvents(admin: AdminClient, provider: NotificationProvider, sinceIso: string) {
@@ -181,8 +191,7 @@ export async function getWhatsAppOperationalSafetySnapshot({
   autoPause?: boolean;
 }) {
   const normalized = normalizeWhatsAppSafetySettings(settings);
-  const today = getTodayDateString(normalized.timezone);
-  const dayStartIso = `${today}T00:00:00.000Z`;
+  const dayStartIso = getDayStartIso(normalized.timezone);
   const hourStartIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const failureWindowStartIso = new Date(
     Date.now() - normalized.failurePauseWindowMinutes * 60 * 1000,

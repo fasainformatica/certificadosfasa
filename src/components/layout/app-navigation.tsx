@@ -1,19 +1,19 @@
 "use client";
 
 import {
-  BarChart3,
-  FileKey2,
+  LayoutDashboard,
+  FileBadge,
   Loader2,
   Menu,
-  MessageSquareText,
+  MessageSquare,
   Send,
   Settings,
-  UsersRound,
+  Users,
   X,
 } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -24,48 +24,75 @@ export type NavigationItem = {
 };
 
 const navigationIcons = {
-  dashboard: BarChart3,
-  certificates: FileKey2,
-  clients: UsersRound,
+  dashboard: LayoutDashboard,
+  certificates: FileBadge,
+  clients: Users,
   notifications: Send,
-  whatsapp: MessageSquareText,
+  whatsapp: MessageSquare,
   settings: Settings,
 };
 
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
 
-  return (
+  return pending ? (
     <span className="ml-auto flex h-4 w-4 shrink-0 items-center" role="status">
-      {pending ? (
-        <>
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-          <span className="sr-only">Carregando</span>
-        </>
-      ) : null}
+      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+      <span className="sr-only">Carregando</span>
     </span>
-  );
+  ) : null;
 }
 
-export function AppNavigation({ items }: { items: NavigationItem[] }) {
+export function AppNavigation({ items, mobileOnly = false }: { items: NavigationItem[]; mobileOnly?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const drawerId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileOpen(false);
+    menuButtonRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) {
       return;
     }
 
+    const drawer = drawerRef.current;
+    const menuButton = menuButtonRef.current;
+    drawer?.querySelector<HTMLButtonElement>("button")?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setMobileOpen(false);
+        closeMobileMenu();
+      }
+
+      if (event.key === "Tab" && drawer) {
+        const focusable = Array.from(drawer.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"));
+        const first = focusable[0];
+        const last = focusable.at(-1);
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileOpen]);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      menuButton?.focus();
+    };
+  }, [mobileOpen, closeMobileMenu]);
 
   function renderLink(item: NavigationItem, onNavigate?: () => void) {
     const Icon = navigationIcons[item.icon];
@@ -78,21 +105,20 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
         className={cn(
-          "group relative inline-flex min-h-11 shrink-0 items-center gap-3 rounded-xl px-3 text-sm font-semibold outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+          "group relative inline-flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm leading-5 font-medium transition-colors duration-150",
           active
-            ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-            : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
+            ? "bg-[var(--sidebar-active-bg)] text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:bg-[var(--sidebar-active-bar)]"
+            : "text-[var(--sidebar-text)] hover:bg-white/[0.04]",
         )}
       >
         <span
           className={cn(
-            "relative flex h-8 w-8 items-center justify-center rounded-lg transition duration-150",
-            active ? "bg-white text-blue-700 ring-1 ring-blue-100" : "bg-slate-100 text-slate-500 group-hover:text-slate-700",
+            "relative flex h-[18px] w-[18px] items-center justify-center",
           )}
         >
-          <Icon aria-hidden="true" className="h-[17px] w-[17px]" />
+          <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
         </span>
-        <span className="relative min-w-0 truncate">{item.label}</span>
+        <span className="relative min-w-0">{item.label}</span>
         <NavigationPendingIndicator />
       </Link>
     );
@@ -100,53 +126,58 @@ export function AppNavigation({ items }: { items: NavigationItem[] }) {
 
   return (
     <>
-      <nav aria-label="Navegação principal" className="hidden lg:sticky lg:top-[76px] lg:block lg:self-start">
-        <div className="flex min-h-[calc(100vh-96px)] flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-950/5">
+      {!mobileOnly ? <nav aria-label="Navegação principal" className="hidden flex-1 p-3 lg:block">
+        <div className="flex flex-col gap-1">
           {items.map((item) => renderLink(item))}
         </div>
-      </nav>
+      </nav> : null}
 
-      <button
+      {mobileOnly ? <button
+        ref={menuButtonRef}
         type="button"
-        className="fixed bottom-4 left-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-lg shadow-slate-950/10 outline-none transition hover:border-blue-200 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 lg:hidden"
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 outline-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 lg:hidden"
+        aria-label="Abrir navegação"
         aria-controls={drawerId}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen(true)}
       >
-        <Menu aria-hidden="true" className="h-4 w-4" />
-        Menu
-      </button>
+        <Menu aria-hidden="true" className="h-5 w-5" />
+      </button> : null}
 
-      {mobileOpen ? (
+      {mobileOnly && mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden"
+          className="fixed inset-0 z-40 bg-[rgba(15,26,43,0.4)] lg:hidden"
           aria-label="Fechar navegação"
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobileMenu}
         />
       ) : null}
 
-      <aside
+      {mobileOnly ? <aside
+        ref={drawerRef}
         id={drawerId}
+        role="dialog"
+        aria-modal={mobileOpen ? "true" : undefined}
+        inert={!mobileOpen}
         aria-label="Navegação principal"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] flex-col border-r border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/20 transition-transform duration-200 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[min(240px,86vw)] flex-col bg-[var(--sidebar-bg)] p-3 shadow-[var(--shadow-popover)] transition-transform duration-200 overscroll-contain lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-slate-950">Navegação</p>
+          <p className="text-sm font-semibold text-white">Fasa Certificados</p>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/15 text-slate-200 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-400"
             aria-label="Fechar navegação"
-            onClick={() => setMobileOpen(false)}
+            onClick={closeMobileMenu}
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
         <nav className="grid gap-1">{items.map((item) => renderLink(item, () => setMobileOpen(false)))}</nav>
-      </aside>
+      </aside> : null}
     </>
   );
 }

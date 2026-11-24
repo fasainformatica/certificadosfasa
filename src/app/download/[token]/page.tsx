@@ -34,13 +34,13 @@ export default async function PublicDownloadPage({ params }: PublicDownloadPageP
   const available = await isLinkAvailable(token);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-950/10 sm:p-7">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-4 py-10">
+      <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-[0_12px_32px_rgb(24_33_47/0.06)] sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
             <FasaLogo className="h-12 w-12" priority />
             <p className="mt-4 text-sm font-semibold text-blue-700">Fasa Informática</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-normal text-slate-950">Download protegido</h1>
+            <h1 className="mt-1 text-[28px] font-semibold leading-tight text-slate-950">Download protegido</h1>
           </div>
           {available ? <Badge tone="green">Link disponível</Badge> : <Badge tone="red">Link indisponível</Badge>}
         </div>
@@ -50,7 +50,7 @@ export default async function PublicDownloadPage({ params }: PublicDownloadPageP
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Informe a senha temporária recebida para liberar um acesso de curta duração ao certificado.
             </p>
-            <div className="mt-4 grid gap-2 rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-slate-700">
+            <div className="mt-4 grid gap-2 rounded-md border-l-2 border-blue-500 bg-blue-50/70 p-3 text-sm text-slate-700">
               <div className="flex gap-2">
                 <Clock3 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
                 <p>Após liberar, baixe em até 15 minutos. Se a transferência falhar, tente novamente na mesma página em até 2 minutos após o primeiro clique em baixar.</p>
@@ -65,7 +65,7 @@ export default async function PublicDownloadPage({ params }: PublicDownloadPageP
             </div>
           </>
         ) : (
-          <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
             <div className="flex gap-2">
               <XCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
