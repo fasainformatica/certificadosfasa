@@ -1,6 +1,7 @@
-.page { display: grid; gap: 32px; min-width: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; min-width: 0; color: var(--text); font-variant-numeric: tabular-nums; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: -8px; }
-.header h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
+.header > div { min-width: 0; }
+.header h1 { margin: 0; overflow-wrap: anywhere; font-size: 24px; line-height: 32px; font-weight: 600; }
 .header p { margin: 4px 0 0; color: var(--text-2); font-size: 14px; line-height: 20px; }
 .tableFrame { min-width: 0; position: relative; }
 .emptyAction { display: flex; justify-content: center; padding: 0 16px 32px; }

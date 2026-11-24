@@ -97,7 +97,7 @@ export function DonutChart({ data, total }: { data: DonutData[]; total: number }
   const chartData = empty ? [{ name: "Sem certificados", value: 1, color: "var(--surface-muted)" }] : data;
 
   return (
-    <div className="grid w-full min-w-0 gap-6 sm:grid-cols-[176px_minmax(0,1fr)] sm:items-center">
+    <div className="grid w-full min-w-0 gap-6 sm:grid-cols-[176px_minmax(0,320px)] sm:items-center sm:justify-center">
       <div className="relative mx-auto h-[176px] w-[176px]" role="img" aria-label={`Total: ${certificateCount(total)}${empty ? ". Sem certificados para exibir." : ". Distribuição por situação na lista a seguir."}`}>
         <div className="h-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">

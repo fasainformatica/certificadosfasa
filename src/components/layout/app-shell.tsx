@@ -62,7 +62,7 @@ export function AppShell({ user, children }: AppShellProps) {
             </div>
           </div>
         </header>
-        <main id="main-content" className="w-full max-w-[1440px] min-w-0 p-4 lg:p-8">
+        <main id="main-content" className="w-full min-w-0 p-4 lg:p-8">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

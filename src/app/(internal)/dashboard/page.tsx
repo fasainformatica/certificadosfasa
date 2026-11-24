@@ -131,7 +131,7 @@ export default async function DashboardPage() {
                   <p className="cell-secondary mt-1 break-words tabular-nums">{formatCnpj(certificate.cnpj)} · Vence em {formatDate(certificate.data_vencimento)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="w-[120px] text-sm font-semibold tabular-nums sm:text-right" style={{ color: certificate.dias_restantes <= 7 ? "var(--danger)" : certificate.dias_restantes <= 15 ? "var(--warning)" : "var(--text)" }}>{formatDays(certificate.dias_restantes)}</span>
+                  <span className="min-w-[120px] whitespace-nowrap text-sm font-semibold tabular-nums sm:text-right" style={{ color: certificate.dias_restantes <= 7 ? "var(--danger)" : certificate.dias_restantes <= 15 ? "var(--warning)" : "var(--text)" }}>{formatDays(certificate.dias_restantes)}</span>
                   <ChevronRight size={16} className="shrink-0 text-text-3" aria-hidden="true" />
                 </div>
               </Link>;
