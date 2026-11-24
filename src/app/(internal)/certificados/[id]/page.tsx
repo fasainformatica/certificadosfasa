@@ -153,7 +153,7 @@ export default async function CertificadoDetalhePage({ params }: CertificadoDeta
       label: "Atualização",
       value: certificado.renovacao_atualizado_em ? formatDateTime(certificado.renovacao_atualizado_em) : "Ainda não revisado",
     },
-    { label: "Observação", value: certificado.renovacao_observacao ?? "-" },
+    { label: "Observação", value: certificado.renovacao_observacao?.trim() || "Nenhuma observação registrada" },
   ];
 
   return (

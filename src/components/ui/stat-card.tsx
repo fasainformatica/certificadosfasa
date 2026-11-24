@@ -19,7 +19,7 @@ const tones = {
 
 export function StatCard({ title, value, description, icon: Icon, tone = "blue" }: StatCardProps) {
   return (
-    <article className="relative min-w-0 border-b border-slate-200 px-4 py-4 last:border-b-0 sm:border-b-0 sm:border-r sm:px-5 sm:py-5 sm:last:border-r-0">
+    <article className="relative min-w-0 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-[var(--shadow-subtle)] sm:px-5 sm:py-5">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 text-xs font-medium leading-5 text-slate-600" title={title}>{title}</p>
         {Icon ? (

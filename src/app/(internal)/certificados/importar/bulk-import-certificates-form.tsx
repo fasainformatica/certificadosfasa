@@ -268,8 +268,8 @@ function ImportResultList({ title, items, tone }: { title: string; items: Import
               <p className="font-semibold text-slate-950">{item.arquivo}</p>
               <p className="mt-0.5 text-xs text-slate-500">{item.pasta}</p>
             </div>
-            <div className="text-slate-700">{item.cnpj ? formatCnpj(item.cnpj) : "-"}</div>
-            <div className="text-slate-700">{item.data_vencimento ? formatDate(item.data_vencimento) : "-"}</div>
+            <div className="text-slate-700">{item.cnpj ? `CNPJ: ${formatCnpj(item.cnpj)}` : "CNPJ indisponível"}</div>
+            <div className="text-slate-700">{item.data_vencimento ? `Vencimento: ${formatDate(item.data_vencimento)}` : "Vencimento indisponível"}</div>
             <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${toneClass}`}>
               {item.mensagem ?? (item.status ? `Importado como ${item.status}` : "Processado")}
             </div>
